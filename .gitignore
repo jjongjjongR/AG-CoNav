@@ -1,0 +1,37 @@
+# ROS2 / colcon
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# RL / 학습 산출물
+*.onnx
+*.pt
+*.ckpt
+checkpoints/
+runs/
+wandb/
+
+# 시뮬·로깅
+*.bag
+*.mcap
+rosbag*/
+experiments/results/
+experiments/media/
+
+# 대용량 에셋 (필요시 Git LFS)
+*.stl
+*.dae
+*.obj
+
+# OS / 에디터
+.DS_Store
+.idea/
+.vscode/
+*.swp
