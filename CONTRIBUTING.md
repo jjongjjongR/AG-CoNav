@@ -88,6 +88,7 @@ map
 
 ### `ag_msgs` 메시지 정의 [기본값]
 
+각자 이름으로 지정
 ```
 # Goal.msg
 uint32 id
