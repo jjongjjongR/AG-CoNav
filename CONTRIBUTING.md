@@ -12,8 +12,7 @@
 브랜치 이름 규칙:
 
 ```
-<모듈>/<작업>        예) drone/elevation-map, orchestration/assign-matrix
-fix/<이슈>          예) fix/nav2-costmap-crash
+각자 이름으로 지정
 ```
 
 ## PR 규칙
