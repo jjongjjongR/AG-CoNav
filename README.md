@@ -31,7 +31,7 @@
 
 ```
 [수동 드론] LiDAR로 상공에서 스캔 (경로는 pose로 지정)
-        │  (드론 맵 생성)  ← SLAM 방식 미확정
+        │  (드론 맵 생성)  ← 2.5D SLAM (slam_toolbox + grid_map/elevation_mapping)
         ▼
    드론 맵 완성
         │  (맵 로드)
@@ -56,46 +56,51 @@
 
 | 항목 | 확정 내용 |
 | --- | --- |
-| 지형 크기 | **500m × 500m** |
-| 드론 이동 | **수동, pose로 이동** (자율비행 없음) |
-| 센서 | **3D LiDAR로 3대 통일** |
-| GPS | **적극 활용** (단, ground-truth 아님 — 위치 정렬/맵 통합 보조용) |
+| 지형 크기 | **500m × 500m**, 일반 도시형 (후보지: **코펜하겐**) |
+| 지형 임포트 | 위성/DEM 기반으로 Gazebo에 임포트 (**gazebo_terrain_generator** / **BlenderGIS**) |
+| 지형 제약 | **계단 없음, 숲 없음** |
+| 장애물 담당 분리 | 낮은 장애물(길 막힘) → **4족(leg)** / 끊기지 않은 연속 도로 → **4륜(wheel)** |
+| 드론 이동 | **수동, pose로 이동** (자율비행 없음), 비행 고도 = **환경 최대 높이 + 5m**, 센서 하향 장착 |
+| 센서 | **Ouster OS1-32 (3D LiDAR)로 3대 통일** — 채널 32 / 수평 FOV 360° / 수직 FOV 42.4°(±21.2°) / 사거리 0.5~170m / 회전율 10·20Hz (§3-1 스펙 참조) |
+| SLAM / 맵 | **2.5D** (OS1-32 3D 점군 → 높이 격자). pose: `slam_toolbox`/LiDAR odom + `grid_map`/`elevation_mapping` |
+| GPS / 위치 정렬 | **적극 활용** (ground-truth 아님) → `robot_localization`(**EKF + navsat_transform**)로 좌표·맵 정렬 |
 | OS/미들웨어 | Ubuntu 24.04 + **ROS2 Jazzy** + **Gazebo Harmonic** |
 | 내비게이션 | **Nav2** (지상로봇 공통, `cmd_vel` 인터페이스) |
 | 지상로봇 지도 | SLAM 아님 → **기존 맵 위 Navigation** |
 | 로봇 네임스페이스 | **`/drone`, `/wheel`, `/leg`** |
-| Python 환경 | **가상환경 미사용** (apt로 시스템 설치) |
+| Python 환경 | **가상환경 미사용** (apt로 시스템 설치, Python 3.12) |
 | 제외(컷) | MuJoCo/4족 RL, LLM 재배분, 드론 자율비행, 로봇별 알고리즘 최적화 (개인 확장으로만) |
+
+### 3-1. Ouster OS1-32 사양 (Rev7 데이터시트)
+
+| 항목 | 값 |
+| --- | --- |
+| 채널(수직 라인) | 32 |
+| 수평 FOV | 360° |
+| 수직 FOV | 42.4° (±21.2°) |
+| 사거리 | 최소 0.5m / 90m @10% 반사율 / 170m @80% 반사율 (1024@10Hz) |
+| 수평 해상도 | 512 / 1024 / 2048 (설정) |
+| 회전율 | 10 또는 20 Hz |
+| 각 샘플링 정확도 | ±0.01° (수직·수평) |
+| 거리 정밀도 | ±0.5 ~ 3 cm |
+| 거리 분해능 | 0.8 cm |
+| 파장 | 865 nm |
+| 리턴 수 | 최대 2점 |
+| 출력(계산) | 약 33만 pts/s (1024@10Hz) ~ 최대 130만+ pts/s (2048@20Hz) |
+
+> 시뮬레이션에서는 Gazebo `gpu_lidar`에 위 값(32채널·수직 42.4°·360°·회전율·사거리)을 그대로 넣어 흉내 낸다.
 
 ---
 
 ## 4. 미확정 사항 (Undecided) — 담당 · 옵션
 
 > 아직 **확정 아님**. 결정되면 3장으로 이동.
+>
+> 2026-07-17: 지형(4-1) · LiDAR 모델(4-2) · SLAM 방식(4-3)은 확정되어 3장으로 이동. 4-4는 투영 방식(3D→높이격자)만 해소됨.
 
-### 4-1. 지형 선정 — 담당: 채현우 (2순위)
-요구 조건: 일반적인 **도시형** / 500 × 500 / **계단 없음** / **숲 없음** / **낮은 장애물로 길 막기(4족용)** / **끊기지 않은 길(4륜용)**. (실제 장소 기반 여부 미정)
-
-### 4-2. LiDAR 모델 — 담당: 이수빈
-후보:
-- **Ouster OS1-64형** (유력 — 많이 쓰이고 Jazzy/Harmonic 연동 확인됨)
-- Unitree 기본 4D LiDAR
-- Velodyne VLP-16
-
-확정 필요: FOV / range / 회전수 / 해상도. 조사 필요: 3D LiDAR 실제 탐지 최적 관련 논문, **고도(elevation) 탐지** 근거.
-
-### 4-3. SLAM 방식 (2D / 2.5D / 3D) — 담당: 채현우 (1순위), 이종헌 (2순위)
-옵션:
-- **옵션 A**: 3D State Estimation + 2.5D Local Mapping + 2D Global SLAM
-- **옵션 B**: FULL 3D
-
-(참고) RTAB-Map은 2D 격자 + 3D 포인트맵을 동시에 주고 Jazzy 지원 → 후보 도구이나, **방식 자체가 미확정**.
-
-### 4-4. 드론 지도화 방식 — 담당: 홍연주
-- 3D → 2D 변환 vs 수평 2D **미정**
-- 흐름 옵션:
-  - (a) 드론 → 드론(디테일) → 지상(정밀 보완) → 출동
-  - (b) 드론 → 지상(알아서) → 출동
+### 4-4. 드론 지도화 흐름 — 담당: 홍연주
+- 투영 방식은 **높이 격자(2.5D)로 확정**(3장 SLAM/맵 참조).
+- 드론 → 지상(알아서) → 출동
 
 ---
 
@@ -111,17 +116,18 @@
 | 브리지 | `ros_gz` | Gazebo ↔ ROS2 토픽 연결 |
 | 내비게이션 | `Nav2` | 지상로봇 이동(공통 설정) |
 | 위치추정 | `Nav2 AMCL` | 기존 맵 위 로컬라이즈 |
-| 좌표/GPS 융합 | `robot_localization` | 맵 정렬용 EKF/GPS |
+| 좌표/GPS 융합 | `robot_localization` | **EKF + navsat_transform**, 맵 정렬용 |
+| SLAM(드론, 2.5D) | `slam_toolbox`(pose) + `grid_map`(apt)/`elevation_mapping`(소스 빌드) | OS1-32 3D 점군 → 높이 격자 |
+| LiDAR | Ouster OS1-32 | 3대 공통, 32채널·수직 42.4°·360° |
 | 시각화 | `RViz2` | 통합 뷰 |
 | 로깅 | `rosbag2` | 재현/디버깅 |
 
-**검토 중 (4장 미확정 결정에 종속)**
+**검토 중**
 
-- SLAM 패키지 — `slam_toolbox`(2D) / **RTAB-Map**(2D+3D) 등, 4-3 방식 결정에 따름
-- `pointcloud_to_laserscan` — 2D 경로로 갈 경우 필요
+- `pointcloud_to_laserscan` — 2.5D(높이 격자) 채택으로 필요성 낮음, costmap 변환 방식 확정 시 재검토
 - 맵 병합 — `multirobot_map_merge`는 **Jazzy 공식 지원 없음** → GPS/공통 프레임 정렬 후 occupancy grid를 겹치는 **커스텀 노드**로 처리
 
-**로봇 모델**(소스 빌드): 드론 = Gazebo 기본 멀티콥터 + 하향 LiDAR / 4륜 = Clearpath Husky A300 / 4족 = Unitree Go2 + CHAMP.
+**로봇 모델**(소스 빌드): 드론 = Gazebo 기본 멀티콥터 + 하향 Ouster OS1-32 (비행고도 = 환경 최대 높이 + 5m) / 4륜 = Clearpath Husky A300 + Ouster OS1-32 / 4족 = Unitree Go2 + CHAMP + Ouster OS1-32.
 
 **언어**: Python(rclpy) 중심. venv 미사용, **시스템 Python 3.12 + apt(`ros-jazzy-*`)**.
 
@@ -168,7 +174,7 @@ AG-CoNav/
 | `/wheel/cmd_vel` | `/clock` |
 | `/wheel/detections` | `/drone/cmd_pose` (수동 경로) |
 
-주요 노드: `gz_sim` / `ros_gz_bridge` / `drone_path_player` / (SLAM 노드) / `wheel_nav2`·`leg_nav2` / `map_merge_node` / `mission_coordinator`
+주요 노드: `gz_sim` / `ros_gz_bridge` / `drone_path_player` / `slam_toolbox`+`elevation_mapping` / `wheel_nav2`·`leg_nav2` / `map_merge_node` / `mission_coordinator`
 
 ---
 
@@ -176,11 +182,10 @@ AG-CoNav/
 
 | 담당 | 역할 |
 | --- | --- |
-| **이종헌**(팀장) | **시뮬레이션 총괄**(가장 어렵고 메인), 세부 디테일(노드/토픽 설계), 전체 흐름·비상 대응, SLAM 방식 2순위 |
-| **채현우** | 지형 선정(2순위), **SLAM 방식 결정 1순위** |
-| **이수빈** | LiDAR 스펙 조사·확정 |
-| **홍연주** | 드론(수동 경로, 지도화 방식) |
-| 공통 | 우선 **ROS2 학습** |
+| **이종헌**(팀장) | **시뮬레이션 총괄**, 노드/토픽 설계 |
+| **채현우** | 4족 보행 로봇 |
+| **이수빈** | 4륜 모바일 로봇 |
+| **홍연주** | 드론 |
 
 ---
 
@@ -193,19 +198,17 @@ sudo apt install ros-jazzy-desktop gz-harmonic ros-jazzy-ros-gz \
   ros-jazzy-robot-localization ros-jazzy-pointcloud-to-laserscan \
   ros-jazzy-teleop-twist-keyboard ros-jazzy-xacro \
   ros-jazzy-robot-state-publisher ros-jazzy-joint-state-publisher \
-  python3-numpy python3-scipy python3-matplotlib python3-opencv
-# SLAM 패키지(slam_toolbox / RTAB-Map)는 4-3 결정 후 설치
+  python3-numpy python3-scipy python3-matplotlib python3-opencv \
+  ros-jazzy-slam-toolbox ros-jazzy-grid-map
+# elevation_mapping은 Jazzy apt 패키지 없음 → 소스 빌드
 
 cd AG-CoNav && colcon build --symlink-install && source install/setup.bash
 ```
 
-로봇 모델(Husky A300 / Go2·CHAMP)과 맵 병합 노드는 소스 빌드 필요.
+로봇 모델(Husky A300 / Go2·CHAMP), `elevation_mapping`, 맵 병합 노드는 소스 빌드 필요.
 
 ---
 
 ## 10. 다음 결정 대기 (Open)
 
-1. **SLAM 방식**: 옵션 A(3D상태추정+2.5D로컬+2D글로벌) vs B(FULL 3D) — 4-3
-2. **LiDAR 최종 모델·스펙** — 4-2
-3. **드론 지도화**: 3D→2D vs 수평 2D — 4-4
-4. **지형 최종 선정** — 4-1
+1. **드론 지도화 흐름**: (a) 드론→드론(디테일)→지상(보완)→출동 vs (b) 드론→지상(알아서)→출동 — 4-4
