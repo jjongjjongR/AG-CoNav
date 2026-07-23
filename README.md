@@ -208,11 +208,14 @@ AG-CoNav/
 │   ├── agconav_navigation/       # C(이수빈)     지상 공통 Nav2 이동
 │   ├── agconav_ground_mapping/   # D(채현우)     지상 로봇 2.5D 지도 누적
 │   ├── agconav_map_fusion/       # E(채현우)     세 지도 병합 (메인 결과물)
-│   └── unitree_go2_ros2_jazzy/   # 외부          Go2 + CHAMP 통합
+│   └── unitree_go2_ros2_jazzy/   # 외부          Go2 + CHAMP 통합 (vcstool, git에 직접 커밋 안 함)
+├── deps.repos             # vcstool 외부 저장소 목록(URL+커밋 고정)
 └── (build/ install/ log/ 는 colcon 산출물 — gitignore)
 ```
 
 > 6개 모듈(A·F·B·C·D·E)이 각각 패키지로 매핑됨. `package.xml`/`CMakeLists.txt`는 각 담당이 구현 착수 시 추가.
+>
+> `src/unitree_go2_ros2_jazzy`는 메쉬 포함 ~170MB짜리 외부 저장소([RobInLabUJI/unitree_go2_ros2_jazzy](https://github.com/RobInLabUJI/unitree_go2_ros2_jazzy))라 이 저장소 git 히스토리에 직접 넣지 않는다. 루트 `deps.repos`에 URL과 커밋 해시를 고정해두고 `vcstool`로 받는다(10장 참조). `.gitignore`에도 등록되어 있어 로컬에 받아도 커밋되지 않는다.
 
 ---
 
@@ -270,13 +273,20 @@ sudo apt install ros-jazzy-desktop gz-harmonic ros-jazzy-ros-gz \
   ros-jazzy-navigation2 ros-jazzy-nav2-bringup ros-jazzy-robot-localization \
   ros-jazzy-teleop-twist-keyboard ros-jazzy-xacro \
   ros-jazzy-robot-state-publisher ros-jazzy-joint-state-publisher \
-  python3-numpy python3-scipy python3-matplotlib python3-opencv
+  python3-numpy python3-scipy python3-matplotlib python3-opencv \
+  python3-vcstool
 # grid_map / elevation_mapping / Husky A300 모델은 소스 빌드
-# Go2 + CHAMP 은 src/unitree_go2_ros2_jazzy 로 포함
 
-cd AG-CoNav && colcon build --symlink-install && source install/setup.bash
+git clone <이 저장소 URL> AG-CoNav && cd AG-CoNav
+
+# 외부 패키지(Go2 + CHAMP, ~170MB)는 커밋되어 있지 않음 → vcstool로 받기
+vcs import src < deps.repos
+
+colcon build --symlink-install && source install/setup.bash
 # ros2 launch agconav_bringup <통합 launch>   # 원클릭 실행 (구현 후)
 ```
+
+> `deps.repos`에 등록된 외부 저장소를 최신 커밋으로 갱신하려면 `vcs pull src` 후 `deps.repos`의 `version`을 새 커밋 해시로 고쳐 커밋한다(임의 갱신 금지 — 팀 전원이 같은 커밋을 쓰기 위함).
 
 ---
 

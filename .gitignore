@@ -30,6 +30,9 @@ experiments/media/
 *.dae
 *.obj
 
+# vcstool로 별도 관리하는 외부 패키지 (deps.repos 참조)
+src/unitree_go2_ros2_jazzy/
+
 # OS / 에디터
 .DS_Store
 .idea/
