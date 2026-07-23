@@ -2,213 +2,285 @@
 
 **Aerial-Ground Cooperative Navigation — 이기종 3로봇 통합 시뮬레이션**
 
-> 새 알고리즘 연구가 아니라, 이미 있는 라이브러리(ROS2 · Nav2 · Gazebo · SLAM)를 조합해 **드론·4륜·4족 3대가 하나의 시뮬레이션에서 함께 동작하고, 세 로봇의 맵을 하나로 통합**하는 **통합 엔지니어링 과제**. (학부 인턴 / 약 6주)
->
-> 갱신: 2026-07-17. 확정/미확정을 명확히 구분함. 이전 연구형 문서 `README_leader_parts.md`(M1~M4·LLM·RL)는 **폐기**.
+> 새 알고리즘 연구가 아니라, 기존 라이브러리(ROS2 · Gazebo · Nav2 · grid_map/elevation_mapping · robot_localization)를 조합해 **드론·4륜·4족 3대가 하나의 시뮬레이션에서 함께 동작하고, 세 로봇의 지도를 하나로 통합**하는 **통합 엔지니어링 과제**. (학부 인턴 / 약 6주)
 
 ---
 
-## 1. 개요
+## 1. 프로젝트 개요
 
-미지 환경에 목표점이 흩어져 있고, 이기종 로봇 3대가 협력해 지도를 만들고 목표를 탐지한다.
+미지의 도시 환경에서 이기종 로봇 3대가 협력해 지도를 만들고 목표를 탐지한다.
 
-- **드론(drone)** — 수동(경로를 사람이 pose로 지정), 위에서 LiDAR로 먼저 훑어 **맵을 생성**.
-- **4륜(wheel, Husky)** — 개활지를 빠르게 이동하며 탐지.
-- **4족(leg, Go2/CHAMP)** — 낮은 장애물 등 지상을 이동하며 탐지.
+- **드론(drone)** — 수동(사람이 pose 경로 지정), 상공에서 하향 LiDAR로 먼저 지형을 훑어 **2.5D 지도**를 만든다.
+- **4륜(wheel, Husky A300)** — 개활지·연속 도로를 빠르게 이동한다.
+- **4족(leg, Unitree Go2 + CHAMP)** — 낮은 장애물이 막은 길 등 지상을 이동한다.
 
-지상 로봇은 SLAM을 새로 돌리지 않는다(맵이 이미 있음). 드론이 만든 맵 위에서 **Nav2 Navigation**으로 목표까지 이동한다.
+지상 로봇은 SLAM을 새로 돌리지 않는다(드론 지도가 이미 있음). 드론 2.5D 지도에서 **로봇별 주행 가능 맵(wheel용·leg용)을 분리**하고, 각 로봇이 자기 주행맵으로 **Nav2** 이동하면서 자기 LiDAR로 주변 지형을 **자기 2.5D 지도로 누적**한다. 마지막에 **드론·4륜·4족 세 2.5D 지도를 하나로 병합**한다.
 
-### 근본 목표 (이 두 개가 메인)
+### 근본 목표 (이 둘이 메인)
 
 1. **3대 이기종 로봇이 하나의 시뮬레이션에서 동시 구동**된다.
-2. **세 로봇의 맵을 하나로 통합**한다.
+2. **세 로봇의 지도를 하나로 통합**한다.
 
-> 나머지(정밀 탐지, 최적 배분 등)는 전부 부가. 여기에 시간 쓰지 않는다.
+> 정밀 탐지·임무 배분·LLM·RL은 현재 범위에서 제외(컷).
 
----
-
-## 2. 시스템 흐름
+### 미션 플로우
 
 ```
-[수동 드론] LiDAR로 상공에서 스캔 (경로는 pose로 지정)
-        │  (드론 맵 생성)  ← 2.5D SLAM (slam_toolbox + grid_map/elevation_mapping)
-        ▼
-   드론 맵 완성
-        │  (맵 로드)
-        ▼
-[4륜 wheel] ─┐
-[4족 leg]   ─┴─ 드론 맵 위에서 Nav2 Navigation 으로 이동 + 탐지 (SLAM 아님)
+드론 탐지(고도 84m, 하향)  →  드론 2.5D 지도 생성
         │
         ▼
-[3맵 통합]  드론 맵 + 4륜 맵 + 4족 맵 → 하나의 통합 맵  ← 최종 결과물
-        │        (GPS / 공통 프레임 기준 정렬)
+{ wheel 주행가능 맵 · leg 주행가능 맵 } 분리   ← 드론 2.5D 에서 로봇별 주행 영역 산출
+        │
+        ▼
+각 로봇이 자기 주행맵으로 Nav2 이동  +  이동 중 자기 2.5D 지도 누적
+        │
+        ▼
+드론 + wheel + leg  세 2.5D 지도 → 하나로 병합(/merged_map)   ← 최종 결과물
+        │
+        ▼
+     복귀  →  로봇 출동
+        │
         ▼
    RViz2 로 통합 시각화
 ```
 
-- **임무 순서는 드론 먼저 → 지상 로봇.** 단, 3대 모두 같은 시뮬·같은 맵에 함께 떠 있다.
-- **센서는 3대 모두 3D LiDAR로 통일.**
-- **내비게이션 알고리즘은 하나로 통일** — 4륜/4족에 같은 Nav2 설정을 그대로 적용. 4족에서 조금 어색해도 목표 도착만 하면 OK(로봇별 튜닝 안 함).
-
 ---
 
-## 3. 확정 사항 (Fixed)
+## 2. 확정 사항 (Fixed)
 
-| 항목 | 확정 내용 |
-| --- | --- |
-| 지형 크기 | **500m × 500m**, 일반 도시형 (후보지: **코펜하겐**) |
-| 지형 임포트 | 위성/DEM 기반으로 Gazebo에 임포트 (**gazebo_terrain_generator** / **BlenderGIS**) |
-| 지형 제약 | **계단 없음, 숲 없음** |
-| 장애물 담당 분리 | 낮은 장애물(길 막힘) → **4족(leg)** / 끊기지 않은 연속 도로 → **4륜(wheel)** |
-| 드론 이동 | **수동, pose로 이동** (자율비행 없음), 비행 고도 = **환경 최대 높이 + 5m**, 센서 하향 장착 |
-| 센서 | **Ouster OS1-32 (3D LiDAR)로 3대 통일** — 채널 32 / 수평 FOV 360° / 수직 FOV 42.4°(±21.2°) / 사거리 0.5~170m / 회전율 10·20Hz (§3-1 스펙 참조) |
-| SLAM / 맵 | **2.5D** (OS1-32 3D 점군 → 높이 격자). pose: `slam_toolbox`/LiDAR odom + `grid_map`/`elevation_mapping` |
-| GPS / 위치 정렬 | **적극 활용** (ground-truth 아님) → `robot_localization`(**EKF + navsat_transform**)로 좌표·맵 정렬 |
-| OS/미들웨어 | Ubuntu 24.04 + **ROS2 Jazzy** + **Gazebo Harmonic** |
-| 내비게이션 | **Nav2** (지상로봇 공통, `cmd_vel` 인터페이스) |
-| 지상로봇 지도 | SLAM 아님 → **기존 맵 위 Navigation** |
-| 로봇 네임스페이스 | **`/drone`, `/wheel`, `/leg`** |
-| Python 환경 | **가상환경 미사용** (apt로 시스템 설치, Python 3.12) |
-| 제외(컷) | MuJoCo/4족 RL, LLM 재배분, 드론 자율비행, 로봇별 알고리즘 최적화 (개인 확장으로만) |
-
-### 3-1. Ouster OS1-32 사양 (Rev7 데이터시트)
+### 2.1 환경 · 버전
 
 | 항목 | 값 |
 | --- | --- |
-| 채널(수직 라인) | 32 |
-| 수평 FOV | 360° |
-| 수직 FOV | 42.4° (±21.2°) |
-| 사거리 | 최소 0.5m / 90m @10% 반사율 / 170m @80% 반사율 (1024@10Hz) |
-| 수평 해상도 | 512 / 1024 / 2048 (설정) |
-| 회전율 | 10 또는 20 Hz |
-| 각 샘플링 정확도 | ±0.01° (수직·수평) |
-| 거리 정밀도 | ±0.5 ~ 3 cm |
-| 거리 분해능 | 0.8 cm |
-| 파장 | 865 nm |
-| 리턴 수 | 최대 2점 |
-| 출력(계산) | 약 33만 pts/s (1024@10Hz) ~ 최대 130만+ pts/s (2048@20Hz) |
+| OS | Ubuntu 24.04 LTS (Noble) |
+| 미들웨어 | ROS 2 **Jazzy Jalisco** (LTS ~2029) |
+| 시뮬레이터 | **Gazebo Harmonic** (gz-sim 8, LTS ~2028) |
+| 내비게이션 | Nav2 (Jazzy apt) |
+| 2.5D 지도화 | `grid_map` + `elevation_mapping` |
+| 위치추정 | `robot_localization` (EKF + navsat) |
+| 브리지 / 시각화 / 로깅 | `ros_gz` / RViz2 / rosbag2(mcap) |
+| 언어 | Python 3.12(시스템, **venv 미사용**) / C++17 |
+| 빌드 | `colcon build --symlink-install` |
+| RMW / DOMAIN | `rmw_fastrtps_cpp` / `ROS_DOMAIN_ID=42` (전원 동일) |
 
-> 시뮬레이션에서는 Gazebo `gpu_lidar`에 위 값(32채널·수직 42.4°·360°·회전율·사거리)을 그대로 넣어 흉내 낸다.
+### 2.2 지형 · 맵
 
----
+| 항목 | 값 |
+| --- | --- |
+| 장소 | **코펜하겐, 덴마크** (일반 도시, 숲·계단 없음) |
+| 좌표 원점(datum) | **55.66124877713072, 12.605305822399458** |
+| 크기 | **500 m × 500 m** |
+| 4족(leg)용 조건 | **낮은 장애물로 길 막기** |
+| 4륜(wheel)용 조건 | **끊기지 않은 연속 도로** |
+| map 원점 | Gazebo world 원점 (0,0,0)와 일치 |
 
-## 4. 미확정 사항 (Undecided) — 담당 · 옵션
+### 2.3 로봇 · 센서
 
-> 아직 **확정 아님**. 결정되면 3장으로 이동.
->
-> 2026-07-17: 지형(4-1) · LiDAR 모델(4-2) · SLAM 방식(4-3)은 확정되어 3장으로 이동. 4-4는 투영 방식(3D→높이격자)만 해소됨.
+| 항목 | 값 |
+| --- | --- |
+| 드론 | Gazebo 멀티콥터, **수동 pose 이동**(kinematic, 자율비행 없음) |
+| 4륜(wheel) | Clearpath **Husky A300** |
+| 4족(leg) | Unitree **Go2 + CHAMP** (`unitree_go2_ros2_jazzy`) |
+| 센서 | **Ouster OS1-32 (3D LiDAR) — 3대 통일** |
+| 드론 LiDAR | **하향 장착**, 탐지 고도 **84 m** |
+| GPS / IMU | GPS 적극 활용(GT 아님) + **IMU 사용**(skid-steer·보행 yaw 드리프트 보정) |
 
-### 4-4. 드론 지도화 흐름 — 담당: 홍연주
-- 투영 방식은 **높이 격자(2.5D)로 확정**(3장 SLAM/맵 참조).
-- 드론 → 지상(알아서) → 출동
+**OS1-32 스펙**: 32채널 / 수직 FOV 42.4°(±21.2°) / 수평 360° / 사거리 0.5–170 m(80% 반사)·90 m(10%) / 최소 0.5 m / 10–20 Hz / 865 nm / 최대 2 returns.
 
----
+### 2.4 지도화 · 위치추정 · 주행
 
-## 5. 기술 스택
-
-**확정**
-
-| 구분 | 사용 | 버전/비고 |
-| --- | --- | --- |
-| OS | Ubuntu | 24.04 LTS (Noble) |
-| 미들웨어 | ROS2 | **Jazzy** (LTS ~2029) |
-| 시뮬레이터 | Gazebo | **Harmonic** (LTS ~2028) |
-| 브리지 | `ros_gz` | Gazebo ↔ ROS2 토픽 연결 |
-| 내비게이션 | `Nav2` | 지상로봇 이동(공통 설정) |
-| 위치추정 | `Nav2 AMCL` | 기존 맵 위 로컬라이즈 |
-| 좌표/GPS 융합 | `robot_localization` | **EKF + navsat_transform**, 맵 정렬용 |
-| SLAM(드론, 2.5D) | `slam_toolbox`(pose) + `grid_map`(apt)/`elevation_mapping`(소스 빌드) | OS1-32 3D 점군 → 높이 격자 |
-| LiDAR | Ouster OS1-32 | 3대 공통, 32채널·수직 42.4°·360° |
-| 시각화 | `RViz2` | 통합 뷰 |
-| 로깅 | `rosbag2` | 재현/디버깅 |
-
-**검토 중**
-
-- `pointcloud_to_laserscan` — 2.5D(높이 격자) 채택으로 필요성 낮음, costmap 변환 방식 확정 시 재검토
-- 맵 병합 — `multirobot_map_merge`는 **Jazzy 공식 지원 없음** → GPS/공통 프레임 정렬 후 occupancy grid를 겹치는 **커스텀 노드**로 처리
-
-**로봇 모델**(소스 빌드): 드론 = Gazebo 기본 멀티콥터 + 하향 Ouster OS1-32 (비행고도 = 환경 최대 높이 + 5m) / 4륜 = Clearpath Husky A300 + Ouster OS1-32 / 4족 = Unitree Go2 + CHAMP + Ouster OS1-32.
-
-**언어**: Python(rclpy) 중심. venv 미사용, **시스템 Python 3.12 + apt(`ros-jazzy-*`)**.
+| 항목 | 값 |
+| --- | --- |
+| SLAM 방식 | **2.5D SLAM** (elevation 격자) |
+| 드론 지도 | 하향 스캔 → 2.5D 고도맵 |
+| 주행 가능 맵 | 드론 2.5D → **wheel용·leg용 2D 주행맵 분리** (로봇별 지형 통과 기준) |
+| 위치추정 | robot_localization(EKF + navsat), GPS 기반, **GT 사용 안 함** |
+| 지상 주행 | **Nav2 공통 설정**으로 wheel·leg, **각자 주행맵** 사용. Voxel Layer로 점군 직접(LaserScan 없음) |
+| 지상 지도 | SLAM 아님 → 자기 주행맵 위 Navigation + 자기 elevation 지도 누적 |
+| 맵 병합 | `multirobot_map_merge` Jazzy 미지원 → **커스텀**(`agconav_map_fusion`) |
 
 ---
 
-## 6. 폴더 구조
+## 3. 공통 규약 (Conventions) — 모듈이 맞물리는 접점
 
-ROS2 워크스페이스 관례(`src/` 아래 패키지들).
+### 3.1 좌표 · 프레임 · TF
+
+- 전역 프레임 **`map` 하나**, 원점 = **Gazebo world (0,0,0)**. map=ENU, base_link=FLU, 오른손 좌표계.
+- TF 사슬: `map → X/odom → X/base_link → X/{os1_lidar, gps_link}` (X = drone/wheel/leg).
+- **TF 소유권 — 한 관계에 발행자 하나.**
+  - `map→X/odom` = 위치추정(robot_localization)만 (wheel·leg)
+  - `X/odom→X/base_link` = 시뮬 오도메트리만 (wheel·leg)
+  - **드론**: kinematic이라 `drone_path_player`가 명령 pose로 **`map→drone/base_link`를 직접 발행**(odom·EKF 없음). 드론엔 사실상 명령 pose를 그대로 쓴다(수동 비행 경로 = 알고 있는 값).
+  - `X/base_link→센서` = robot_state_publisher만
+- `earth`/`utm` 프레임은 필요 확인 전까지 트리에 넣지 않는다.
+
+### 3.2 단위 (SI)
+
+| 물리량 | 단위 |
+| --- | --- |
+| 길이·위치 | m |
+| 각도 | rad |
+| 속도 / 각속도 | m/s / rad/s |
+| 방향 | quaternion |
+| 시간 | ROS Time (s), Gazebo `/clock` 기준 |
+
+### 3.3 지도
+
+- 해상도 **0.10 m/cell**(전 지도 동일 → 병합 시 리샘플 불필요) · 2.5D 핵심 레이어 **`elevation`**(m).
+- **미관측 셀 = `NaN`** (grid_map 표준). Nav2용 2D(OccupancyGrid) 투영 시 자유 0 / 점유 100 / 미관측 −1(NaN→−1).
+- **주행성 통과 기준(F)**: wheel = 최대 경사 20°·최대 단차 **0.08 m**, leg = 최대 경사 30°·최대 단차 **0.15 m**. → 월드의 낮은 장애물은 **≈0.12 m**(wheel 막힘·leg 통과)로 배치해야 두 nav_map이 갈린다. (값은 yaml 튜닝)
+- **병합 규칙(E)**: 같은 해상도 전제, 출력 = 세 입력의 합집합 범위. 중복 셀은 **지상(wheel/leg) 관측 우선 → 드론**(가림영역 세부 보완 목적), 유효값을 NaN으로 덮지 않음.
+- **저장 형식**: 2.5D elevation = **rosbag2 `mcap`으로 GridMap 직렬화**, 2D nav_map/occupancy = **map_server `.yaml`+`.pgm`**.
+
+### 3.4 시간 · 네임스페이스 · QoS
+
+- 전 노드 `use_sim_time: true`, `/clock`의 유일 소스는 Gazebo.
+- 네임스페이스 `/drone`, `/wheel`, `/leg`.
+- QoS: 센서(points/gps/imu) = best_effort · 명령·odom = reliable · 지도(elevation/map/merged) = reliable + transient_local(래치).
+
+### 3.5 환경 변수 (전원 `~/.bashrc`)
+
+```bash
+export ROS_DOMAIN_ID=42
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+```
+
+---
+
+## 4. 모듈 A~F (담당 · 책임 · 입출력)
+
+각 모듈의 상세 스펙(범위 밖·전제조건·완료기준)은 별도 설계 문서로 관리한다. 아래는 요약.
+
+| 모듈 | 담당 | 책임(한 줄) | 주요 입력 | 주요 출력 |
+| --- | --- | --- | --- | --- |
+| **A 드론 지도 생성** | 홍연주 | 드론을 pose 경로로 이동시키며 하향 LiDAR로 2.5D 지도 누적 | 경로 YAML, `/drone/points`, 드론 pose/TF | `/drone/elevation_map`, 저장 |
+| **F 지형 주행성 분석** | 이종헌 | 드론 2.5D → **wheel/leg 주행가능 맵 분리** | `/drone/elevation_map`, 로봇별 통과기준 | `/wheel/nav_map`, `/leg/nav_map` |
+| **B 지상 위치추정** | 이수빈 | wheel·leg의 GPS+odom을 융합해 공통 map 좌표 정렬 | `/X/gps`, `/X/odom` | `map→X/odom` TF, 필터 odom |
+| **C 지상 Nav2 이동** | 이수빈 | 공통 Nav2로 wheel·leg를 **각자 주행맵**으로 목표까지 이동 | `/X/nav_map`, B의 TF, `/X/points` | `/X/cmd_vel`, 경로/상태 |
+| **D 지상 지도 누적** | 채현우 | wheel·leg가 이동하며 주변 지형을 2.5D 지도로 누적 | `/X/points`, B의 pose/TF | `/wheel/elevation_map`, `/leg/elevation_map`, 저장 |
+| **E 모든 지도 병합** | 채현우 | 세 2.5D 지도를 하나로 병합 | 3개 `elevation_map` | `/merged_map`, 저장 |
+
+- **F(주행성 분석)**: 드론 2.5D에서 로봇별(경사·단차·장애물 높이 기준) 통과 영역을 갈라 `/wheel/nav_map`·`/leg/nav_map`을 만든다. 낮은 장애물 = wheel 막힘 / leg 통과. Nav2 설정은 **공통 하나**, 로봇별 차이는 **입력 주행맵·footprint**뿐.
+- D는 A의 지도 생성 구조를 재사용(협업: 홍연주 ↔ 채현우). E는 이미 map 프레임으로 정렬된 지도를 겹치기만 한다(정렬은 B).
+
+---
+
+## 5. 모듈 간 인터페이스 계약 (핵심 토픽)
+
+`X` = drone / wheel / leg.
+
+| 토픽 | 타입 | 발행 → 구독 | QoS |
+| --- | --- | --- | --- |
+| `/X/points` | `sensor_msgs/PointCloud2` | 브리지 → 지도화·Nav2 | best_effort |
+| `/X/odom` | `nav_msgs/Odometry` | 브리지 → 위치추정 | reliable |
+| `/X/gps` | `sensor_msgs/NavSatFix` | 브리지 → 위치추정 | best_effort |
+| `/X/imu` | `sensor_msgs/Imu` | 브리지 → 위치추정(EKF) | best_effort |
+| `/drone/cmd_pose` | `geometry_msgs/PoseStamped` | 드론 경로 재생 → 드론 | reliable |
+| `/wheel/cmd_vel`·`/leg/cmd_vel` | `geometry_msgs/Twist` | Nav2 → 로봇 | reliable |
+| `/X/elevation_map` | `grid_map_msgs/GridMap` (layer `elevation`) | 지도화 → 병합 | reliable, transient_local |
+| `/wheel/nav_map`·`/leg/nav_map` | `nav_msgs/OccupancyGrid` | F(주행성 분석) → C(Nav2) | reliable, transient_local |
+| `/merged_map` | `grid_map_msgs/GridMap` | 병합 → RViz·저장 | reliable, transient_local |
+| `/clock` | `rosgraph_msgs/Clock` | Gazebo → all | best_effort |
+| `/tf`, `/tf_static` | `tf2_msgs/TFMessage` | — | 기본 / latched |
+
+**액션**: `/wheel/navigate_to_pose`, `/leg/navigate_to_pose` (`nav2_msgs/NavigateToPose`).
+**커스텀 메시지·서비스: 없음**(표준 타입 + 라이브러리 제공분으로 충분).
+
+---
+
+## 6. 파일 · 폴더 구조
+
+현재 저장소 구조(패키지 접두어 `agconav_`).
 
 ```
 AG-CoNav/
-├── README.md
-└── src/
-    ├── agconav_bringup/        # 전체 시스템 통합 launch (원클릭 구동)
-    ├── agconav_worlds/         # Gazebo Harmonic 월드, 지형, 시나리오
-    ├── agconav_description/    # 로봇 3종 모델(URDF/xacro/SDF) + LiDAR 센서
-    ├── agconav_gz_bridge/      # ros_gz_bridge 설정 (+ 필요 시 pointcloud_to_laserscan)
-    ├── agconav_drone/          # 드론 수동 경로 재생 + 맵 생성
-    ├── agconav_navigation/     # Nav2 공통 params + 지상로봇 bringup + map_server/AMCL
-    └── agconav_map_merge/      # 3맵 통합 커스텀 노드 (메인 결과물)
+├── README.md              # 이 문서
+├── CONTRIBUTING.md        # 기여 규칙(브랜치·PR·커밋)
+├── config/
+├── src/
+│   ├── agconav_worlds/           # 공통(이종헌)  코펜하겐 500×500 월드·지형
+│   ├── agconav_description/      # 공통(이종헌)  로봇 3종 모델 + OS1-32/GPS/IMU, 정적 TF
+│   ├── agconav_gz_bridge/        # 공통(이종헌)  Gazebo↔ROS2 브리지 설정
+│   ├── agconav_bringup/          # 공통(이종헌)  전체 통합 launch(원클릭)
+│   ├── agconav_drone/            # A(홍연주)     드론 2.5D 지도 생성
+│   ├── agconav_traversability/   # F(이종헌)     드론 2.5D → wheel/leg 주행맵 분리
+│   ├── agconav_localization/     # B(이수빈)     GPS/EKF 위치추정
+│   ├── agconav_navigation/       # C(이수빈)     지상 공통 Nav2 이동
+│   ├── agconav_ground_mapping/   # D(채현우)     지상 로봇 2.5D 지도 누적
+│   ├── agconav_map_fusion/       # E(채현우)     세 지도 병합 (메인 결과물)
+│   └── unitree_go2_ros2_jazzy/   # 외부          Go2 + CHAMP 통합
+└── (build/ install/ log/ 는 colcon 산출물 — gitignore)
 ```
 
-> `maps/`, `config/`, `docs/` 는 필요해질 때 추가. 지금은 뼈대만.
+> 6개 모듈(A·F·B·C·D·E)이 각각 패키지로 매핑됨. `package.xml`/`CMakeLists.txt`는 각 담당이 구현 착수 시 추가.
 
 ---
 
-## 7. 개발 지침 (팀 규칙)
+## 7. R&R (역할 분담)
 
-1. **연구가 아니라 통합.** 새 알고리즘을 만들지 않고 **기존 라이브러리**를 찾아 쓴다. 발표 때 "실제로 돌려봤는지"까지 보여준다.
-2. **알고리즘은 하나로 통일.** 4륜/4족에 같은 Nav2 설정. 로봇별 최적화 금지. **작동(목표 도착)만 되면 통과.**
-3. **센서는 LiDAR로 통일.** SLAM/맵 정렬 방식도 여기에 맞춘다.
+| 담당 | 역할 | 담당 패키지 | 완료 결과 |
+| --- | --- | --- | --- |
+| **이종헌**(팀장) | 공통 인프라·전체 통합·설계 계약(Phase 0) + **F 지형 주행성 분석** | `agconav_worlds`·`agconav_description`·`agconav_gz_bridge`·`agconav_bringup`·`agconav_traversability` | 한 명령으로 전체 실행, `/wheel·/leg/nav_map` 발행 |
+| **홍연주** | **A 드론 지도 생성** | `agconav_drone` | `/drone/elevation_map` 발행 |
+| **이수빈** | **B 위치추정 + C 지상 Nav2** | `agconav_localization`·`agconav_navigation` | 두 로봇이 같은 설정으로 도착 |
+| **채현우** | **D 지상 지도 누적 + E 병합** | `agconav_ground_mapping`·`agconav_map_fusion` | `/merged_map` 발행 |
+| 공통 | 우선 **ROS2 학습** | — | — |
+
+---
+
+## 8. 확정된 세부 결정 (검증 완료) · 남은 튜닝
+
+이전 7개 미결정은 아래 기본값으로 **확정**(상세는 3장). 남은 건 실측 튜닝·조율뿐.
+
+**확정**
+
+- 미관측 셀 = `NaN` (2D 투영 시 −1) — 3.3
+- 통과 기준: wheel 20°/0.08 m, leg 30°/0.15 m — 3.3
+- 병합: 같은 해상도·합집합 범위·지상 우선 — 3.3
+- 저장: 2.5D=mcap(GridMap), 2D=map_server(yaml+pgm) — 3.3
+- 드론 TF: `drone_path_player`가 명령 pose로 `map→drone/base_link` 직접 발행 — 3.1
+- **지상 IMU 사용** (skid-steer·보행 yaw 드리프트 보정)
+- **드론 스캔 경로: 간격 ≈ 32 m, 약 16줄**. 지면 스와스 65 m지만 가장자리 슬랜트 거리 ≈ 90 m가 OS1-32의 10% 반사율 사거리 한계라, **오버랩 ~50%**로 신뢰 스와스만 사용.
+
+**남은 튜닝·조율**
+
+1. 통과 기준 파라미터 실측 튜닝(위 값은 시작점).
+2. **월드의 낮은 장애물 높이 ≈ 0.12 m 배치** (worlds·F 모두 이종헌). wheel(0.08)와 leg(0.15) 통과 기준 사이여야 두 nav_map이 갈림.
+3. 지도 저장 경로·파일명 규칙(형식은 확정).
+
+---
+
+## 9. 개발 지침 (팀 규칙)
+
+1. **연구가 아니라 통합.** 새 알고리즘을 만들지 않고 기존 라이브러리를 쓴다. 발표 때 "실제로 돌려봤는지"까지 보여준다.
+2. **알고리즘은 하나로 통일.** wheel·leg에 같은 Nav2 설정. 로봇별 최적화 금지. **작동(목표 도착)만 되면 통과.**
+3. **센서는 OS1-32로 통일.** SLAM/정렬 방식도 여기에 맞춘다.
 4. **설명 가능한 것만 넣는다.** 좌표 변환·용어·라이브러리·툴 전부 스스로 설명 가능해야. (AI 추천만 보고 넣지 않기. 연동·통합 방법은 도움받아도 됨.)
-5. **네임스페이스로 로봇 분리** — `/drone`, `/wheel`, `/leg`. tf 트리는 `map → odom → base_link`.
-6. **시뮬 시간 사용** — 모든 노드 `use_sim_time:=true`, `/clock` 동기화.
-7. **Git** — 모듈별 브랜치 + PR. 커밋 단위 작게.
-
-### 추천 토픽/노드 (초안 — 미확정)
-
-| 로봇별(`/wheel` 예시) | 전역(공유) |
-| --- | --- |
-| `/wheel/points` (PointCloud2) | `/map` (드론 생성 맵) |
-| `/wheel/scan` (LaserScan, 2D 경로 시) | `/merged_map` (통합 맵) |
-| `/wheel/odom` | `/tf`, `/tf_static` |
-| `/wheel/cmd_vel` | `/clock` |
-| `/wheel/detections` | `/drone/cmd_pose` (수동 경로) |
-
-주요 노드: `gz_sim` / `ros_gz_bridge` / `drone_path_player` / `slam_toolbox`+`elevation_mapping` / `wheel_nav2`·`leg_nav2` / `map_merge_node` / `mission_coordinator`
+5. **모듈은 토픽으로만 결합.** 다른 패키지의 내부 코드를 직접 import/호출하지 않는다. `agconav_bringup`만 전체를 안다.
+6. **공통 규약(3장)을 우선.** 단위·프레임·해상도·TF 소유권·시간·QoS는 함부로 바꾸지 않는다.
+7. **Git** — 개인 브랜치 → `main`에 PR. 커밋: `<모듈>: <요약>`.
 
 ---
 
-## 8. R&R
-
-| 담당 | 역할 |
-| --- | --- |
-| **이종헌**(팀장) | **시뮬레이션 총괄**, 노드/토픽 설계 |
-| **채현우** | 4족 보행 로봇 |
-| **이수빈** | 4륜 모바일 로봇 |
-| **홍연주** | 드론 |
-
----
-
-## 9. 설치 (요약)
+## 10. 설치 · 실행 (요약)
 
 ```bash
 # ROS2 Jazzy + 도구 (venv 안 씀, 시스템에 설치)
 sudo apt install ros-jazzy-desktop gz-harmonic ros-jazzy-ros-gz \
-  ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
-  ros-jazzy-robot-localization ros-jazzy-pointcloud-to-laserscan \
+  ros-jazzy-navigation2 ros-jazzy-nav2-bringup ros-jazzy-robot-localization \
   ros-jazzy-teleop-twist-keyboard ros-jazzy-xacro \
   ros-jazzy-robot-state-publisher ros-jazzy-joint-state-publisher \
-  python3-numpy python3-scipy python3-matplotlib python3-opencv \
-  ros-jazzy-slam-toolbox ros-jazzy-grid-map
-# elevation_mapping은 Jazzy apt 패키지 없음 → 소스 빌드
+  python3-numpy python3-scipy python3-matplotlib python3-opencv
+# grid_map / elevation_mapping / Husky A300 모델은 소스 빌드
+# Go2 + CHAMP 은 src/unitree_go2_ros2_jazzy 로 포함
 
 cd AG-CoNav && colcon build --symlink-install && source install/setup.bash
+# ros2 launch agconav_bringup <통합 launch>   # 원클릭 실행 (구현 후)
 ```
-
-로봇 모델(Husky A300 / Go2·CHAMP), `elevation_mapping`, 맵 병합 노드는 소스 빌드 필요.
 
 ---
 
-## 10. 다음 결정 대기 (Open)
+## 11. 범위 밖 (컷 — 하지 않음)
 
-1. **드론 지도화 흐름**: (a) 드론→드론(디테일)→지상(보완)→출동 vs (b) 드론→지상(알아서)→출동 — 4-4
+MuJoCo/4족 RL · LLM 재배분 · 드론 자율비행 · 로봇별 알고리즘 최적화 · 정밀 목표 탐지(`/X/detections`) · 임무 배분 · 지상 독립 SLAM · LaserScan 변환.
+(필요가 실제로 확인되기 전까지 추가하지 않는다.)
