@@ -1,0 +1,5 @@
+repositories:
+  unitree_go2_ros2_jazzy:
+    type: git
+    url: https://github.com/RobInLabUJI/unitree_go2_ros2_jazzy.git
+    version: edfb18772c12a159915770d057f0c82d3bb30e16
