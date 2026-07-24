@@ -8,11 +8,7 @@ from launch.actions import (
     IncludeLaunchDescription,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import (
-    EnvironmentVariable,
-    LaunchConfiguration,
-    PathJoinSubstitution,
-)
+from launch.substitutions import LaunchConfiguration
 
 from launch_ros.actions import Node
 
@@ -59,17 +55,15 @@ def generate_launch_description():
         description="Use Gazebo simulation time",
     )
 
+    # 이 launch 파일 자신의 실제 경로(--symlink-install이므로 src/ 원본을 가리킴)를 기준으로
+    # 저장소 루트의 config/clearpath_a300을 찾는다. 클론 위치(~/projects/AG-CoNav 등)에
+    # 의존하지 않아 다른 팀원 컴퓨터에서도 그대로 동작한다.
+    _repo_root = os.path.abspath(
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "..")
+    )
     declare_clearpath_setup_path = DeclareLaunchArgument(
         "clearpath_setup_path",
-        default_value=PathJoinSubstitution(
-            [
-                EnvironmentVariable("HOME"),
-                "projects",
-                "AG-CoNav",
-                "config",
-                "clearpath_a300",
-            ]
-        ),
+        default_value=os.path.join(_repo_root, "config", "clearpath_a300"),
         description="Directory containing the A300 robot.yaml",
     )
 
