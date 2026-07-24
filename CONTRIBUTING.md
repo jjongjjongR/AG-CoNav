@@ -1,184 +1,59 @@
-# AG-CoNav 고정 규약 (Conventions)
+# 기여 가이드 (CONTRIBUTING)
 
-> 이 문서는 **모듈이 서로 맞물리는 접점**과 **공통 규약**을 고정한다. 각 모듈 내부 구현(알고리즘·노드 구조·언어·하이퍼파라미터)은 이 계약만 지키면 자유다.
->
-> 상태 표기: **[확정]** 합의됨 · **[기본값]** 담당자가 정한 작업 기본값(이의 없으면 확정) · **[합의필요]** 팀 논의 필요.
-> 변경 시 이 문서를 PR로 수정하고 전원 공지한다.
+> AG-CoNav 팀 기여 규칙. 프로젝트 개요·아키텍처·공통 규약(단위·프레임·해상도·TF 소유권·시간·QoS)은 **[README.md](README.md)** 를 기준으로 한다.
 
 ---
 
-## 1. 환경 · 버전 [확정]
+## 1. 브랜치 전략
 
-| 항목 | 값 |
-| --- | --- |
-| OS | Ubuntu 24.04 LTS |
-| 미들웨어 | ROS 2 Jazzy Jalisco |
-| 메인 시뮬 | Gazebo Harmonic (gz-sim 8) |
-| 내비 | Nav2 (Jazzy apt 바이너리) |
-| RL 시뮬 | MuJoCo 3.10.x |
-| 언어 | Python 3.12 (Jazzy 기본) / C++17 |
-| 빌드 | colcon (`colcon build --symlink-install`) |
-| RMW | `rmw_fastrtps_cpp` (Fast DDS, Jazzy 기본) |
-| **ROS_DOMAIN_ID** | **42** — 전원 동일. 같은 네트워크의 다른 팀과 토픽 격리 |
+- 각자 **자기 이름 브랜치**에서 작업한다. (예: `jongheon`, `brian`, …)
+- 작업 단위로 `main`에 **PR**을 올린다.
+- `main`은 항상 빌드 가능한 상태를 유지한다.
 
-셋업 시 `~/.bashrc` 에 고정:
+## 2. PR 정책
 
-```bash
-export ROS_DOMAIN_ID=42
-export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-```
+- **최소 1명 리뷰 승인** 후 머지.
+- **셀프 머지 허용**(리뷰가 지연될 때).
+- **인터페이스 변경**(토픽·메시지·TF·공통 규약) PR은 README도 함께 수정하고 전원에게 공지한다.
 
-## 2. 좌표계 · 프레임 [기본값, REP-103/105]
+## 3. 커밋 메시지 규칙
 
-- **전역 공유 프레임: `map` 하나.** 원점은 **Gazebo world 원점 (0,0,0)** 과 일치시킨다. 드론이 배포하는 모든 맵·목표 좌표는 이 `map` 기준.
-- **오른손 좌표계 · ENU**: x=동(전방), y=북(좌), z=위. 회전은 rad.
-- 로봇별 TF 트리 (네임스페이스 접두):
+형식: **`[type] 설명`**  (예: `[docs] README.md 수정`)
 
-```
-map
- ├─ drone/odom ─ drone/base_link ─ drone/lidar
- ├─ husky/odom ─ husky/base_link ─ husky/{lidar,camera}
- └─ go2/odom   ─ go2/base_link   ─ go2/{lidar,camera}
-```
+| 타입 | 설명 | SemVer |
+| --- | --- | --- |
+| **feat** | 새로운 기능 추가 | MINOR |
+| **fix** | 버그 수정 | PATCH |
+| **docs** | 문서 수정 (README, 주석 등) | 없음 |
+| **style** | 포맷팅·세미콜론 등 동작 변화 없는 변경 | 없음 |
+| **refactor** | 기능·버그 변화 없는 리팩토링 | 없음 |
+| **test** | 테스트 코드 추가·수정 | 없음 |
+| **chore** | 빌드·패키지 매니저 등 관리 작업 | 없음 |
+| **perf** | 성능 개선 | PATCH 또는 없음 |
 
-- MVP 단계에서는 각 로봇의 `map→odom`을 **Gazebo ground-truth pose**로 발행(정확 위치). SLAM은 고도화에서 대체.
+## 4. 패키지 · 모듈 소유권
 
-## 3. 단위 [확정, SI 통일]
+| 모듈 | 담당 | 패키지 |
+| --- | --- | --- |
+| A 드론 지도 생성 | 홍연주 | `agconav_drone` |
+| F 지형 주행성 분석 | 이종헌 | `agconav_traversability` |
+| B 지상 위치추정 | 이수빈 | `agconav_localization` |
+| C 지상 Nav2 이동 | 이수빈 | `agconav_navigation` |
+| D 지상 지도 누적 | 채현우 | `agconav_ground_mapping` |
+| E 모든 지도 병합 | 채현우 | `agconav_map_fusion` |
+| 공통 인프라 | 이종헌 | `agconav_worlds`·`agconav_description`·`agconav_gz_bridge`·`agconav_bringup` |
 
-| 물리량 | 단위 |
-| --- | --- |
-| 길이 / 위치 | m |
-| 속도 | m/s |
-| 각도 | rad |
-| 각속도 | rad/s |
-| 시간 | s (ROS Time) |
-| 질량 | kg |
+- 모듈끼리는 **토픽으로만 결합**한다. 다른 패키지의 내부 코드를 직접 import/호출하지 않는다.
+- 남의 패키지를 고쳐야 하면 담당자와 PR로 협의한다. `agconav_bringup`만 전체를 안다.
 
-- **격자맵 해상도: 0.10 m/cell** [기본값]
-- 고도(elevation) 값: m
-- **traversability 값: float `0.0 ~ 1.0`** (1.0 = 완전 통과가능, 0.0 = 불가), **미관측 셀 = `NaN`**. Nav2 costmap 변환 시 `cost = (1.0 - trav) * 254`, NaN → unknown(255).
+## 5. 코드 규약
 
-## 4. 네이밍 · 네임스페이스 [기본값]
+- **설명 가능한 것만 넣는다.** 좌표 변환·용어·라이브러리·툴 전부 스스로 설명 가능해야 한다. (AI 추천만 보고 넣지 않기. 연동·통합 방법은 도움받아도 됨.)
+- 공통 규약(단위·프레임·해상도·`elevation`/NaN·TF 소유권·시간·QoS)은 **README §3** 준수. 함부로 바꾸지 않는다.
+- 코드에는 **상대 토픽 이름**(`points`, `odom`, …)을 쓰고 네임스페이스로 해석되게 한다. `/wheel/points`를 직접 적지 않는다.
+- 전 노드 `use_sim_time: true`.
+- Python `ament_flake8`, C++ `ament_cpplint` 통과 권장.
 
-- 로봇 네임스페이스: **`drone` · `husky` · `go2`**
-- 로봇 개별 토픽: `/<ns>/...` (예: `/husky/scan`, `/go2/cmd_vel`)
-- 공유 토픽: `/map/*`, `/goals`, `/mission/*`, `/events/*` (아래 계약 참조)
-- ROS 패키지명: 소문자+언더스코어, **접두어 `ag_`** (`ag_msgs`, `ag_drone`, `ag_orchestration` …). 폴더명은 현행 유지.
-- 커스텀 메시지 패키지: **`ag_msgs`** (위치: `integration/`)
+## 6. 라이선스
 
-## 5. 시간 동기화 [확정]
-
-- 모든 노드 **`use_sim_time: true`**
-- **`/clock`의 유일 소스는 Gazebo.** 별도 시계 발행 금지.
-
-## 6. 모듈 간 인터페이스 계약 ★ (가장 중요) [기본값]
-
-이 표가 "누가 무엇을 발행/구독하는가"의 계약서다. `ag_msgs`를 먼저 만들어 타입을 고정하면 전원 병렬 작업이 가능하다.
-
-| 토픽 | 타입 | 발행 → 구독 | QoS |
-| --- | --- | --- | --- |
-| `/map/elevation` | `grid_map_msgs/GridMap` (layer `elevation`) | drone → all | reliable, **transient_local**, depth 1 |
-| `/map/trav_wheeled` | `grid_map_msgs/GridMap` (layer `traversability`) | drone → husky, orch | reliable, transient_local, depth 1 |
-| `/map/trav_legged` | `grid_map_msgs/GridMap` (layer `traversability`) | drone → go2, orch | reliable, transient_local, depth 1 |
-| `/goals` | `ag_msgs/GoalArray` | 각 로봇·drone → orch, orch → all | reliable, transient_local, depth 1 |
-| `/mission/assignment` | `ag_msgs/AssignmentArray` | orch → robots | reliable, transient_local, depth 1 |
-| `/events/failure` | `ag_msgs/FailureEvent` | robots → orch | reliable, volatile, depth 10 |
-
-> 맵·목표·배정은 **transient_local(래치)** — 늦게 접속한 노드도 마지막 값을 받는다. 실패 이벤트는 스트림이라 volatile.
-
-### `ag_msgs` 메시지 정의 [기본값]
-
-각자 이름으로 지정
-```
-# Goal.msg
-uint32 id
-geometry_msgs/PoseStamped pose      # frame_id = "map"
-uint8 difficulty                    # 0 WHEELED_ONLY, 1 LEGGED_ONLY, 2 COMMON
-uint8 type                          # 0 SUPPLY, 1 ALLY
-uint8 status                        # 0 UNKNOWN,1 DETECTED,2 ASSIGNED,3 IN_PROGRESS,4 DONE,5 FAILED
-uint8 WHEELED_ONLY=0
-uint8 LEGGED_ONLY=1
-uint8 COMMON=2
-uint8 SUPPLY=0
-uint8 ALLY=1
-
-# GoalArray.msg
-std_msgs/Header header
-Goal[] goals
-
-# Assignment.msg
-uint32 goal_id
-string robot_id                     # "husky" | "go2"
-float32 est_cost                    # 이동시간+위험+통과가능성 종합 비용
-builtin_interfaces/Time stamp
-
-# AssignmentArray.msg
-std_msgs/Header header
-Assignment[] assignments
-
-# FailureEvent.msg
-std_msgs/Header header
-string robot_id
-uint32 goal_id
-uint8 reason                        # 0 BLOCKED, 1 TIPOVER, 2 TIMEOUT
-geometry_msgs/PoseStamped pose
-string detail
-```
-
-### 배정 비용 함수 [기본값]
-
-```
-cost = w_t * 이동시간_추정
-     + w_r * 위험(경사·잔해·전복 확률)
-     + w_p * (1 - 통과가능성)
-기본 가중치: w_t=1.0, w_r=1.0, w_p=2.0   # 통과 실패가 가장 치명적 → 가중 최대
-```
-
-## 7. 시나리오 · 환경 파라미터 [기본값]
-
-- **맵 소스**: 기존 시가지 에셋 + 전쟁 잔해(rubble)만 배치. (직접 제작은 후순위)
-- **월드 크기**: 약 50 m × 50 m 시가지 블록 (조정 가능)
-- **로컬라이제이션**: 정적 맵 + ground-truth pose (MVP). SLAM은 고도화. **[합의필요 — 발표 전 확정]**
-- **목표점**: **8개**, 난이도 비율 `WHEELED_ONLY:LEGGED_ONLY:COMMON = 3:3:2`
-- 난이도 태깅 기준: 해당 셀을 어느 trav 맵이 통과가능(≥0.5)으로 판정하는지에 따라 자동 부여.
-
-## 8. 로깅 · 실험 [기본값]
-
-- 포맷: **rosbag2 `mcap`**. 저장 위치 `experiments/results/` (git 제외)
-- 파일명: `<시나리오>_<YYYYMMDD>_<runNN>.mcap`
-- 기본 기록 토픽: `/tf`, `/tf_static`, `/map/*`, `/goals`, `/mission/assignment`, `/events/failure`, 각 로봇 `/<ns>/odom`, `/<ns>/cmd_vel`
-- 실험 설정은 YAML로 `experiments/configs/`:
-
-```yaml
-scenario: urban_supply_v1
-seed: 0
-goals: 8
-ratio: {wheeled_only: 3, legged_only: 3, common: 2}
-ablation:
-  use_terrain_info: true      # 지형정보 사용/미사용
-  assign_mode: optimal        # optimal | rule
-  replan_mode: llm            # llm | rule
-```
-
-## 9. LLM [기본값]
-
-- 인증: 키는 **환경변수 `OPENAI_API_KEY`**, `.env` 사용. **절대 커밋 금지**(`.gitignore` 포함).
-- 모델명: **[합의필요]** 오케스트레이션 담당 확정.
-- 규칙 재배분 vs LLM 재배분은 `ablation.replan_mode` 플래그로 스위치.
-
-## 10. 코드 규약 [기본값]
-
-- 브랜치: `<이름>` 개인 브랜치 → 작업 단위로 `main`에 PR (`CONTRIBUTING.md` 참조)
-- 커밋: `<모듈>: <요약>` (예: `drone: 고도맵 생성 노드 추가`)
-- 각 ROS 패키지는 `package.xml`에 라이선스 `MIT` 명시
-- 파이썬 `ament_flake8`, C++ `ament_cpplint` 통과 권장
-
----
-
-## 발표(7/13) 전 확정 필요 요약 [합의필요]
-
-1. SLAM vs 정적맵 (기본값: 정적맵)
-2. LLM 모델명
-3. 월드/맵 최종 에셋
-
-나머지는 위 기본값으로 즉시 착수 가능.
+- **미지정**(내부 프로젝트). 각 `package.xml`의 `<license>` 필드는 `TODO`로 둔다.

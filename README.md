@@ -224,14 +224,9 @@ AG-CoNav/
 
 ---
 
-## 7. R&R (역할 분담)
+## 7. 역할 · 소유권
 
-| 담당 | 역할 | 담당 패키지 | 완료 결과 |
-| --- | --- | --- | --- |
-| **이종헌**(팀장) | 공통 인프라·전체 통합·설계 계약 + **F 지형 주행성 분석** | `agconav_worlds`·`agconav_description`·`agconav_gz_bridge`·`agconav_bringup`·`agconav_traversability` | 한 명령으로 전체 실행, `/wheel·/leg/nav_map` 발행 |
-| **홍연주** | **A 드론 지도 생성** | `agconav_drone` | `/drone/elevation_map` 발행 |
-| **이수빈** | **B 위치추정 + C 지상 Nav2** | `agconav_localization`·`agconav_navigation` | 두 로봇이 같은 설정으로 도착 |
-| **채현우** | **D 지상 지도 누적 + E 병합** | `agconav_ground_mapping`·`agconav_map_fusion` | `/merged_map` 발행 |
+모듈별 담당은 **4장 모듈표**(담당 컬럼)에 있다. 패키지·모듈 소유권 표와 기여 절차는 **[CONTRIBUTING.md](CONTRIBUTING.md)** 참조.
 
 ---
 
@@ -257,15 +252,13 @@ AG-CoNav/
 
 ---
 
-## 9. 개발 지침 (팀 규칙)
+## 9. 설계 원칙
 
 1. **연구가 아니라 통합.** 새 알고리즘을 만들지 않고 기존 라이브러리를 쓴다. 발표 때 "실제로 돌려봤는지"까지 보여준다.
 2. **알고리즘은 하나로 통일.** wheel·leg에 같은 Nav2 설정. 로봇별 최적화 금지. **작동(목표 도착)만 되면 통과.**
 3. **센서는 OS1-32로 통일.** SLAM/정렬 방식도 여기에 맞춘다.
-4. **설명 가능한 것만 넣는다.** 좌표 변환·용어·라이브러리·툴 전부 스스로 설명 가능해야. (AI 추천만 보고 넣지 않기. 연동·통합 방법은 도움받아도 됨.)
-5. **모듈은 토픽으로만 결합.** 다른 패키지의 내부 코드를 직접 import/호출하지 않는다. `agconav_bringup`만 전체를 안다.
-6. **공통 규약(3장)을 우선.** 단위·프레임·해상도·TF 소유권·시간·QoS는 함부로 바꾸지 않는다.
-7. **Git** — 개인 브랜치 → `main`에 PR. 커밋: `<모듈>: <요약>`.
+
+> 코드 규약("설명 가능한 것만" · 토픽-only 결합 · 공통 규약 준수)과 Git 워크플로는 **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ---
 
