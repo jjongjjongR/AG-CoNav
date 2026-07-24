@@ -2,7 +2,7 @@
 
 **Aerial-Ground Cooperative Navigation — 이기종 3로봇 통합 시뮬레이션**
 
-> 새 알고리즘 연구가 아니라, 기존 라이브러리(ROS2 · Gazebo · Nav2 · grid_map/elevation_mapping · robot_localization)를 조합해 **드론·4륜·4족 3대가 하나의 시뮬레이션에서 함께 동작하고, 세 로봇의 지도를 하나로 통합**하는 **통합 엔지니어링 과제**. (학부 인턴 / 약 6주)
+> 새 알고리즘 연구가 아니라, 기존 라이브러리(ROS2 · Gazebo · Nav2 · grid_map/elevation_mapping · robot_localization)를 조합해 **드론·4륜·4족 3대가 하나의 시뮬레이션에서 함께 동작하고, 세 로봇의 지도를 하나로 통합**하는 **통합 엔지니어링 과제**. (한양대학교 UNICONLAB 인턴)
 
 ---
 
@@ -29,7 +29,7 @@
 드론 탐지(고도 84m, 하향)  →  드론 2.5D 지도 생성
         │
         ▼
-{ wheel 주행가능 맵 · leg 주행가능 맵 } 분리   ← 드론 2.5D 에서 로봇별 주행 영역 산출
+wheel 주행가능 맵 · leg 주행가능 맵 분리   ← 드론 2.5D 에서 로봇별 주행 영역 산출
         │
         ▼
 각 로봇이 자기 주행맵으로 Nav2 이동  +  이동 중 자기 2.5D 지도 누적
@@ -113,6 +113,7 @@
   - **드론**: kinematic이라 `drone_path_player`가 명령 pose로 **`map→drone/base_link`를 직접 발행**(odom·EKF 없음). 드론엔 사실상 명령 pose를 그대로 쓴다(수동 비행 경로 = 알고 있는 값).
   - `X/base_link→센서` = robot_state_publisher만
 - `earth`/`utm` 프레임은 필요 확인 전까지 트리에 넣지 않는다.
+- 드론 TF: `drone_path_player`가 명령 pose로 `map→drone/base_link` 직접 발행 — 3.1
 
 ### 3.2 단위 (SI)
 
@@ -131,6 +132,10 @@
 - **주행성 통과 기준(F)**: wheel = 최대 경사 20°·최대 단차 **0.08 m**, leg = 최대 경사 30°·최대 단차 **0.15 m**. → 월드의 낮은 장애물은 **≈0.12 m**(wheel 막힘·leg 통과)로 배치해야 두 nav_map이 갈린다. (값은 yaml 튜닝)
 - **병합 규칙(E)**: 같은 해상도 전제, 출력 = 세 입력의 합집합 범위. 중복 셀은 **지상(wheel/leg) 관측 우선 → 드론**(가림영역 세부 보완 목적), 유효값을 NaN으로 덮지 않음.
 - **저장 형식**: 2.5D elevation = **rosbag2 `mcap`으로 GridMap 직렬화**, 2D nav_map/occupancy = **map_server `.yaml`+`.pgm`**.
+- **미관측 셀** = `NaN` (2D 투영 시 −1) — 3.3
+- **통과 기준**: wheel 20°/0.08 m, leg 30°/0.15 m — 3.3
+- **병합**: 같은 해상도·합집합 범위·지상 우선 — 3.3
+- **저장**: 2.5D=mcap(GridMap), 2D=map_server(yaml+pgm) — 3.3
 
 ### 3.4 시간 · 네임스페이스 · QoS
 
@@ -223,11 +228,10 @@ AG-CoNav/
 
 | 담당 | 역할 | 담당 패키지 | 완료 결과 |
 | --- | --- | --- | --- |
-| **이종헌**(팀장) | 공통 인프라·전체 통합·설계 계약(Phase 0) + **F 지형 주행성 분석** | `agconav_worlds`·`agconav_description`·`agconav_gz_bridge`·`agconav_bringup`·`agconav_traversability` | 한 명령으로 전체 실행, `/wheel·/leg/nav_map` 발행 |
+| **이종헌**(팀장) | 공통 인프라·전체 통합·설계 계약 + **F 지형 주행성 분석** | `agconav_worlds`·`agconav_description`·`agconav_gz_bridge`·`agconav_bringup`·`agconav_traversability` | 한 명령으로 전체 실행, `/wheel·/leg/nav_map` 발행 |
 | **홍연주** | **A 드론 지도 생성** | `agconav_drone` | `/drone/elevation_map` 발행 |
 | **이수빈** | **B 위치추정 + C 지상 Nav2** | `agconav_localization`·`agconav_navigation` | 두 로봇이 같은 설정으로 도착 |
 | **채현우** | **D 지상 지도 누적 + E 병합** | `agconav_ground_mapping`·`agconav_map_fusion` | `/merged_map` 발행 |
-| 공통 | 우선 **ROS2 학습** | — | — |
 
 ---
 
