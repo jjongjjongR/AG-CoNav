@@ -25,6 +25,8 @@ setup(
         'console_scripts': [
             'ground_pointcloud_collector = '
             'agconav_ground_mapping.ground_pointcloud_collector:main',
+            'ground_lidar_tf_transformer = '
+            'agconav_ground_mapping.ground_lidar_tf_transformer:main',
         ],
     },
 )
