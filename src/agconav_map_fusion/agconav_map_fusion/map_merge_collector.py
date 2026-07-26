@@ -17,16 +17,20 @@ computes the union output grid's origin/size (6-3 / 9-4), and merges the 3
 elevation layers into it (6-4 / 9-5: wheel > leg > drone priority, valid
 values never overwritten by NaN). On any failure it aborts and publishes
 merge_error + merge_status=False (design.md 8-7 / 9-6); on full success it
-publishes /merged/elevation_map once and merge_status=True (design.md 8-6).
+publishes /merged/elevation_map once, merge_status=True (design.md 8-6), and
+saves that same message to an mcap rosbag2 (6-5 / 8-8 / 9-7).
 
 The grid_map_msgs/GridMap wire-format packing/unpacking (axis flip,
 column-major flatten) mirrors agconav_ground_mapping's ground_elevation_mapper
 -- reimplemented independently here, not imported, per CONTRIBUTING 5. It has
-to match exactly or the 3 input maps and the merged output won't line up.
+to match exactly or the 3 input maps and the merged output won't line up. The
+mcap save logic (rosbag2_py.SequentialWriter) similarly mirrors that
+package's ground_elevation_map_saver, reimplemented rather than imported.
 """
 
 from dataclasses import dataclass
 import math
+import os
 
 from geometry_msgs.msg import Pose
 from grid_map_msgs.msg import GridMap, GridMapInfo
@@ -34,6 +38,8 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
+from rclpy.serialization import serialize_message
+import rosbag2_py
 from std_msgs.msg import Bool, Float32MultiArray, MultiArrayDimension, String
 
 ROBOTS = ('drone', 'wheel', 'leg')
@@ -84,6 +90,11 @@ class MapMergeCollector(Node):
         # than this. Default covers the full 500x500m world at 0.10 m/cell
         # (5000x5000 = 25,000,000 cells, README 2.2) with headroom.
         self.declare_parameter('max_grid_cells', 30_000_000)
+        # design.md 6-5 / 9-7 parameter table. use_sim_time is declared
+        # automatically by rclpy.Node, not redeclared here (README 3.4).
+        self.declare_parameter('output_directory', 'maps')
+        self.declare_parameter('map_name', 'merged_elevation_map')
+        self.declare_parameter('output_format', 'mcap')
 
         self._maps = {robot: None for robot in ROBOTS}
         self._complete = {robot: False for robot in ROBOTS}
@@ -222,6 +233,11 @@ class MapMergeCollector(Node):
         self._merged_map_pub.publish(merged_map)
         self._merge_status_pub.publish(Bool(data=True))
         self.get_logger().info('published /merged/elevation_map -- merge complete (once).')
+
+        # design.md 6-5 / 8-8 / 9-7: save the same merged map to mcap.
+        self._save_merged_map(merged_map)
+        self.get_logger().info(
+            'merged map saved -- module E merge process is complete.')
 
     def _validate_maps(self, maps):
         """Check frame/resolution/layer for all 3 robots (design.md 6-2 / 9-3).
@@ -377,6 +393,41 @@ class MapMergeCollector(Node):
         grid_map.outer_start_index = 0
         grid_map.inner_start_index = 0
         return grid_map
+
+    def _save_merged_map(self, merged_map):
+        """Serialize merged_map to an mcap rosbag2 (design.md 6-5 / 9-7).
+
+        Mirrors agconav_ground_mapping's ground_elevation_map_saver: never
+        raises out of this method -- a save failure must not take down a
+        node that already successfully merged and published the map.
+        """
+        output_directory = self.get_parameter('output_directory').value
+        map_name = self.get_parameter('map_name').value
+        output_format = self.get_parameter('output_format').value
+        topic_name = self.get_parameter('merged_elevation_map_topic').value
+        bag_path = os.path.join(output_directory, map_name)
+
+        try:
+            writer = rosbag2_py.SequentialWriter()
+            writer.open(
+                rosbag2_py.StorageOptions(uri=bag_path, storage_id=output_format),
+                rosbag2_py.ConverterOptions('', ''),
+            )
+            writer.create_topic(rosbag2_py.TopicMetadata(
+                id=0,
+                name=topic_name,
+                type='grid_map_msgs/msg/GridMap',
+                serialization_format='cdr',
+            ))
+            stamp = merged_map.header.stamp
+            timestamp_ns = stamp.sec * 1_000_000_000 + stamp.nanosec
+            writer.write(topic_name, serialize_message(merged_map), timestamp_ns)
+            del writer  # flush/close the bag now, rather than at GC time
+        except Exception as ex:
+            self.get_logger().error(f'failed to save merged map to "{bag_path}": {ex}')
+            return
+
+        self.get_logger().info(f'saved merged map to "{bag_path}" ({output_format})')
 
     def get_collected_maps(self):
         """Return {robot: latest GridMap or None}, snapshotted at call time."""
