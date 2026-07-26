@@ -117,6 +117,7 @@ class GroundElevationMapSaver(Node):
                 rosbag2_py.ConverterOptions('', ''),
             )
             writer.create_topic(rosbag2_py.TopicMetadata(
+                id=0,
                 name=self._input_topic,
                 type='grid_map_msgs/msg/GridMap',
                 serialization_format='cdr',
