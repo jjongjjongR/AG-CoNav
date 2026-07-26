@@ -1,0 +1,15 @@
+/**:
+  ros__parameters:
+    drone_elevation_map_topic: /drone/elevation_map
+    drone_status_topic: /drone/elevation_map_status
+    wheel_elevation_map_topic: /wheel/elevation_map
+    wheel_status_topic: /wheel/elevation_map_status
+    leg_elevation_map_topic: /leg/elevation_map
+    leg_status_topic: /leg/elevation_map_status
+    merge_error_topic: /merged/merge_error
+    merge_status_topic: /merged/merge_status
+    merged_elevation_map_topic: /merged/elevation_map
+    max_grid_cells: 30000000
+    output_directory: maps
+    map_name: merged_elevation_map
+    output_format: mcap
