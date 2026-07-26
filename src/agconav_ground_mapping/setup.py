@@ -29,6 +29,8 @@ setup(
             'agconav_ground_mapping.ground_lidar_tf_transformer:main',
             'ground_elevation_mapper = '
             'agconav_ground_mapping.ground_elevation_mapper:main',
+            'ground_elevation_map_saver = '
+            'agconav_ground_mapping.ground_elevation_map_saver:main',
         ],
     },
 )
