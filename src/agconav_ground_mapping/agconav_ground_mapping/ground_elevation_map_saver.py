@@ -11,12 +11,12 @@ for debugging/reproduction, but stays off unless explicitly enabled.
 
 import os
 
-import rclpy
-import rosbag2_py
 from grid_map_msgs.msg import GridMap
+import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from rclpy.serialization import serialize_message
+import rosbag2_py
 from std_msgs.msg import Bool
 from std_srvs.srv import Trigger
 

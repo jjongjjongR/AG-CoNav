@@ -1,0 +1,9 @@
+/**:
+  ros__parameters:
+    input_topic: elevation_map
+    completion_topic: navigation_complete
+    completion_type: std_msgs/msg/Bool
+    output_directory: maps
+    map_name: leg_elevation_map
+    output_format: mcap
+    enable_manual_save_service: false

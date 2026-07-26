@@ -1,0 +1,5 @@
+/**:
+  ros__parameters:
+    points_topic: points
+    data_timeout_sec: 2.0
+    check_period_sec: 1.0

@@ -1,0 +1,5 @@
+/**:
+  ros__parameters:
+    points_topic: points
+    points_map_topic: points_map
+    target_frame: map

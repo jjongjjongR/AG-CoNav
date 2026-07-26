@@ -25,10 +25,10 @@ so the map-fusion module and verification can tell accumulation is done. This
 does not affect or stop the accumulation/publish logic above.
 """
 
-import numpy as np
-import rclpy
 from geometry_msgs.msg import Pose
 from grid_map_msgs.msg import GridMap, GridMapInfo
+import numpy as np
+import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from sensor_msgs.msg import PointCloud2
@@ -143,9 +143,11 @@ class GroundElevationMapper(Node):
         self._last_stamp = msg.header.stamp
 
     def _grow_to_fit(self, row_idx, col_idx):
-        """Pad the grid so row_idx/col_idx fit, and remap the indices into
-        the (possibly resized) array. README 3.3: the map only grows to
-        cover what has actually been observed, it is never pre-sized."""
+        """Pad the grid so row_idx/col_idx fit, remapped into the new array.
+
+        README 3.3: the map only grows to cover what has actually been
+        observed, it is never pre-sized.
+        """
         if self._sum is None:
             min_row, max_row = int(row_idx.min()), int(row_idx.max())
             min_col, max_col = int(col_idx.min()), int(col_idx.max())
