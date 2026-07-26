@@ -8,16 +8,18 @@ per-namespace reusable node, so CONTRIBUTING 5's relative-topic-name rule does
 not apply to these inputs -- topic names are still exposed as parameters for
 flexibility).
 
-design.md 7-1 explicitly leaves map_merge_validator's responsibility open to
-be folded into map_merge_collector ("팀 결정 필요") -- that choice is made
-here: right when the merge trigger fires (6-1), this node also validates the
-collected set (6-2 / 9-3: frame == map, resolution == 0.10 m/cell, elevation
-layer present) before handing it off. On failure it aborts the merge and
-publishes merge_error (design.md 8-7 / 9-6); on success, the validated set is
-exposed via get_validated_maps() for map_merge_grid_builder (6-3, not yet
-wired up).
+design.md 7-1 explicitly leaves map_merge_validator's and map_merge_grid_builder's
+responsibilities open to be folded into map_merge_collector ("팀 결정 필요") --
+that choice is made here: right when the merge trigger fires (6-1), this node
+also validates the collected set (6-2 / 9-3: frame == map, resolution == 0.10
+m/cell, elevation layer present) and, on success, computes the union output
+grid's origin/size (6-3 / 9-4). On any failure it aborts the merge and
+publishes merge_error (design.md 8-7 / 9-6); on full success, both the
+validated maps and the output grid spec are exposed via get_validated_maps()
+and get_output_grid() for elevation_map_merger (6-4, not yet wired up).
 """
 
+from dataclasses import dataclass
 import math
 
 from grid_map_msgs.msg import GridMap
@@ -34,6 +36,23 @@ EXPECTED_RESOLUTION = 0.10
 ELEVATION_LAYER = 'elevation'
 
 
+@dataclass(frozen=True)
+class OutputGrid:
+    """Union output grid spec (design.md 6-3 / 9-4): origin + size, no data.
+
+    origin_x/origin_y are the world (map-frame) coordinates of the grid's
+    min-x/min-y corner -- same convention agconav_ground_mapping's
+    ground_elevation_mapper uses internally for its own accumulation grid
+    (reimplemented independently here, not imported, per CONTRIBUTING 5).
+    """
+
+    origin_x: float
+    origin_y: float
+    resolution: float
+    n_rows: int
+    n_cols: int
+
+
 class MapMergeCollector(Node):
     """Buffers the 3 robots' elevation maps and fires the merge trigger once."""
 
@@ -47,11 +66,16 @@ class MapMergeCollector(Node):
             self.declare_parameter(f'{robot}_status_topic', f'/{robot}/elevation_map_status')
         # design.md 8-7: absolute /merged/... topic, single system-wide node.
         self.declare_parameter('merge_error_topic', '/merged/merge_error')
+        # design.md 9-4: reject the output grid if it would need more cells
+        # than this. Default covers the full 500x500m world at 0.10 m/cell
+        # (5000x5000 = 25,000,000 cells, README 2.2) with headroom.
+        self.declare_parameter('max_grid_cells', 30_000_000)
 
         self._maps = {robot: None for robot in ROBOTS}
         self._complete = {robot: False for robot in ROBOTS}
         self._merge_triggered = False
         self._validated_maps = None
+        self._output_grid = None
 
         # design.md 9-1: elevation_map is reliable / transient_local / keep_last / depth 1.
         map_qos = QoSProfile(
@@ -142,6 +166,19 @@ class MapMergeCollector(Node):
             'all 3 elevation maps passed validation (frame/resolution/layer).')
         self._validated_maps = maps
 
+        output_grid, error = self._build_output_grid(maps)
+        if error is not None:
+            self.get_logger().error(f'output grid computation failed, aborting merge: {error}')
+            self._merge_error_pub.publish(String(data=error))
+            return
+
+        self._output_grid = output_grid
+        self.get_logger().info(
+            f'output grid: origin=({output_grid.origin_x:.2f}, {output_grid.origin_y:.2f}) '
+            f'size={output_grid.n_rows}x{output_grid.n_cols} cells '
+            f'({output_grid.n_rows * output_grid.resolution:.1f} x '
+            f'{output_grid.n_cols * output_grid.resolution:.1f} m)')
+
     def _validate_maps(self, maps):
         """Check frame/resolution/layer for all 3 robots (design.md 6-2 / 9-3).
 
@@ -165,6 +202,47 @@ class MapMergeCollector(Node):
                 return f'{robot}: missing required layer "{ELEVATION_LAYER}"'
         return None
 
+    @staticmethod
+    def _map_bounds(grid_map):
+        """Return (min_x, max_x, min_y, max_y) of grid_map in the map frame.
+
+        grid_map_msgs/GridMap stores a center pose + length, not corners
+        (design.md 9-4: "원점 계산 기준 | 공통 map 좌표").
+        """
+        half_x = grid_map.info.length_x / 2.0
+        half_y = grid_map.info.length_y / 2.0
+        center_x = grid_map.info.pose.position.x
+        center_y = grid_map.info.pose.position.y
+        return center_x - half_x, center_x + half_x, center_y - half_y, center_y + half_y
+
+    def _build_output_grid(self, maps):
+        """Union bounding box of the 3 maps -> OutputGrid (design.md 6-3 / 9-4).
+
+        Returns (OutputGrid, None) on success, or (None, error message) if
+        the resulting grid would exceed max_grid_cells.
+        """
+        bounds = [self._map_bounds(maps[robot]) for robot in ROBOTS]
+        min_x = min(b[0] for b in bounds)
+        max_x = max(b[1] for b in bounds)
+        min_y = min(b[2] for b in bounds)
+        max_y = max(b[3] for b in bounds)
+
+        resolution = EXPECTED_RESOLUTION
+        n_rows = round((max_x - min_x) / resolution)
+        n_cols = round((max_y - min_y) / resolution)
+        total_cells = n_rows * n_cols
+
+        max_cells = self.get_parameter('max_grid_cells').value
+        if total_cells > max_cells:
+            return None, (
+                f'output grid would need {n_rows}x{n_cols}={total_cells} cells, '
+                f'over the max_grid_cells limit ({max_cells})')
+
+        return OutputGrid(
+            origin_x=min_x, origin_y=min_y,
+            resolution=resolution, n_rows=n_rows, n_cols=n_cols,
+        ), None
+
     def get_collected_maps(self):
         """Return {robot: latest GridMap or None}, snapshotted at call time."""
         return dict(self._maps)
@@ -176,6 +254,14 @@ class MapMergeCollector(Node):
         passed; stays None until then, and also None if validation failed.
         """
         return self._validated_maps
+
+    def get_output_grid(self):
+        """Return the union OutputGrid for elevation_map_merger.
+
+        (6-4) Populated once validation AND grid-size checks both pass;
+        None until then, and also None if either step failed.
+        """
+        return self._output_grid
 
     def is_merge_triggered(self):
         return self._merge_triggered
