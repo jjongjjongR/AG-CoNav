@@ -36,6 +36,8 @@ setup(
             'agconav_ground_mapping.ground_elevation_mapper:main',
             'ground_elevation_map_saver = '
             'agconav_ground_mapping.ground_elevation_map_saver:main',
+            'ground_completion_status_publisher = '
+            'agconav_ground_mapping.ground_completion_status_publisher:main',
         ],
     },
 )

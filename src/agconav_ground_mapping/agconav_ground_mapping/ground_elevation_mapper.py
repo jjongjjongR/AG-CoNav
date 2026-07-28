@@ -18,11 +18,9 @@ spec-correct `grid_map_msgs/msg/GridMap` message by hand -- see
 verify once this runs against a real grid_map consumer (RViz2 / a future
 map-fusion module).
 
-design.md 4-5 / 6-7 / 7-6: the "completion status" responsibility is folded
-into this same node rather than a separate one. It subscribes to
-navigation_complete and, on a complete signal, publishes elevation_map_status
-so the map-fusion module and verification can tell accumulation is done. This
-does not affect or stop the accumulation/publish logic above.
+design.md 4-5 / 6-7 / 7-6 (완료 상태 제공 책임) lives in the separate
+ground_completion_status_publisher node, not here -- this node only ever
+does accumulation/publish.
 """
 
 from geometry_msgs.msg import Pose
@@ -33,7 +31,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py.point_cloud2 import read_points_numpy
-from std_msgs.msg import Bool, Float32MultiArray, MultiArrayDimension
+from std_msgs.msg import Float32MultiArray, MultiArrayDimension
 
 
 class GroundElevationMapper(Node):
@@ -51,16 +49,11 @@ class GroundElevationMapper(Node):
         # design.md 7-4: default 1 Hz publish rate.
         self.declare_parameter('publish_period_sec', 1.0)
         self.declare_parameter('frame_id', 'map')
-        # design.md 4-5 / 6-7 / 7-6: completion status in/out topics.
-        self.declare_parameter('completion_topic', 'navigation_complete')
-        self.declare_parameter('status_topic', 'elevation_map_status')
 
         points_map_topic = self.get_parameter('points_map_topic').value
         elevation_map_topic = self.get_parameter('elevation_map_topic').value
         self._resolution = float(self.get_parameter('resolution').value)
         self._frame_id = self.get_parameter('frame_id').value
-        completion_topic = self.get_parameter('completion_topic').value
-        status_topic = self.get_parameter('status_topic').value
 
         # Grid state, in OUR OWN convention (not grid_map's wire convention,
         # see _build_grid_map_message): (row, col) = (0, 0) is the min-x/
@@ -93,32 +86,13 @@ class GroundElevationMapper(Node):
         self._elevation_map_pub = self.create_publisher(
             GridMap, elevation_map_topic, output_qos)
 
-        # design.md 7-6: elevation_map_status is reliable + transient_local.
-        status_qos = QoSProfile(
-            reliability=QoSReliabilityPolicy.RELIABLE,
-            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
-            history=QoSHistoryPolicy.KEEP_LAST,
-            depth=1,
-        )
-        self._completion_sub = self.create_subscription(
-            Bool, completion_topic, self._completion_callback, status_qos)
-        self._status_pub = self.create_publisher(Bool, status_topic, status_qos)
-
         publish_period = self.get_parameter('publish_period_sec').value
         self._publish_timer = self.create_timer(
             publish_period, self._publish_elevation_map)
 
         self.get_logger().info(
             f'Accumulating "{points_map_topic}" -> "{elevation_map_topic}" '
-            f'(resolution={self._resolution} m/cell), '
-            f'completion_topic="{completion_topic}" -> status_topic="{status_topic}"')
-
-    def _completion_callback(self, msg):
-        # design.md 4-5 / 7-6: publish completion status when the external
-        # navigation module reports the robot's move is done. Accumulation
-        # itself keeps running -- this only announces the status.
-        if msg.data:
-            self._status_pub.publish(Bool(data=True))
+            f'(resolution={self._resolution} m/cell)')
 
     def _points_map_callback(self, msg):
         points = read_points_numpy(msg, field_names=('x', 'y', 'z'), skip_nans=True)

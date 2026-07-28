@@ -5,5 +5,3 @@
     resolution: 0.10
     publish_period_sec: 1.0
     frame_id: map
-    completion_topic: navigation_complete
-    status_topic: elevation_map_status

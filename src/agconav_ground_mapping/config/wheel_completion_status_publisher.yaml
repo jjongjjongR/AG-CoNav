@@ -1,0 +1,4 @@
+/**:
+  ros__parameters:
+    completion_topic: navigation_complete
+    status_topic: elevation_map_status

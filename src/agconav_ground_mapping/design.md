@@ -90,14 +90,14 @@
   - 지정 경로에 저장
   - 저장 완료 여부 확인
 
-### 4-5. 완료 상태 제공 책임 (`ground_elevation_mapper` 내부 기능으로 통합)
+### 4-5. 완료 상태 제공 책임 — `ground_completion_status_publisher`
 
-- **입력:** 지도 누적 진행 상황, 지도 누적 종료 조건, 외부 이동 완료 상태(Topic)
-- **출력:** wheel 지도 생성 완료 상태, leg 지도 생성 완료 상태
+- **입력:** 외부 이동 완료 상태(Topic, `navigation_complete`)
+- **출력:** wheel 지도 생성 완료 상태, leg 지도 생성 완료 상태 (`elevation_map_status`)
 - **하는 일**
-  - 누적 시작/종료 조건 판단
-  - 완료 여부를 상태로 발행해 후속 모듈과 검증 담당자가 확인 가능하게 함
-  - 외부 이동 완료 상태를 구독하고, 완료 신호 수신 시 지도 저장 책임에 저장을 요청
+  - 외부 이동 완료 상태(`navigation_complete`)를 구독
+  - 완료 신호(True) 수신 시 `elevation_map_status`를 True로 발행해 후속 모듈과 검증 담당자가 확인 가능하게 함
+  - 2.5D 지도 생성 책임(`ground_elevation_mapper`)과는 별도 노드로 분리되어 있으며, 지도 누적 로직에는 관여하지 않음
 
 ---
 
@@ -106,7 +106,7 @@
 - PointCloud 수집 책임 → 좌표 변환 책임
 - 좌표 변환 책임 → 2.5D 지도 생성 책임
 - 2.5D 지도 생성 책임 → 지도 저장 책임
-- 2.5D 지도 생성 책임 → 완료 상태 제공 책임
+- 외부 내비게이션 모듈(이동 완료 상태) → 완료 상태 제공 책임
 - 2.5D 지도 생성 책임 → RViz2, 지도 병합 모듈 (실시간 소비)
 
 ### 5-1. 구현 단위 (wheel/leg 네임스페이스로 분리)
@@ -117,7 +117,7 @@
 | 좌표 변환 | ROS 노드(tf2), 커스텀 | `ground_lidar_tf_transformer` (`/wheel`, `/leg` 각각 실행) |
 | 2.5D 지도 생성 | ROS 노드, elevation_mapping 기반 | `ground_elevation_mapper` (`/wheel`, `/leg` 각각 실행) |
 | 지도 저장 | ROS 노드, 커스텀 | `ground_elevation_map_saver` (`/wheel`, `/leg` 각각 실행) |
-| 완료 상태 제공 | `ground_elevation_mapper` 내부 기능 | - |
+| 완료 상태 제공 | ROS 노드, 커스텀 | `ground_completion_status_publisher` (`/wheel`, `/leg` 각각 실행) |
 
 추가 구성 요소:
 - `ros_gz_bridge` (wheel, leg 각각)
@@ -129,7 +129,7 @@
 - **leg 경로:** Gazebo leg LiDAR → `ros_gz_bridge`(`/leg`) → `ground_pointcloud_collector`(`/leg`) → `ground_lidar_tf_transformer`(`/leg`) → `ground_elevation_mapper`(`/leg`) → `ground_elevation_map_saver`(`/leg`) → 파일시스템
 - **위치·자세 정보:** 외부 위치 추정 모듈 → `ground_lidar_tf_transformer`(`/wheel`, `/leg`) : TF 제공
 - **지도 소비:** `ground_elevation_mapper`(`/wheel`, `/leg`) → RViz2, 지도 병합 모듈
-- **이동 완료 상태:** 외부 내비게이션 모듈 → `ground_elevation_mapper`(완료 상태 서브 로직)
+- **이동 완료 상태:** 외부 내비게이션 모듈 → `ground_elevation_map_saver`(`/wheel`, `/leg`, 저장 트리거) 및 `ground_completion_status_publisher`(`/wheel`, `/leg`, 상태 발행) — 두 노드가 각각 독립적으로 `navigation_complete`를 구독
 
 ---
 
@@ -196,8 +196,8 @@
 | 항목 | 내용 |
 | --- | --- |
 | 발행 책임 | 외부 내비게이션 모듈 (경로 계획 및 이동) |
-| 수신 책임 | 완료 상태 제공 → 지도 저장 |
-| 수신 구현 | `ground_elevation_mapper`(완료 상태 구독) → `ground_elevation_map_saver`(저장 실행) |
+| 수신 책임 | 지도 저장 |
+| 수신 구현 | `ground_elevation_map_saver`가 `navigation_complete`를 직접 구독, 완료 신호 수신 시 저장 실행 |
 | 인터페이스 종류 | Topic |
 | 인터페이스 이름 | `/wheel/navigation_complete`, `/leg/navigation_complete` (외부 모듈과 확정 필요) |
 | 데이터 의미 | wheel/leg의 이동(임무)이 끝났는지 여부 |
@@ -205,12 +205,15 @@
 | 저장 실행 방식 | 서비스 호출이 아니라, 완료 토픽 콜백에서 내부적으로 저장 함수 호출 |
 | 보조 인터페이스 | 디버깅/재현용 수동 저장 Service(`std_srvs/srv/Trigger`)를 함께 구현 (기본 비활성화) |
 
-### 6-7. 완료 상태 제공 책임 → 지도 병합 모듈, 검증 담당자
+같은 `navigation_complete` 토픽을 완료 상태 제공 책임(`ground_completion_status_publisher`)도 독립적으로 구독한다 (6-7 참고). 두 노드는 서로 통신하지 않고 각자 외부 모듈의 토픽만 구독한다.
+
+### 6-7. 외부 내비게이션 모듈(이동 완료 상태) → 완료 상태 제공 책임 → 지도 병합 모듈, 검증 담당자
 
 | 항목 | 내용 |
 | --- | --- |
-| 발행 책임 | 완료 상태 제공(`ground_elevation_mapper`) |
+| 발행 책임 | 완료 상태 제공(`ground_completion_status_publisher`) |
 | 수신 책임 | 지도 병합 모듈, 검증 담당자 |
+| 입력 | 외부 내비게이션 모듈의 `/wheel(leg)/navigation_complete` (6-6과 동일 토픽, 독립 구독) |
 | 인터페이스 종류 | Topic |
 | 인터페이스 이름 | `/wheel/elevation_map_status`, `/leg/elevation_map_status` |
 | 데이터 의미 | 로봇별 지도 누적 완료 여부 |
@@ -322,7 +325,7 @@ map
 | `use_sim_time` | Gazebo 시간 사용 | `true` |
 | `enable_manual_save_service` | 디버깅용 수동 저장 서비스 활성화 여부 | `false` |
 
-### 7-6. 2.5D 지도 생성(`ground_elevation_mapper`) → 완료 상태 제공
+### 7-6. 완료 상태 제공(`ground_completion_status_publisher`) → 지도 병합 모듈, 검증 담당자
 
 `/wheel/elevation_map_status`, `/leg/elevation_map_status`
 
@@ -332,6 +335,7 @@ map
 | 발행 시점 | 종료 조건 충족 시 (외부 내비게이션 모듈의 이동 완료 상태 수신 시) |
 | Reliability | reliable |
 | Durability | transient local |
+| Parameter | `completion_topic`(기본 `navigation_complete`), `status_topic`(기본 `elevation_map_status`) — 로봇별 각각 설정 |
 
 ---
 
@@ -355,6 +359,9 @@ ground_elevation_mapping.launch.py
  ├─ wheel 지도 저장(ground_elevation_map_saver)
  │   └─ wheel_elevation_map_saver.yaml
  │
+ ├─ wheel 완료 상태 제공(ground_completion_status_publisher)
+ │   └─ wheel_completion_status_publisher.yaml
+ │
  ├─ leg 브릿지(ros_gz_bridge)
  │   └─ leg_bridge.yaml
  │
@@ -367,8 +374,11 @@ ground_elevation_mapping.launch.py
  ├─ leg 지도 생성(ground_elevation_mapper)
  │   └─ leg_elevation_mapper.yaml
  │
- └─ leg 지도 저장(ground_elevation_map_saver)
-     └─ leg_elevation_map_saver.yaml
+ ├─ leg 지도 저장(ground_elevation_map_saver)
+ │   └─ leg_elevation_map_saver.yaml
+ │
+ └─ leg 완료 상태 제공(ground_completion_status_publisher)
+     └─ leg_completion_status_publisher.yaml
 ```
 
 ---
