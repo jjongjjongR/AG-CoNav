@@ -37,6 +37,13 @@
                     <specular>0.05 0.05 0.05 1</specular>
                 </material>
             </visual>
+            <!-- IMU: base_link 내부에 센서만 추가 -->
+            <sensor name="drone_imu_sensor" type="imu">
+                <topic>drone/imu</topic>
+                <gz_frame_id>drone/base_link</gz_frame_id>
+                <update_rate>100</update_rate>
+                <always_on>1</always_on>
+            </sensor>
         </link>
         <link name="X3/rotor_0">
             <pose frame="">0.39 -0.66 0.069 0 -0 0</pose>
@@ -293,6 +300,93 @@
                 </dynamics>
                 <use_parent_model_frame>1</use_parent_model_frame>
             </axis>
+        </joint>
+        <!-- 하향 OS1-32 LiDAR: 동체 아래 0.20m, pitch +90°로 하향. collision 없음 -->
+        <link name="os1_lidar">
+            <pose>0 0 -0.20 0 1.5708 0</pose>
+            <inertial>
+                <mass>0.33</mass>
+                <inertia>
+                    <ixx>1e-4</ixx>
+                    <ixy>0</ixy>
+                    <ixz>0</ixz>
+                    <iyy>1e-4</iyy>
+                    <iyz>0</iyz>
+                    <izz>1e-4</izz>
+                </inertia>
+            </inertial>
+            <visual name="os1_lidar_visual">
+                <geometry>
+                    <cylinder>
+                        <radius>0.0435</radius>
+                        <length>0.0737</length>
+                    </cylinder>
+                </geometry>
+            </visual>
+            <sensor name="os1_lidar" type="gpu_lidar">
+                <topic>drone/points</topic>
+                <gz_frame_id>drone/os1_lidar</gz_frame_id>
+                <update_rate>10</update_rate>
+                <always_on>1</always_on>
+                <visualize>true</visualize>
+                <lidar>
+                    <scan>
+                        <horizontal>
+                            <samples>1024</samples>
+                            <resolution>1</resolution>
+                            <min_angle>-3.141593</min_angle>
+                            <max_angle>3.141593</max_angle>
+                        </horizontal>
+                        <vertical>
+                            <samples>32</samples>
+                            <resolution>1</resolution>
+                            <min_angle>-0.370010</min_angle>
+                            <max_angle>0.370010</max_angle>
+                        </vertical>
+                    </scan>
+                    <range>
+                        <min>0.5</min>
+                        <max>170.0</max>
+                        <resolution>0.01</resolution>
+                    </range>
+                </lidar>
+            </sensor>
+        </link>
+        <joint name="os1_lidar_joint" type="fixed">
+            <parent>X3/base_link</parent>
+            <child>os1_lidar</child>
+        </joint>
+        <!-- GPS(NavSat) -->
+        <link name="gps_link">
+            <pose>-0.20 0 0.10 0 0 0</pose>
+            <inertial>
+                <mass>0.05</mass>
+                <inertia>
+                    <ixx>1e-5</ixx>
+                    <ixy>0</ixy>
+                    <ixz>0</ixz>
+                    <iyy>1e-5</iyy>
+                    <iyz>0</iyz>
+                    <izz>1e-5</izz>
+                </inertia>
+            </inertial>
+            <visual name="gps_link_visual">
+                <geometry>
+                    <box>
+                        <size>0.04 0.04 0.02</size>
+                    </box>
+                </geometry>
+            </visual>
+            <sensor name="navsat_sensor" type="navsat">
+                <topic>drone/gps</topic>
+                <gz_frame_id>drone/gps_link</gz_frame_id>
+                <update_rate>10</update_rate>
+                <always_on>1</always_on>
+            </sensor>
+        </link>
+        <joint name="gps_joint" type="fixed">
+            <parent>X3/base_link</parent>
+            <child>gps_link</child>
         </joint>
     </model>
 </sdf>

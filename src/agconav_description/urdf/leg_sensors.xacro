@@ -65,7 +65,7 @@
     </gazebo>
 
     <gazebo reference="${parent}">
-      <sensor name="imu_sensor" type="imu">
+      <sensor name="leg_imu_sensor" type="imu">
         <topic>${ns}/imu</topic>
         <gz_frame_id>${parent}</gz_frame_id>
         <update_rate>100</update_rate>
