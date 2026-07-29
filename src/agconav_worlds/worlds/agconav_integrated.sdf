@@ -34,6 +34,17 @@ You can use the velocity controller and command linear velocity and yaw angular 
 
 <sdf version="1.6">
   <world name="agconav_world">
+    <!--
+      26-07-29 이종헌:
+      GPS(NavSat) 원점, map원점(0,0,0) = 이 위경도 / 서울 성수동
+    -->
+    <spherial_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>37.5412278</latitude_deg>
+      <longitude_deg>127.0565741</longitude_deg>
+      <elevation>0</elevation>
+    </spherial_coordinates>
     <physics name="4ms" type="ignored">
       <max_step_size>0.004</max_step_size>
       <real_time_factor>1.0</real_time_factor>
@@ -50,10 +61,21 @@ You can use the velocity controller and command linear velocity and yaw angular 
       filename="gz-sim-user-commands-system"
       name="gz::sim::systems::UserCommands">
     </plugin>
+    <!--렌더링 기반 센서(라이다, 카메라)-->
     <plugin
       filename="gz-sim-sensors-system"
       name="gz::sim::systems::Sensors">
       <render_engine>ogre2</render_engine>
+    </plugin>
+    <!--26-07-29 이종헌: IMU 센서 시스템-->
+    <plugin
+      filename="gz-sim-imu-sensor-system"
+      name="gz::sim::systems::Imu">
+    </plugin>
+    <!--26-07-29 이종헌: GPS(NavSat) 센서 시스템-->
+    <plugin
+      filename="gz-sim-navsat-system"
+      name="gz::sim::systems::NavSat">
     </plugin>
 
     <light type="directional" name="sun">

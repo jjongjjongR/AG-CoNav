@@ -6,9 +6,11 @@ from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
+    GroupAction,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
+from launch.conditions import IfCondition
 
 from launch_ros.actions import Node
 
@@ -16,12 +18,15 @@ from launch_ros.actions import Node
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     clearpath_setup_path = LaunchConfiguration("clearpath_setup_path")
+    use_nav2 = LaunchConfiguration("use_nav2")
+    nav2_params_file = LaunchConfiguration("nav2_params_file")
 
     # 설치된 ROS2 패키지의 공유 디렉터리
     agconav_worlds_share = get_package_share_directory("agconav_worlds")
     agconav_bringup_share = get_package_share_directory("agconav_bringup")
     ros_gz_sim_share = get_package_share_directory("ros_gz_sim")
     clearpath_gz_share = get_package_share_directory("clearpath_gz")
+    nav2_bringup_share = get_package_share_directory("nav2_bringup")
 
     # 실행할 공용 Gazebo 월드
     world_path = os.path.join(
@@ -55,6 +60,12 @@ def generate_launch_description():
         description="Use Gazebo simulation time",
     )
 
+    nav2_launch_path = os.path.join(
+        nav2_bringup_share,
+        "launch",
+        "bringup_launch.py",
+    )
+
     # 이 launch 파일 자신의 실제 경로(--symlink-install이므로 src/ 원본을 가리킴)를 기준으로
     # 저장소 루트의 config/clearpath_a300을 찾는다. 클론 위치(~/projects/AG-CoNav 등)에
     # 의존하지 않아 다른 팀원 컴퓨터에서도 그대로 동작한다.
@@ -65,6 +76,18 @@ def generate_launch_description():
         "clearpath_setup_path",
         default_value=os.path.join(_repo_root, "config", "clearpath_a300"),
         description="Directory containing the A300 robot.yaml",
+    )
+
+    declare_use_nav2 = DeclareLaunchArgument(
+        "use_nav2",
+        default_value="false",
+        description="Lunch Nav2 for wheel/leg (needs /X/nav_map and localization TF)"
+    )
+
+    declare_nav2_params_file = DeclareLaunchArgument(
+        "nav2_params_file",
+        default_value=os.path.join(_repo_root, "src", "agconav_navigation", "config", "nav2_common.yaml"),
+        description="Common Nav2 params for both ground robots (module C)",
     )
 
     # Gazebo와 공용 월드는 여기서 한 번만 실행한다.
@@ -141,6 +164,28 @@ def generate_launch_description():
         }.items(),
     )
 
+    # 지상 로봇 공통 Nav2, 설정은 하나, 로봇별 차이는 namespace, footprint뿐(README 4참고)
+    def _nav2_for(namespace):
+        return GroupAction(
+            actions=[
+                IncludeLaunchDescription(
+                    PythonLaunchDescriptionSource(nav2_launch_path),
+                    launch_arguments={
+                        "namespace": namespace,
+                        "use_sim_time": use_sim_time,
+                        "params_file": nav2_params_file,
+                        "use_composition": "False",
+                        "autostart": "True",
+                    }.items(),
+                )
+            ],
+            condition=IfCondition(use_nav2)
+        )
+
+    nav2_wheel = _nav2_for("wheel")
+    nav2_leg = _nav2_for("leg")
+
+
     return LaunchDescription(
         [
             declare_use_sim_time,
@@ -150,5 +195,7 @@ def generate_launch_description():
             drone_cmd_vel_bridge,
             spawn_wheel,
             spawn_leg,
+            nav2_wheel,
+            nav2_leg,
         ]
     )
