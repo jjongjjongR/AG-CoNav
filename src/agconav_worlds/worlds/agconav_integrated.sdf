@@ -38,13 +38,13 @@ You can use the velocity controller and command linear velocity and yaw angular 
       26-07-29 이종헌:
       GPS(NavSat) 원점, map원점(0,0,0) = 이 위경도 / 서울 성수동
     -->
-    <spherial_coordinates>
+    <spherical_coordinates>
       <surface_model>EARTH_WGS84</surface_model>
       <world_frame_orientation>ENU</world_frame_orientation>
       <latitude_deg>37.5412278</latitude_deg>
       <longitude_deg>127.0565741</longitude_deg>
       <elevation>0</elevation>
-    </spherial_coordinates>
+    </spherical_coordinates>
     <physics name="4ms" type="ignored">
       <max_step_size>0.004</max_step_size>
       <real_time_factor>1.0</real_time_factor>
@@ -69,7 +69,7 @@ You can use the velocity controller and command linear velocity and yaw angular 
     </plugin>
     <!--26-07-29 이종헌: IMU 센서 시스템-->
     <plugin
-      filename="gz-sim-imu-sensor-system"
+      filename="gz-sim-imu-system"
       name="gz::sim::systems::Imu">
     </plugin>
     <!--26-07-29 이종헌: GPS(NavSat) 센서 시스템-->
@@ -121,8 +121,10 @@ You can use the velocity controller and command linear velocity and yaw angular 
 
     <include>
       <uri>
-        https://fuel.gazebosim.org/1.0/OpenRobotics/models/X3 UAV/4
+        model://agconav_drone
       </uri>
+      <name>X3</name>
+      <pose>0 0 0.2 0 0 0</pose>
       <plugin
         filename="gz-sim-multicopter-motor-model-system"
         name="gz::sim::systems::MulticopterMotorModel">
@@ -133,7 +135,7 @@ You can use the velocity controller and command linear velocity and yaw angular 
         <timeConstantUp>0.0125</timeConstantUp>
         <timeConstantDown>0.025</timeConstantDown>
         <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>8.54858e-06</motorConstant>
+        <motorConstant>8.436e-05</motorConstant>
         <momentConstant>0.016</momentConstant>
         <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
         <actuator_number>0</actuator_number>
@@ -153,7 +155,7 @@ You can use the velocity controller and command linear velocity and yaw angular 
         <timeConstantUp>0.0125</timeConstantUp>
         <timeConstantDown>0.025</timeConstantDown>
         <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>8.54858e-06</motorConstant>
+        <motorConstant>8.436e-05</motorConstant>
         <momentConstant>0.016</momentConstant>
         <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
         <actuator_number>1</actuator_number>
@@ -173,7 +175,7 @@ You can use the velocity controller and command linear velocity and yaw angular 
         <timeConstantUp>0.0125</timeConstantUp>
         <timeConstantDown>0.025</timeConstantDown>
         <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>8.54858e-06</motorConstant>
+        <motorConstant>8.436e-05</motorConstant>
         <momentConstant>0.016</momentConstant>
         <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
         <actuator_number>2</actuator_number>
@@ -193,7 +195,7 @@ You can use the velocity controller and command linear velocity and yaw angular 
         <timeConstantUp>0.0125</timeConstantUp>
         <timeConstantDown>0.025</timeConstantDown>
         <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>8.54858e-06</motorConstant>
+        <motorConstant>8.436e-05</motorConstant>
         <momentConstant>0.016</momentConstant>
         <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
         <actuator_number>3</actuator_number>
@@ -218,25 +220,25 @@ You can use the velocity controller and command linear velocity and yaw angular 
         <rotorConfiguration>
           <rotor>
             <jointName>X3/rotor_0_joint</jointName>
-            <forceConstant>8.54858e-06</forceConstant>
+            <forceConstant>8.436e-05</forceConstant>
             <momentConstant>0.016</momentConstant>
             <direction>1</direction>
           </rotor>
           <rotor>
             <jointName>X3/rotor_1_joint</jointName>
-            <forceConstant>8.54858e-06</forceConstant>
+            <forceConstant>8.436e-05</forceConstant>
             <momentConstant>0.016</momentConstant>
             <direction>1</direction>
           </rotor>
           <rotor>
             <jointName>X3/rotor_2_joint</jointName>
-            <forceConstant>8.54858e-06</forceConstant>
+            <forceConstant>8.436e-05</forceConstant>
             <momentConstant>0.016</momentConstant>
             <direction>-1</direction>
           </rotor>
           <rotor>
             <jointName>X3/rotor_3_joint</jointName>
-            <forceConstant>8.54858e-06</forceConstant>
+            <forceConstant>8.436e-05</forceConstant>
             <momentConstant>0.016</momentConstant>
             <direction>-1</direction>
           </rotor>

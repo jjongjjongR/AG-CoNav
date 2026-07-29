@@ -11,6 +11,7 @@ from launch.actions import (
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch.conditions import IfCondition
+from launch.actions import SetEnvironmentVariable
 
 from launch_ros.actions import Node
 
@@ -91,6 +92,23 @@ def generate_launch_description():
     )
 
     # Gazebo와 공용 월드는 여기서 한 번만 실행한다.
+    # 로컬 모델(agconav_drone) 탐색 경로를 Gazebo에 알려준다.
+    # ROS 2 Jazzy는 Gazebo Harmonic(gz-sim8)과 페어링되며, gz sim은
+    # classic 전용 GAZEBO_MODEL_PATH가 아니라 GZ_SIM_RESOURCE_PATH를 읽는다.
+    # 기존 값(예: /opt/ros/jazzy/share)을 유지하려고 앞에 우리 models 경로만 덧붙인다.
+    _gz_models_dir = os.path.join(
+        get_package_share_directory("agconav_description"), "models"
+    )
+    _existing_gz_resource_path = os.environ.get("GZ_SIM_RESOURCE_PATH", "")
+    set_gz_resource_path = SetEnvironmentVariable(
+        name="GZ_SIM_RESOURCE_PATH",
+        value=(
+            _gz_models_dir + os.pathsep + _existing_gz_resource_path
+            if _existing_gz_resource_path
+            else _gz_models_dir
+        ),
+    )
+
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(gz_sim_launch_path),
         launch_arguments={
@@ -172,6 +190,10 @@ def generate_launch_description():
                     PythonLaunchDescriptionSource(nav2_launch_path),
                     launch_arguments={
                         "namespace": namespace,
+                        # use_namespace가 True여야 PushROSNamespace가 적용되어
+                        # wheel/leg 두 nav2 스택이 각자 네임스페이스로 분리된다.
+                        # 빠지면 두 스택이 루트에 같은 이름으로 떠서 충돌한다.
+                        "use_namespace": "True",
                         "use_sim_time": use_sim_time,
                         "params_file": nav2_params_file,
                         "use_composition": "False",
@@ -190,6 +212,9 @@ def generate_launch_description():
         [
             declare_use_sim_time,
             declare_clearpath_setup_path,
+            declare_use_nav2,
+            declare_nav2_params_file,
+            set_gz_resource_path,
             gazebo,
             clock_bridge,
             drone_cmd_vel_bridge,

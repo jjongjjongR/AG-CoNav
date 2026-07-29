@@ -25,10 +25,28 @@ sensors:
   imu:
     - model: phidgets_spatial
       urdf_enabled: true
-      launch_enabled: true
+      launch_enabled: false
       parent: base_link
       xyz: [0.059, 0.0, 0.161275]
       rpy: [0.0, 0.0, 0.0]
       ros_parameters:
         phidgets_spatial:
           data_interval_ms: 20
+  lidar3d:
+    - model: ouster_os1
+      urdf_enabled: true
+      launch_enabled: false
+      parent: base_link
+      xyz: [0.0, 0.0, 0.5]
+      rpy: [0.0, 0.0, 0.0]
+      ros_parameters:
+        ouster_driver:
+          cap_type: halo
+          base_type: base
+  gps:
+    - model: novatel_smart7
+      urdf_enabled: true
+      launch_enabled: false
+      parent: base_link
+      xyz: [-0.15, 0.0, 0.45]
+      rpy: [0.0, 0.0, 0.0]

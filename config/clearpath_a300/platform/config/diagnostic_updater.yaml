@@ -10,9 +10,3 @@ wheel:
       bms_state_rate: 2.5
       bms_state_tolerance: 0.2
       mcu_protocol: 'proton'
-      topics.sensors/imu_0/data.type: 'sensor_msgs/msg/Imu'
-      topics.sensors/imu_0/data.rate: 50.0
-      topics.sensors/imu_0/data_raw.type: 'sensor_msgs/msg/Imu'
-      topics.sensors/imu_0/data_raw.rate: 50.0
-      topics.sensors/imu_0/mag.type: 'sensor_msgs/msg/MagneticField'
-      topics.sensors/imu_0/mag.rate: 50.0

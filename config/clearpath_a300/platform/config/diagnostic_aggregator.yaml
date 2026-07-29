@@ -40,8 +40,3 @@ wheel:
       platform.analyzers.networking.path: 'Networking'
       platform.analyzers.networking.contains: ['Wi-Fi']
       platform.analyzers.networking.expected: ['wireless_watcher: Wi-Fi Monitor']
-      sensors.type: 'diagnostic_aggregator/AnalyzerGroup'
-      sensors.path: 'Sensors'
-      sensors.analyzers.imu.type: 'diagnostic_aggregator/GenericAnalyzer'
-      sensors.analyzers.imu.path: 'IMU'
-      sensors.analyzers.imu.contains: ['imu']
