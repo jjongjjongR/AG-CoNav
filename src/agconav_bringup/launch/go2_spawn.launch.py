@@ -32,7 +32,11 @@ def generate_launch_description():
     )
     gait_config = os.path.join(unitree_go2_sim, "config/gait/gait.yaml")
     links_config = os.path.join(unitree_go2_sim, "config/links/links.yaml")
-    default_model_path = os.path.join(unitree_go2_description, "urdf/unitree_go2_robot.xacro")
+    # 원본 Go2 xacro 대신, 센서 오버레이를 얹은 래퍼(agconav_description)를 사용한다.
+    default_model_path = os.path.join(
+        get_package_share_directory("agconav_description"),
+        "urdf/leg_with_sensors.urdf.xacro",
+    )
     default_world_path = os.path.join(unitree_go2_description, "worlds/default.sdf")
 
     declare_use_sim_time = DeclareLaunchArgument(
@@ -121,6 +125,8 @@ def generate_launch_description():
             links_config,
             gait_config,
         ],
+        # CHAMP state_estimation도 imu/data를 구독하므로 오버레이 imu(/leg/imu)로 연결
+        remappings=[("imu/data", "leg/imu")],
     )
 
     base_to_footprint_ekf = Node(
@@ -138,7 +144,12 @@ def generate_launch_description():
                 "base_to_footprint.yaml",
             ),
         ],
-        remappings=[("odometry/filtered", "odom/local")],
+        # 외부 champ yaml의 imu0(imu/data)은 dict override가 안 먹으므로
+        # remapping으로 오버레이 imu(/leg/imu)에 연결한다.
+        remappings=[
+            ("odometry/filtered", "odom/local"),
+            ("imu/data", "leg/imu"),
+        ],
     )
 
     footprint_to_odom_ekf = Node(
@@ -156,7 +167,7 @@ def generate_launch_description():
             {"two_d_mode": True},
             {"odom0": "odom/raw"},
             {"odom0_config": [False, False, False, False, False, False, True, True, False, False, False, True, False, False, False]},
-            {"imu0": "imu/data"},
+            {"imu0": "leg/imu"},
             {"imu0_config": [False, False, False, False, False, True, False, False, False, False, False, True, False, False, False]},
         ],
         remappings=[("odometry/filtered", "odom")],
@@ -221,13 +232,20 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}],
         arguments=[
             # Gazebo to ROS
-            '/imu/data@sensor_msgs/msg/Imu@gz.msgs.IMU',
+            # AG-CoNav: go2 원본 imu(/imu/data)는 os1 오버레이 imu(/leg/imu)로 대체한다.
+            # CHAMP EKF 두 개의 imu0도 /leg/imu로 재배선했으므로 원본 imu 브리지는 비활성화.
+            # '/imu/data@sensor_msgs/msg/Imu@gz.msgs.IMU',
+            '/leg/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
             '/tf@tf2_msgs/msg/TFMessage@gz.msgs.Pose_V',
-            '/velodyne_points/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked',
-            '/unitree_lidar/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked',
+            # AG-CoNav: go2 원본 3D LiDAR/카메라는 os1_lidar 오버레이(leg/points 등)로 대체되어 비활성화.
+            # 브리지를 끊으면 velodyne/lidar_l1은 구독자가 없어(always_on 미설정=기본 false)
+            # raycasting 자체가 멈춰 GPU 부하가 준다. rgb_camera는 always_on=1이라 렌더는 계속되나
+            # ROS로는 나가지 않는다. 완전 정지는 외부 저장소 xacro 수정이 필요해 하지 않는다.
+            # '/velodyne_points/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked',
+            # '/unitree_lidar/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked',
             # '/velodyne_points@sensor_msgs/msg/LaserScan@gz.msgs.LaserScan',
             '/odom@nav_msgs/msg/Odometry@gz.msgs.Odometry',
-            '/rgb_image@sensor_msgs/msg/Image@gz.msgs.Image',
+            # '/rgb_image@sensor_msgs/msg/Image@gz.msgs.Image',
             
             # ROS to Gazebo
             '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',

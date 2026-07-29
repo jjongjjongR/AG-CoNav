@@ -55,6 +55,13 @@ def generate_launch_description():
         "go2_spawn.launch.py",
     )
 
+    # 센서 브리지: gz 센서 토픽을 모듈 계약 이름(/X/points, /X/imu, /X/gps/fix)으로 정합
+    sensor_bridge_launch_path = os.path.join(
+        get_package_share_directory("agconav_gz_bridge"),
+        "launch",
+        "sensor_bridge.launch.py",
+    )
+
     declare_use_sim_time = DeclareLaunchArgument(
         "use_sim_time",
         default_value="true",
@@ -182,6 +189,11 @@ def generate_launch_description():
         }.items(),
     )
 
+    # 센서 브리지(공통): 세 로봇 센서를 모듈 계약 토픽 이름으로 정합해 발행한다.
+    sensor_bridge = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(sensor_bridge_launch_path),
+    )
+
     # 지상 로봇 공통 Nav2, 설정은 하나, 로봇별 차이는 namespace, footprint뿐(README 4참고)
     def _nav2_for(namespace):
         return GroupAction(
@@ -220,6 +232,7 @@ def generate_launch_description():
             drone_cmd_vel_bridge,
             spawn_wheel,
             spawn_leg,
+            sensor_bridge,
             nav2_wheel,
             nav2_leg,
         ]

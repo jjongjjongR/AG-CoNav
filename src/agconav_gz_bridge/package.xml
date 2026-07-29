@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>agconav_gz_bridge</name>
+  <version>0.0.1</version>
+  <description>
+    AG-CoNav Gazebo↔ROS2 센서 브리지. gz 센서 토픽을 모듈 문서(A/B/C/F)의
+    계약 토픽 이름(/X/points, /X/imu, /X/gps/fix)으로 정합한다.
+  </description>
+
+  <maintainer email="lee@example.com">lee</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
