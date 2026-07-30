@@ -7,3 +7,4 @@
     map_name: wheel_elevation_map
     output_format: mcap
     enable_manual_save_service: false
+    status_topic: elevation_map_status

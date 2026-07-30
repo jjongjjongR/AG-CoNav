@@ -1,10 +1,15 @@
-"""design.md 8: launches module D's 5 custom nodes for both wheel and leg.
+"""design.md 8: launches module D's 4 custom nodes for both wheel and leg.
 
 ros_gz_bridge (wheel/leg) is owned by agconav_gz_bridge (CONTRIBUTING 4) and
-is intentionally not launched here -- this file only brings up the 5 nodes
+is intentionally not launched here -- this file only brings up the 4 nodes
 this package owns: ground_pointcloud_collector, ground_lidar_tf_transformer,
-ground_elevation_mapper, ground_elevation_map_saver,
-ground_completion_status_publisher.
+ground_elevation_mapper, ground_elevation_map_saver.
+
+design.md 4-4 / 6-7 / 7-6: ground_elevation_map_saver now also publishes
+elevation_map_status itself once its save succeeds, absorbing what used to
+be the separate ground_completion_status_publisher node (removed -- it
+raced independently against the saver on the same navigation_complete
+input, so elevation_map_status could go out before the save finished).
 
 Each node is launched twice, once per robot, in the `wheel`/`leg` namespace,
 running the exact same code (design.md: "wheel과 leg는 반드시 같은 노드
@@ -31,13 +36,12 @@ from launch_ros.parameter_descriptions import ParameterValue
 PACKAGE_NAME = 'agconav_ground_mapping'
 ROBOTS = ('wheel', 'leg')
 
-# design.md 5-1: (executable, config-file-suffix) for each of the 5 nodes.
+# design.md 5-1: (executable, config-file-suffix) for each of the 4 nodes.
 NODE_SPECS = (
     ('ground_pointcloud_collector', 'pointcloud_collector'),
     ('ground_lidar_tf_transformer', 'tf_transformer'),
     ('ground_elevation_mapper', 'elevation_mapper'),
     ('ground_elevation_map_saver', 'elevation_map_saver'),
-    ('ground_completion_status_publisher', 'completion_status_publisher'),
 )
 
 

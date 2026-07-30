@@ -18,9 +18,9 @@ spec-correct `grid_map_msgs/msg/GridMap` message by hand -- see
 verify once this runs against a real grid_map consumer (RViz2 / a future
 map-fusion module).
 
-design.md 4-5 / 6-7 / 7-6 (완료 상태 제공 책임) lives in the separate
-ground_completion_status_publisher node, not here -- this node only ever
-does accumulation/publish.
+design.md 4-4 / 6-7 / 7-6 (완료 상태 제공 책임) now lives in
+ground_elevation_map_saver, not here -- this node only ever does
+accumulation/publish.
 """
 
 from geometry_msgs.msg import Pose

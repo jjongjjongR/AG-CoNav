@@ -17,8 +17,7 @@ statically broadcasts, once, the map -> {robot}/odom -> {robot}/base_link ->
 {robot}/os1_lidar TF chain for both robots (near-origin, arbitrary offsets)
 so ground_lidar_tf_transformer's lookup_transform succeeds. After 5 seconds
 it publishes Bool(True) once on each robot's navigation_complete topic,
-matching ground_completion_status_publisher's (and ground_elevation_map_saver's)
-completion_topic subscription QoS
+matching ground_elevation_map_saver's completion_topic subscription QoS
 (reliable / transient_local / keep last / depth 1, design.md 7-6).
 
 The node keeps spinning after publishing so points keep flowing and the
@@ -103,9 +102,8 @@ class FakeLidarPublisher(Node):
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=5,
         )
-        # ground_completion_status_publisher's / ground_elevation_map_saver's
-        # completion_topic subscription QoS (design.md 7-6): reliable /
-        # transient_local / keep last / depth 1.
+        # ground_elevation_map_saver's completion_topic subscription QoS
+        # (design.md 7-6): reliable / transient_local / keep last / depth 1.
         nav_complete_qos = QoSProfile(
             reliability=QoSReliabilityPolicy.RELIABLE,
             durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,

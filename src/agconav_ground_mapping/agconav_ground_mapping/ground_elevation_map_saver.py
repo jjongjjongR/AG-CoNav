@@ -7,6 +7,13 @@ signal arrives, serializes that map into a single-topic rosbag2 (mcap).
 Saving happens directly from the completion topic's callback, not via a
 service call -- a manual save Service (std_srvs/Trigger) is available too,
 for debugging/reproduction, but stays off unless explicitly enabled.
+
+design.md 4-4 / 6-7 / 7-6: once the save actually succeeds, this node also
+publishes elevation_map_status=True itself, in the same callback, after the
+file is on disk. This absorbs the responsibility that used to live in the
+now-removed ground_completion_status_publisher node, which republished
+navigation_complete independently and raced against this node's save --
+elevation_map_status could go out before the bag file existed.
 """
 
 import os
@@ -46,12 +53,16 @@ class GroundElevationMapSaver(Node):
         self.declare_parameter('map_name', default_map_name)
         self.declare_parameter('output_format', 'mcap')
         self.declare_parameter('enable_manual_save_service', False)
+        # design.md 4-4 / 6-7 / 7-6: status_topic used to belong to the now-
+        # removed ground_completion_status_publisher node.
+        self.declare_parameter('status_topic', 'elevation_map_status')
 
         self._input_topic = self.get_parameter('input_topic').value
         self._completion_topic = self.get_parameter('completion_topic').value
         self._output_directory = self.get_parameter('output_directory').value
         self._map_name = self.get_parameter('map_name').value
         self._output_format = self.get_parameter('output_format').value
+        self._status_topic = self.get_parameter('status_topic').value
 
         self._latest_elevation_map = None
 
@@ -71,11 +82,20 @@ class GroundElevationMapSaver(Node):
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=1,
         )
+        # design.md 7-6: elevation_map_status is reliable / transient_local /
+        # keep_last / depth 1.
+        status_qos = QoSProfile(
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
 
         self._elevation_map_sub = self.create_subscription(
             GridMap, self._input_topic, self._elevation_map_callback, elevation_map_qos)
         self._completion_sub = self.create_subscription(
             Bool, self._completion_topic, self._completion_callback, completion_qos)
+        self._status_pub = self.create_publisher(Bool, self._status_topic, status_qos)
 
         self._save_service = None
         if self.get_parameter('enable_manual_save_service').value:
@@ -87,7 +107,8 @@ class GroundElevationMapSaver(Node):
             f'completion_topic="{self._completion_topic}" '
             f'(type assumed: {self.get_parameter("completion_type").value}), '
             f'output="{os.path.join(self._output_directory, self._map_name)}" '
-            f'({self._output_format})')
+            f'({self._output_format}), '
+            f'status_topic="{self._status_topic}"')
 
     def _elevation_map_callback(self, msg):
         self._latest_elevation_map = msg
@@ -137,6 +158,7 @@ class GroundElevationMapSaver(Node):
 
         message = f'saved elevation map to "{bag_path}"'
         self.get_logger().info(message)
+        self._status_pub.publish(Bool(data=True))
         return True, message
 
 
