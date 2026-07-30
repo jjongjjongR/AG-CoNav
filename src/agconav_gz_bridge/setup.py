@@ -23,6 +23,8 @@ setup(
     description='AG-CoNav Gazebo↔ROS2 센서 브리지 (계약 토픽 이름 정합).',
     license='MIT',
     entry_points={
-        'console_scripts': [],
+        'console_scripts': [
+            'tf_prefix_relay = agconav_gz_bridge.tf_prefix_relay:main',
+        ],
     },
 )

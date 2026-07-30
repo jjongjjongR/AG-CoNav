@@ -67,7 +67,6 @@ def generate_launch_description():
         default_value="true",
         description="Use Gazebo simulation time",
     )
-
     nav2_launch_path = os.path.join(
         nav2_bringup_share,
         "launch",
@@ -119,7 +118,7 @@ def generate_launch_description():
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(gz_sim_launch_path),
         launch_arguments={
-            "gz_args": [world_path, " -r"],
+            "gz_args": [world_path],
         }.items(),
     )
 
@@ -165,7 +164,7 @@ def generate_launch_description():
             "use_sim_time": use_sim_time,
             "rviz": "false",
             "generate": "true",
-            "x": "-8.0",
+            "x": "-5.0",
             "y": "0.0",
             "z": "0.3",
             "yaw": "0.0",
@@ -182,10 +181,15 @@ def generate_launch_description():
             "use_sim_time": use_sim_time,
             "rviz": "false",
             "robot_name": "leg",
-            "world_init_x": "8.0",
+            "world_init_x": "5.0",
             "world_init_y": "0.0",
-            "world_init_z": "0.45",
+            "world_init_z": "0.25",
             "world_init_heading": "3.14159",
+            "ros_control_file": os.path.join(
+                agconav_bringup_share,
+                "config",
+                "leg_controllers.yaml",
+            ),
         }.items(),
     )
 

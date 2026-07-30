@@ -2,16 +2,17 @@ import os
 
 import launch_ros
 from ament_index_python.packages import get_package_share_directory
-from launch_ros.actions import Node
+from launch_ros.actions import Node, SetRemap
 
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     ExecuteProcess,
-    IncludeLaunchDescription,
     GroupAction,
+    RegisterEventHandler,
     TimerAction,
 )
+from launch.event_handlers import OnProcessExit
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
@@ -28,14 +29,16 @@ def generate_launch_description():
     
     joints_config = os.path.join(unitree_go2_sim, "config/joints/joints.yaml")
     ros_control_config = os.path.join(
-        unitree_go2_sim, "config/ros_control/ros_control.yaml"
+        get_package_share_directory("agconav_bringup"),
+        "config",
+        "leg_controllers.yaml",
     )
     gait_config = os.path.join(unitree_go2_sim, "config/gait/gait.yaml")
     links_config = os.path.join(unitree_go2_sim, "config/links/links.yaml")
     # 원본 Go2 xacro 대신, 센서 오버레이를 얹은 래퍼(agconav_description)를 사용한다.
     default_model_path = os.path.join(
         get_package_share_directory("agconav_description"),
-        "urdf/leg_with_sensors.urdf.xacro",
+        "urdf/leg/leg_with_sensors.urdf.xacro",
     )
     default_world_path = os.path.join(unitree_go2_description, "worlds/default.sdf")
 
@@ -67,7 +70,7 @@ def generate_launch_description():
     )
     declare_world_init_x = DeclareLaunchArgument("world_init_x", default_value="0.0")
     declare_world_init_y = DeclareLaunchArgument("world_init_y", default_value="0.0")
-    declare_world_init_z = DeclareLaunchArgument("world_init_z", default_value="0.375")
+    declare_world_init_z = DeclareLaunchArgument("world_init_z", default_value="0.25")
     declare_world_init_heading = DeclareLaunchArgument(
         "world_init_heading", default_value="0.0"
     )
@@ -77,8 +80,15 @@ def generate_launch_description():
         description="Path to the robot description xacro file",
     )
     
-    # Description nodes and parameters
-    robot_description = {"robot_description": Command(["xacro ", LaunchConfiguration("unitree_go2_description_path")])}
+    # Description nodes and parameters. 같은 control 파일을 robot_state_publisher,
+    # CHAMP URDF 파서, Gazebo ros2_control 플러그인에 일관되게 전달한다.
+    robot_description_content = Command([
+        "xacro ",
+        LaunchConfiguration("unitree_go2_description_path"),
+        " ros_control_file:=",
+        LaunchConfiguration("ros_control_file"),
+    ])
+    robot_description = {"robot_description": robot_description_content}
     
     robot_state_publisher_node = Node(
         package="robot_state_publisher",
@@ -102,7 +112,7 @@ def generate_launch_description():
             {"publish_joint_control": True},
             {"publish_foot_contacts": False},
             {"joint_controller_topic": "joint_group_effort_controller/joint_trajectory"},
-            {"urdf": Command(['xacro ', LaunchConfiguration('unitree_go2_description_path')])},
+            {"urdf": robot_description_content},
             joints_config,
             links_config,
             gait_config,
@@ -120,7 +130,7 @@ def generate_launch_description():
         parameters=[
             {"use_sim_time": use_sim_time},
             {"orientation_from_imu": True},
-            {"urdf": Command(['xacro ', LaunchConfiguration('unitree_go2_description_path')])},
+            {"urdf": robot_description_content},
             joints_config,
             links_config,
             gait_config,
@@ -253,50 +263,91 @@ def generate_launch_description():
         ],
     )
     
-    # Use spawner nodes directly to handle the configuration step. (load → configure → activate)
-    controller_spawner_js = TimerAction(
-        period=20.0,  # Wait for Gazebo to fully initialize
-        actions=[
-            Node(
-                package="controller_manager",
-                executable="spawner",
-                output="screen",
-                arguments=[
-                    "--controller-manager-timeout", "120",  # Longer timeout
-                    "joint_states_controller",  # No --inactive flag to ensure full activation
-                ],
-                parameters=[{"use_sim_time": use_sim_time}],
-            )
-        ]
+    # 일시정지된 물리 월드에서 controller를 load/configure한다. paused 상태에서는
+    # switch_controller가 update cycle을 기다리므로 activation은 다음 단계에서 한다.
+    controller_loader = Node(
+        package="controller_manager",
+        executable="spawner",
+        output="screen",
+        arguments=[
+            "joint_states_controller",
+            "joint_group_effort_controller",
+            "--inactive",
+            "--controller-manager-timeout", "120",
+            "--switch-timeout", "120",
+        ],
     )
 
-    controller_spawner_effort = TimerAction(
-        period=30.0,  # Wait 5 seconds after joint_states_controller
-        actions=[
-            Node(
-                package="controller_manager",
-                executable="spawner",
-                output="screen",
-                arguments=[
-                    "--controller-manager-timeout", "120",  # Longer timeout
-                    "joint_group_effort_controller",  # No --inactive flag to ensure full activation
-                ],
-                parameters=[{"use_sim_time": use_sim_time}],
-            )
-        ]
+    controller_activator = ExecuteProcess(
+        cmd=[
+            "ros2", "control", "switch_controllers",
+            "--strict",
+            "--activate-asap",
+            "--controller-manager", "/controller_manager",
+            "--activate",
+            "joint_states_controller",
+            "joint_group_effort_controller",
+        ],
+        output="screen",
     )
-    
-    # Shell script to manually check controller status 
-    controller_status_check = TimerAction(
-        period=25.0,  # Check status after controllers should be loaded
+
+    unpause_world = TimerAction(
+        period=0.25,
         actions=[
             ExecuteProcess(
-                cmd=["bash", "-c", "echo 'Checking controller status:' && ros2 control list_controllers"],
-                output='screen',
+                cmd=[
+                    "gz", "service",
+                    "-s", "/world/agconav_world/control",
+                    "--reqtype", "gz.msgs.WorldControl",
+                    "--reptype", "gz.msgs.Boolean",
+                    "--timeout", "5000",
+                    "--req", "pause: false",
+                ],
+                output="screen",
             )
-        ]
+        ],
+    )
+
+    activate_after_load = RegisterEventHandler(
+        OnProcessExit(
+            target_action=controller_loader,
+            on_exit=[controller_activator, unpause_world],
+        )
     )
     
+    # leg 스택은 CHAMP가 프레임 이름을 하드코딩(base_link 등)해서 frame_prefix를 못 쓴다.
+    # 그래서 leg의 모든 노드 /tf·/tf_static 를 사설 토픽(/leg/tf)으로 remap해 격리한다.
+    # 내부(CHAMP/EKF)는 루트 프레임 그대로 정상 동작하고, 전역 /tf 오염을 막는다.
+    # 전역 /tf에는 tf_prefix_relay가 leg/* 접두어를 붙여 따로 발행한다(agconav_gz_bridge).
+    leg_stack = GroupAction([
+        SetRemap('/tf', '/leg/tf'),
+        SetRemap('/tf_static', '/leg/tf_static'),
+
+        # Gazebo and robot nodes first
+        robot_state_publisher_node,
+        gazebo_spawn_robot,
+        gazebo_bridge,
+
+        # CHAMP controller nodes
+        quadruped_controller_node,
+        state_estimator_node,
+
+        # EKF nodes for localization
+        base_to_footprint_ekf,
+        footprint_to_odom_ekf,
+
+        # TF publishers for frame connections
+        map_to_odom_tf_node,
+        base_footprint_to_base_link_tf_node,
+
+        # Controller startup handles load/configure → activate request → unpause.
+        activate_after_load,
+        controller_loader,
+
+        # Visualization (only if rviz flag is set)
+        rviz2,
+    ])
+
     return LaunchDescription(
         [
             # Launch arguments
@@ -311,31 +362,8 @@ def generate_launch_description():
             declare_world_init_y,
             declare_world_init_z,
             declare_world_init_heading,
-            declare_description_path, 
-            
-            # Gazebo and robot nodes first
-            robot_state_publisher_node,
-            gazebo_spawn_robot,
-            gazebo_bridge,
-            
-            # CHAMP controller nodes
-            quadruped_controller_node,
-            state_estimator_node,
-            
-            # EKF nodes for localization
-            base_to_footprint_ekf,
-            footprint_to_odom_ekf,
-            
-            # TF publishers for frame connections
-            map_to_odom_tf_node,
-            base_footprint_to_base_link_tf_node,
-            
-            # Controller spawners that handle the complete lifecycle
-            controller_spawner_js,
-            controller_spawner_effort,
-            controller_status_check,
-            
-            # Visualization (only if rviz flag is set)
-            rviz2,
+            declare_description_path,
+
+            leg_stack,
         ]
     )

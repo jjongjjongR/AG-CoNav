@@ -8,7 +8,7 @@
   <xacro:include filename="$(find unitree_go2_description)/urdf/unitree_go2_robot.xacro"/>
 
   <!-- AG-CoNav 센서 오버레이 매크로 -->
-  <xacro:include filename="$(find agconav_description)/urdf/leg_sensors.xacro"/>
+  <xacro:include filename="$(find agconav_description)/urdf/leg/leg_sensors.xacro"/>
 
   <!-- base_link 에 leg 네임스페이스로 센서 부착 -->
   <xacro:leg_sensors parent="base_link" ns="leg"/>

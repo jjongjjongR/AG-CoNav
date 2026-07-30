@@ -23,7 +23,7 @@
     <joint name="os1_lidar_joint" type="fixed">
       <parent link="${parent}"/>
       <child link="os1_lidar"/>
-      <origin xyz="0.0 0.0 0.12" rpy="0 0 0"/>
+      <origin xyz="0.0 0.0 0.09385" rpy="0 0 0"/>
     </joint>
 
     <!-- ===== GPS ===== -->
@@ -37,7 +37,7 @@
     <joint name="gps_joint" type="fixed">
       <parent link="${parent}"/>
       <child link="gps_link"/>
-      <origin xyz="-0.08 0.0 0.10" rpy="0 0 0"/>
+      <origin xyz="-0.10 0.0 0.068" rpy="0 0 0"/>
     </joint>
 
     <!-- ===== Gazebo 센서 정의 ===== -->
@@ -66,6 +66,7 @@
 
     <gazebo reference="${parent}">
       <sensor name="leg_imu_sensor" type="imu">
+        <pose>0 0 -0.025 0 0 0</pose>
         <topic>${ns}/imu</topic>
         <gz_frame_id>${parent}</gz_frame_id>
         <update_rate>100</update_rate>

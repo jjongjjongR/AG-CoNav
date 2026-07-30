@@ -5,7 +5,7 @@
 - wheel     : clearpath a300 센서. robot.yaml에서 launch_enabled:false 라
               clearpath는 ROS로 안 올리므로, gz 토픽(/wheel/sensors/...)을 직접 브리지.
 
-계약 이름 근거: 모듈 A(/drone/points), 모듈 B(/X/imu, /X/gps/fix), 모듈 C(/X/points).
+계약 이름 근거: README §5 (/X/points, /X/imu, /X/gps) 및 모듈 C(/X/points).
 ※ leg IMU(/leg/imu)는 CHAMP EKF 의존성 때문에 go2_spawn.launch.py에서 이미 브리지됨.
 """
 from launch import LaunchDescription
@@ -33,14 +33,45 @@ def generate_launch_description():
             '/wheel/sensors/gps_0/navsat@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
         ],
         remappings=[
+            # LiDAR 점군: gz의 <topic>/points → 계약 /X/points
             ('/drone/points/points', '/drone/points'),
-            ('/drone/gps', '/drone/gps/fix'),
             ('/leg/points/points', '/leg/points'),
-            ('/leg/gps', '/leg/gps/fix'),
             ('/wheel/sensors/lidar3d_0/scan/points', '/wheel/points'),
+            # GPS: README §5 이름 /X/gps (drone/leg는 gz 토픽이 이미 /X/gps라 remap 불필요)
+            ('/wheel/sensors/gps_0/navsat', '/wheel/gps'),
+            # IMU: wheel만 clearpath 이름 → 계약 /wheel/imu (drone/imu, leg/imu는 그대로)
             ('/wheel/sensors/imu_0/data', '/wheel/imu'),
-            ('/wheel/sensors/gps_0/navsat', '/wheel/gps/fix'),
         ],
     )
 
-    return LaunchDescription([sensor_bridge])
+    # ---- TF prefix 리레이 : 사설 /X/tf(루트 프레임) → 전역 /tf(X/* 접두어) ----
+    # 각 로봇 스택은 /leg/tf, /wheel/tf 에서 루트 프레임으로 내부 동작(CHAMP/clearpath 무손상).
+    # 리레이가 공유 map만 빼고 접두어를 붙여 전역 /tf에 통합 뷰를 발행(모듈 E·RViz·크로스로봇용).
+    leg_tf_relay = Node(
+        package='agconav_gz_bridge',
+        executable='tf_prefix_relay',
+        name='leg_tf_prefix_relay',
+        output='screen',
+        parameters=[{
+            'use_sim_time': True,
+            'prefix': 'leg',
+            'input_tf': '/leg/tf',
+            'input_tf_static': '/leg/tf_static',
+            'shared_frames': ['map'],
+        }],
+    )
+    wheel_tf_relay = Node(
+        package='agconav_gz_bridge',
+        executable='tf_prefix_relay',
+        name='wheel_tf_prefix_relay',
+        output='screen',
+        parameters=[{
+            'use_sim_time': True,
+            'prefix': 'wheel',
+            'input_tf': '/wheel/tf',
+            'input_tf_static': '/wheel/tf_static',
+            'shared_frames': ['map'],
+        }],
+    )
+
+    return LaunchDescription([sensor_bridge, leg_tf_relay, wheel_tf_relay])

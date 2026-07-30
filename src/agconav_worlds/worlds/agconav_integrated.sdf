@@ -34,6 +34,93 @@ You can use the velocity controller and command linear velocity and yaw angular 
 
 <sdf version="1.6">
   <world name="agconav_world">
+
+    <!-- GUI 카메라: 원점(로봇 3대: wheel -8,0 / drone 0,0 / leg 8,0)을
+         3/4 각도로 내려다보게 초기 시점 설정. -->
+    <gui fullscreen="0">
+      <!-- gz 기본 gui.config 전체 플러그인 세트. camera_pose만 로봇 시점으로 변경.
+           (일부만 넣으면 레이아웃이 깨져 3D 씬이 안 뜨고 도움말 텍스트가 겹침) -->
+      <plugin filename="MinimalScene" name="3D View">
+        <gz-gui>
+          <title>3D View</title>
+          <property type="bool" key="showTitleBar">false</property>
+          <property type="string" key="state">docked</property>
+        </gz-gui>
+        <engine>ogre2</engine>
+        <scene>scene</scene>
+        <ambient_light>0.4 0.4 0.4</ambient_light>
+        <background_color>0.8 0.8 0.8</background_color>
+        <camera_pose>-13 -13 10 0 0.5 0.785</camera_pose>
+      </plugin>
+      <plugin filename="EntityContextMenuPlugin" name="Entity context menu">
+        <gz-gui><property key="state" type="string">floating</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="showTitleBar" type="bool">false</property></gz-gui>
+      </plugin>
+      <plugin filename="GzSceneManager" name="Scene Manager">
+        <gz-gui><property key="resizable" type="bool">false</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property></gz-gui>
+      </plugin>
+      <plugin filename="InteractiveViewControl" name="Interactive view control">
+        <gz-gui><property key="resizable" type="bool">false</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property></gz-gui>
+      </plugin>
+      <plugin filename="CameraTracking" name="Camera Tracking">
+        <gz-gui><property key="resizable" type="bool">false</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property></gz-gui>
+      </plugin>
+      <plugin filename="MarkerManager" name="Marker manager">
+        <gz-gui><property key="resizable" type="bool">false</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property></gz-gui>
+      </plugin>
+      <plugin filename="SelectEntities" name="Select Entities">
+        <gz-gui><property key="resizable" type="bool">false</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property></gz-gui>
+      </plugin>
+      <plugin filename="Spawn" name="Spawn Entities">
+        <gz-gui><property key="resizable" type="bool">false</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property></gz-gui>
+      </plugin>
+      <plugin filename="VisualizationCapabilities" name="Visualization Capabilities">
+        <gz-gui><property key="resizable" type="bool">false</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property></gz-gui>
+      </plugin>
+      <plugin filename="WorldControl" name="World control">
+        <gz-gui>
+          <title>World control</title>
+          <property type="bool" key="showTitleBar">false</property>
+          <property type="bool" key="resizable">false</property>
+          <property type="double" key="height">72</property>
+          <property type="double" key="z">1</property>
+          <property type="string" key="state">floating</property>
+          <anchors target="3D View"><line own="left" target="left"/><line own="bottom" target="bottom"/></anchors>
+        </gz-gui>
+        <play_pause>true</play_pause>
+        <step>true</step>
+        <start_paused>false</start_paused>
+        <use_event>true</use_event>
+      </plugin>
+      <plugin filename="WorldStats" name="World stats">
+        <gz-gui>
+          <title>World stats</title>
+          <property type="bool" key="showTitleBar">false</property>
+          <property type="bool" key="resizable">false</property>
+          <property type="double" key="height">110</property>
+          <property type="double" key="width">290</property>
+          <property type="double" key="z">1</property>
+          <property type="string" key="state">floating</property>
+          <anchors target="3D View"><line own="right" target="right"/><line own="bottom" target="bottom"/></anchors>
+        </gz-gui>
+        <sim_time>true</sim_time>
+        <real_time>true</real_time>
+        <real_time_factor>true</real_time_factor>
+        <iterations>true</iterations>
+      </plugin>
+      <plugin filename="TransformControl" name="Transform control">
+        <gz-gui><property key="resizable" type="bool">false</property><property key="x" type="double">0</property><property key="y" type="double">50</property><property key="width" type="double">250</property><property key="height" type="double">50</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property><property key="cardBackground" type="string">#777777</property></gz-gui>
+      </plugin>
+      <plugin filename="Screenshot" name="Screenshot">
+        <gz-gui><property key="resizable" type="bool">false</property><property key="x" type="double">250</property><property key="y" type="double">50</property><property key="width" type="double">50</property><property key="height" type="double">50</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property><property key="cardBackground" type="string">#777777</property></gz-gui>
+      </plugin>
+      <plugin filename="ComponentInspector" name="Component inspector">
+        <gz-gui><property type="bool" key="showTitleBar">false</property><property type="string" key="state">docked</property></gz-gui>
+      </plugin>
+      <plugin filename="EntityTree" name="Entity tree">
+        <gz-gui><property type="bool" key="showTitleBar">false</property><property type="string" key="state">docked</property></gz-gui>
+      </plugin>
+    </gui>
+
     <!--
       26-07-29 이종헌:
       GPS(NavSat) 원점, map원점(0,0,0) = 이 위경도 / 서울 성수동
@@ -99,7 +186,7 @@ You can use the velocity controller and command linear velocity and yaw angular 
           <geometry>
             <plane>
               <normal>0 0 1</normal>
-              <size>100 100</size>
+              <size>500 500</size>
             </plane>
           </geometry>
         </collision>
@@ -107,24 +194,75 @@ You can use the velocity controller and command linear velocity and yaw angular 
           <geometry>
             <plane>
               <normal>0 0 1</normal>
-              <size>100 100</size>
+              <size>500 500</size>
             </plane>
           </geometry>
           <material>
-            <ambient>0.8 0.8 0.8 1</ambient>
-            <diffuse>0.8 0.8 0.8 1</diffuse>
-            <specular>0.8 0.8 0.8 1</specular>
+            <ambient>0.20 0.32 0.15 1</ambient>
+            <diffuse>0.30 0.48 0.20 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
           </material>
         </visual>
       </link>
     </model>
+
+    <!-- ============================================================
+         ENVIRONMENT (환경) — 야외 예제 씬 (건물/주유소/나무/가로등).
+         지면은 위 ground_plane(평지 잔디, solid, z=0)이라 로봇이 원점에 확실히 스폰된다.
+         아래 오브젝트는 배경/장애물(모두 Fuel 예제, static). 첫 실행 시 다운로드됨.
+
+         [교체/추가] <include>를 추가·삭제하거나, 직접 만든 월드는 model://<모델>로.
+         ※ terrain mesh 예제(Sonoma 등)는 collision 구멍으로 로봇이 관통하니
+           지면은 평지/solid를 유지할 것. 로봇 스폰 구역(원점 ±8m)엔 오브젝트를 두지 말 것.
+         ============================================================ -->
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/House 1</uri>
+      <name>house1</name>
+      <pose>20 16 0 0 0 -2.4</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Gas Station</uri>
+      <name>gas_station</name>
+      <pose>-20 20 0 0 0 -1.0</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <name>oak1</name>
+      <pose>11 11 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <name>oak2</name>
+      <pose>-4 16 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>pine1</name>
+      <pose>15 4 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>pine2</name>
+      <pose>16 -9 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Lamp Post</uri>
+      <name>lamp1</name>
+      <pose>8 8 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Lamp Post</uri>
+      <name>lamp2</name>
+      <pose>-8 9 0 0 0 0</pose>
+    </include>
+
 
     <include>
       <uri>
         model://agconav_drone
       </uri>
       <name>X3</name>
-      <pose>0 0 0.2 0 0 0</pose>
+      <pose>0 -4 0.2 0 0 0</pose>
       <plugin
         filename="gz-sim-multicopter-motor-model-system"
         name="gz::sim::systems::MulticopterMotorModel">

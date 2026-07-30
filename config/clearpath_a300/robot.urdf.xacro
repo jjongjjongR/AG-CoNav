@@ -38,19 +38,19 @@
   <!-- lidar3d_0 -->
   <xacro:include filename="$(find clearpath_sensors_description)/urdf/ouster_os1.urdf.xacro"/>
   <xacro:ouster_os1 name="lidar3d_0" parent_link="base_link" min_ang_h="-3.141592" max_ang_h="3.141592" min_ang_v="-0.261799" max_ang_v="0.261799" min_range="0.9" max_range="130.0" update_rate="20" samples_h="1024" samples_v="64" base="base" cap="halo">
-    <origin xyz="0.0 0.0 0.5" rpy="0.0 0.0 0.0"/>
+    <origin xyz="0.0 0.0 0.23" rpy="0.0 0.0 0.0"/>
   </xacro:ouster_os1>
 
   <!-- imu_0 -->
   <xacro:include filename="$(find clearpath_sensors_description)/urdf/phidgets_spatial.urdf.xacro"/>
   <xacro:phidgets_spatial name="imu_0" parent_link="base_link">
-    <origin xyz="0.059 0.0 0.161275" rpy="0.0 0.0 0.0"/>
+    <origin xyz="-0.1 0.0 0.202259" rpy="0.0 0.0 0.0"/>
   </xacro:phidgets_spatial>
 
   <!-- gps_0 -->
   <xacro:include filename="$(find clearpath_sensors_description)/urdf/novatel_smart7.urdf.xacro"/>
   <xacro:novatel_smart7 name="gps_0" parent_link="base_link">
-    <origin xyz="-0.15 0.0 0.45" rpy="0.0 0.0 0.0"/>
+    <origin xyz="-0.15 0.0 0.242259" rpy="0.0 0.0 0.0"/>
   </xacro:novatel_smart7>
 
 
