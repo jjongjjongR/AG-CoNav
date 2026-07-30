@@ -53,6 +53,7 @@
 - 코드에는 **상대 토픽 이름**(`points`, `odom`, …)을 쓰고 네임스페이스로 해석되게 한다. `/wheel/points`를 직접 적지 않는다.
 - 전 노드 `use_sim_time: true`.
 - Python `ament_flake8`, C++ `ament_cpplint` 통과 권장.
+- Gazebo world SDF의 <spherical_coordinates> 값과 navsat_transform의 datum이 일치해야 한다. 통합 실행 전 두 값을 대조한다.
 
 ## 6. 라이선스
 

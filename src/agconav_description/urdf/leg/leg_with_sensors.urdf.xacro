@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!-- Go2(leg) 래퍼 - 외부 원본 Go2 모델에 AG-CoNav 센서 오버레이(OS1-32/GPS/IMU)를 얹는다.
+     외부 저장소(unitree_go2_ros2_jazzy)는 수정하지 않고 include로만 연결한다.
+     주석에 "콜론+공백"을 쓰면 robot_description(xacro 출력) yaml 파싱이 깨지므로 금지. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="leg_with_sensors">
+
+  <!-- 원본 Go2 로봇 정의 (절대경로 하드코딩 금지 → find 문법 사용) -->
+  <xacro:include filename="$(find unitree_go2_description)/urdf/unitree_go2_robot.xacro"/>
+
+  <!-- AG-CoNav 센서 오버레이 매크로 -->
+  <xacro:include filename="$(find agconav_description)/urdf/leg/leg_sensors.xacro"/>
+
+  <!-- base_link 에 leg 네임스페이스로 센서 부착 -->
+  <xacro:leg_sensors parent="base_link" ns="leg"/>
+
+</robot>
