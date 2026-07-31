@@ -30,6 +30,10 @@ setup(
         'console_scripts': [
             'map_merge_collector = '
             'agconav_map_fusion.map_merge_collector:main',
+            'elevation_map_merger = '
+            'agconav_map_fusion.elevation_map_merger:main',
+            'merged_elevation_map_saver = '
+            'agconav_map_fusion.merged_elevation_map_saver:main',
         ],
     },
 )

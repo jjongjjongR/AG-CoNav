@@ -1,11 +1,12 @@
-"""design.md 10: launches module E.
+"""design.md 10: launches module E's 3 nodes.
 
-Unlike agconav_ground_mapping, all of design.md 6-1~6-5's responsibilities
-(collect, validate, build output grid, merge, save) were folded into a
-single node -- map_merge_collector -- so there is exactly one Node action
-here and no per-robot namespace. This node's input/output topics are already
-absolute (design.md "구현 시 참고사항": single system-wide node, not a
-per-namespace reusable one).
+design.md 6-1~6-5 / "노드 간 연결 방식": collect+validate (incl. grid
+alignment), merge, and save are 3 separate nodes (processes), connected only
+by topics (map_merge_collector -> /merged/merge_trigger ->
+elevation_map_merger -> /merged/elevation_map -> merged_elevation_map_saver)
+-- not by any in-process function call. None of the 3 run per-robot
+namespaces; all subscribe/publish on absolute topics (design.md "구현 시
+참고사항": single system-wide instances, not per-namespace reusable nodes).
 """
 
 import os
@@ -15,6 +16,12 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 
 PACKAGE_NAME = 'agconav_map_fusion'
+# design.md 7-1: (executable, config-file-name) for each of the 3 nodes.
+NODE_SPECS = (
+    ('map_merge_collector', 'map_merge_collector.yaml'),
+    ('elevation_map_merger', 'elevation_map_merger.yaml'),
+    ('merged_elevation_map_saver', 'merged_elevation_map_saver.yaml'),
+)
 
 
 def generate_launch_description():
@@ -24,15 +31,18 @@ def generate_launch_description():
     # the only time source.
     use_sim_time = {'use_sim_time': True}
 
-    map_merge_collector = Node(
-        package=PACKAGE_NAME,
-        executable='map_merge_collector',
-        name='map_merge_collector',
-        parameters=[
-            os.path.join(config_dir, 'map_merge_collector.yaml'),
-            use_sim_time,
-        ],
-        output='screen',
-    )
+    nodes = [
+        Node(
+            package=PACKAGE_NAME,
+            executable=executable,
+            name=executable,
+            parameters=[
+                os.path.join(config_dir, config_file),
+                use_sim_time,
+            ],
+            output='screen',
+        )
+        for executable, config_file in NODE_SPECS
+    ]
 
-    return LaunchDescription([map_merge_collector])
+    return LaunchDescription(nodes)

@@ -3,10 +3,8 @@
     drone_elevation_map_topic: /drone/elevation_map
     wheel_elevation_map_topic: /wheel/elevation_map
     leg_elevation_map_topic: /leg/elevation_map
-    wheel_status_topic: /wheel/elevation_map_status
-    leg_status_topic: /leg/elevation_map_status
     merge_trigger_topic: /merged/merge_trigger
-    merge_error_topic: /merged/merge_error
+    merged_elevation_map_topic: /merged/elevation_map
     merge_status_topic: /merged/merge_status
+    merge_error_topic: /merged/merge_error
     max_grid_cells: 30000000
-    grid_alignment_tolerance: 1.0e-6
