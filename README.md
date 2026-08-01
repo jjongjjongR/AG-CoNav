@@ -129,7 +129,7 @@ wheel 주행가능 맵 · leg 주행가능 맵 분리   ← 드론 2.5D 에서 �
 
 - 해상도 **0.10 m/cell**(전 지도 동일 → 병합 시 리샘플 불필요) · 2.5D 핵심 레이어 **`elevation`**(m).
 - **미관측 셀 = `NaN`** (grid_map 표준). Nav2용 2D(OccupancyGrid) 투영 시 자유 0 / 점유 100 / 미관측 −1(NaN→−1).
-- **주행성 통과 기준(F)**: wheel = 최대 경사 20°·최대 단차 **0.08 m**, leg = 최대 경사 30°·최대 단차 **0.15 m**. → 월드의 낮은 장애물은 **≈0.12 m**(wheel 막힘·leg 통과)로 배치해야 두 nav_map이 갈린다. (값은 yaml 튜닝)
+- **주행성 통과 기준(F)**: wheel = 최대 경사 20°·최대 단차 **0.08 m**, leg = 최대 경사 30°·최대 단차 **0.15 m**. → 월드의 낮은 장애물은 **정확히 0.10 m**(wheel 막힘·leg 통과)로 배치해야 두 nav_map이 갈린다. (0.11 m↑는 leg 판정 불안정 구간, 값은 yaml 튜닝)
 - **병합 규칙(E)**: 같은 해상도 전제, 출력 = 세 입력의 합집합 범위. 중복 셀은 **지상(wheel/leg) 관측 우선 → 드론**(가림영역 세부 보완 목적), 유효값을 NaN으로 덮지 않음.
 - **저장 형식**: 2.5D elevation = **rosbag2 `mcap`으로 GridMap 직렬화**, 2D nav_map/occupancy = **map_server `.yaml`+`.pgm`**.
 - **미관측 셀** = `NaN` (2D 투영 시 −1) — 3.3
@@ -165,7 +165,7 @@ export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 | **D 지상 지도 누적** | 채현우 | wheel·leg가 이동하며 주변 지형을 2.5D 지도로 누적 | `/X/points`, B의 pose/TF | `/wheel/elevation_map`, `/leg/elevation_map`, 저장 |
 | **E 모든 지도 병합** | 채현우 | 세 2.5D 지도를 하나로 병합 | 3개 `elevation_map` | `/merged_map`, 저장 |
 
-- **F(주행성 분석)**: 드론 2.5D에서 로봇별(경사·단차·장애물 높이 기준) 통과 영역을 갈라 `/wheel/nav_map`·`/leg/nav_map`을 만든다. 낮은 장애물 = wheel 막힘 / leg 통과. Nav2 설정은 **공통 하나**, 로봇별 차이는 **입력 주행맵·footprint**뿐.
+- **F(주행성 분석)**: 드론 2.5D에서 로봇별(경사·단차 기준) 통과 영역을 갈라 `/wheel/nav_map`·`/leg/nav_map`을 만든다. 낮은 장애물 = wheel 막힘 / leg 통과. Nav2 설정은 **공통 하나**, 로봇별 차이는 **입력 주행맵·footprint**뿐.
 - D는 A의 지도 생성 구조를 재사용(협업: 홍연주 ↔ 채현우). E는 이미 map 프레임으로 정렬된 지도를 겹치기만 한다(정렬은 B).
 
 ---
@@ -203,7 +203,7 @@ AG-CoNav/
 ├── CONTRIBUTING.md        # 기여 규칙(브랜치·PR·커밋)
 ├── config/
 ├── src/
-│   ├── agconav_worlds/           # 공통(이종헌)  코펜하겐 500×500 월드·지형
+│   ├── agconav_worlds/           # 공통(이종헌)  서울 성수동 500×500 월드·지형
 │   ├── agconav_description/      # 공통(이종헌)  로봇 3종 모델 + OS1-32/GPS/IMU, 정적 TF
 │   ├── agconav_gz_bridge/        # 공통(이종헌)  Gazebo↔ROS2 브리지 설정
 │   ├── agconav_bringup/          # 공통(이종헌)  전체 통합 launch(원클릭)
@@ -247,7 +247,7 @@ AG-CoNav/
 **남은 튜닝·조율**
 
 1. 통과 기준 파라미터 실측 튜닝(위 값은 시작점).
-2. **월드의 낮은 장애물 높이 ≈ 0.12 m 배치** (worlds·F 모두 이종헌). wheel(0.08)와 leg(0.15) 통과 기준 사이여야 두 nav_map이 갈림.
+2. **월드의 낮은 장애물 높이 0.10 m 배치** (worlds·F 모두 이종헌). wheel(0.08)와 leg(0.15) 통과 기준 사이이며, leg 판정이 안정적인 0.10 m로 맞춘다.
 3. 지도 저장 경로·파일명 규칙(형식은 확정).
 
 ---
