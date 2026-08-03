@@ -55,7 +55,7 @@ def generate_launch_description():
         "go2_spawn.launch.py",
     )
 
-    # 센서 브리지: gz 센서 토픽을 모듈 계약 이름(/X/points, /X/imu, /X/gps/fix)으로 정합
+    # 센서 브리지: gz 센서 토픽을 모듈 계약 이름(/X/points, /X/imu, /X/gps)으로 정합
     sensor_bridge_launch_path = os.path.join(
         get_package_share_directory("agconav_gz_bridge"),
         "launch",
@@ -73,28 +73,36 @@ def generate_launch_description():
         "bringup_launch.py",
     )
 
-    # 이 launch 파일 자신의 실제 경로(--symlink-install이므로 src/ 원본을 가리킴)를 기준으로
-    # 저장소 루트의 config/clearpath_a300을 찾는다. 클론 위치(~/projects/AG-CoNav 등)에
-    # 의존하지 않아 다른 팀원 컴퓨터에서도 그대로 동작한다.
-    _repo_root = os.path.abspath(
-        os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "..")
-    )
+    # 소스/설치 경로를 역산하지 않는다. 일반 colcon build에서는 launch 파일이
+    # install 아래로 복사되므로 __file__ 기준 "저장소 루트" 계산은 잘못된
+    # install/agconav_bringup 경로를 만들 수 있다. robot.yaml은 CMake가 패키지
+    # share/config/clearpath_a300에 설치하며, 어느 PC에서도 ament index로 찾는다.
     declare_clearpath_setup_path = DeclareLaunchArgument(
         "clearpath_setup_path",
-        default_value=os.path.join(_repo_root, "config", "clearpath_a300"),
+        default_value=os.path.join(
+            agconav_bringup_share,
+            "config",
+            "clearpath_a300",
+        ),
         description="Directory containing the A300 robot.yaml",
     )
 
     declare_use_nav2 = DeclareLaunchArgument(
         "use_nav2",
         default_value="false",
-        description="Lunch Nav2 for wheel/leg (needs /X/nav_map and localization TF)"
+        description="Launch Nav2 for wheel/leg (needs /X/nav_map and localization TF)"
     )
 
     declare_nav2_params_file = DeclareLaunchArgument(
         "nav2_params_file",
-        default_value=os.path.join(_repo_root, "src", "agconav_navigation", "config", "nav2_common.yaml"),
-        description="Common Nav2 params for both ground robots (module C)",
+        # 최종 Nav2 설정은 모듈 C가 아직 제공하지 않았다. 상대적인 소스 트리
+        # 경로를 만들지 않고, 사용 시 명시적으로 전달하거나 향후 패키지에 설치한다.
+        default_value=os.path.join(
+            agconav_bringup_share,
+            "config",
+            "nav2_common.yaml",
+        ),
+        description="Common Nav2 params for both ground robots (module C; required when use_nav2=true)",
     )
 
     # Gazebo와 공용 월드는 여기서 한 번만 실행한다.
