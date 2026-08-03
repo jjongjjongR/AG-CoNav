@@ -265,25 +265,18 @@ AG-CoNav/
 ## 10. 설치 · 실행 (요약)
 
 ```bash
-# ROS2 Jazzy + 도구 (venv 안 씀, 시스템에 설치)
-sudo apt install ros-jazzy-desktop gz-harmonic ros-jazzy-ros-gz \
-  ros-jazzy-navigation2 ros-jazzy-nav2-bringup ros-jazzy-robot-localization \
-  ros-jazzy-teleop-twist-keyboard ros-jazzy-xacro \
-  ros-jazzy-robot-state-publisher ros-jazzy-joint-state-publisher \
-  python3-numpy python3-scipy python3-matplotlib python3-opencv \
-  python3-vcstool
-# grid_map / elevation_mapping / Husky A300 모델은 소스 빌드
-
-git clone <이 저장소 URL> AG-CoNav && cd AG-CoNav
-
-# 외부 패키지(Go2 + CHAMP, ~170MB)는 커밋되어 있지 않음 → vcstool로 받기
-vcs import src < deps.repos
-
-colcon build --symlink-install && source install/setup.bash
-# ros2 launch agconav_bringup <통합 launch>   # 원클릭 실행 (구현 후)
+git clone https://github.com/jjongjjongR/AG-CoNav.git && cd AG-CoNav
+./scripts/setup_simulation.sh
+./scripts/run_simulation.sh
 ```
 
-> `deps.repos`에 등록된 외부 저장소를 최신 커밋으로 갱신하려면 `vcs pull src` 후 `deps.repos`의 `version`을 새 커밋 해시로 고쳐 커밋한다(임의 갱신 금지 — 팀 전원이 같은 커밋을 쓰기 위함).
+자동 설정 스크립트가 apt 의존성, Go2/CHAMP 고정 커밋 다운로드, AG-CoNav용
+Go2 패치, rosdep, 전체 빌드와 설치 검증까지 수행한다. 자세한 수동 절차와
+트러블슈팅은 [simulation_guide_jongheon.md](simulation_guide_jongheon.md)를 따른다.
+
+> `deps.repos`에 등록된 외부 저장소를 갱신하려면 `deps.repos`의 `version`뿐 아니라
+> `patches/unitree_go2_ros2_jazzy.patch`도 새 upstream 기준으로 재검증해야 한다.
+> 임의 갱신 금지 — 팀 전원이 같은 커밋과 같은 패치를 사용해야 한다.
 
 ---
 

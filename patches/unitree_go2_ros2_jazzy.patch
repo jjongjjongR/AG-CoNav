@@ -1,0 +1,63 @@
+diff --git a/unitree_go2_description/urdf/leg.xacro b/unitree_go2_description/urdf/leg.xacro
+index fbc41cc..f1a1acc 100755
+--- a/unitree_go2_description/urdf/leg.xacro
++++ b/unitree_go2_description/urdf/leg.xacro
+@@ -177,19 +177,25 @@
+             </hardware>
+             <joint name="${name}_hip_joint">
+                 <command_interface name="effort"/>
+-                <state_interface name="position"/>
++                <state_interface name="position">
++                    <param name="initial_value">0.0</param>
++                </state_interface>
+                 <state_interface name="velocity"/>
+             </joint>
+         
+             <joint name="${name}_upper_leg_joint">
+                 <command_interface name="effort"/>
+-                <state_interface name="position"/>
++                <state_interface name="position">
++                    <param name="initial_value">1.0143535</param>
++                </state_interface>
+                 <state_interface name="velocity"/>
+             </joint>
+         
+             <joint name="${name}_lower_leg_joint">
+                 <command_interface name="effort"/>
+-                <state_interface name="position"/>
++                <state_interface name="position">
++                    <param name="initial_value">-2.0287070</param>
++                </state_interface>
+                 <state_interface name="velocity"/>
+             </joint>
+         </ros2_control> 
+diff --git a/unitree_go2_description/urdf/unitree_go2_gazebo.xacro b/unitree_go2_description/urdf/unitree_go2_gazebo.xacro
+index 0aa89f4..677e4cd 100644
+--- a/unitree_go2_description/urdf/unitree_go2_gazebo.xacro
++++ b/unitree_go2_description/urdf/unitree_go2_gazebo.xacro
+@@ -1,5 +1,8 @@
+ <?xml version="1.0"?>
+-<robot>
++<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
++  <xacro:arg
++    name="ros_control_file"
++    default="$(find unitree_go2_sim)/config/ros_control/ros_control.yaml"/>
+   <!-- Gazebo Sim plugins -->
+   <gazebo>
+     <plugin filename="gz-sim-pose-publisher-system" name="gz::sim::systems::PosePublisher">
+@@ -26,7 +29,7 @@
+   <!-- ROS2 Control plugin -->
+   <gazebo>
+     <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+-      <parameters>$(find unitree_go2_sim)/config/ros_control/ros_control.yaml</parameters>
++      <parameters>$(arg ros_control_file)</parameters>
+       <robot_param_node>robot_state_publisher</robot_param_node>
+     </plugin>
+   </gazebo>
+@@ -228,4 +231,4 @@
+     <kd>1.0</kd>
+   </gazebo>
+ 
+-</robot>
+\ No newline at end of file
++</robot>
