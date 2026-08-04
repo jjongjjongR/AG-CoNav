@@ -1,10 +1,22 @@
-"""Accumulates a robot's map-frame point cloud into a 2.5D elevation grid.
+"""Subscribes to a robot's raw LiDAR PointCloud2, transforms it into map, and
+accumulates a 2.5D elevation grid, publishing the final map once on completion.
 
-design.md 4-3 / 6-5 / 7-4: this node is launched once per robot (wheel/leg),
-each in its own namespace, running the exact same code. It subscribes to the
-map-frame point cloud published by ground_lidar_tf_transformer, bins points
-into a resolution x resolution grid, and republishes the running-average
-height per cell as a grid_map_msgs/GridMap with an `elevation` layer.
+design.md 4-1 / 6-2 / 6-3 / 7-1 / 7-2: this node is launched once per
+robot (wheel/leg), each in its own namespace, running the exact same code.
+It subscribes to the raw sensor cloud directly, looks up the sensor-to-map
+TF at the cloud's own stamp, transforms it into the map frame, and bins the
+result into a resolution x resolution grid, keeping a running-average height
+per cell. Unlike the earlier 4-node design, this absorbs what used to be two
+separate nodes (`ground_pointcloud_collector` for receipt monitoring,
+`ground_lidar_tf_transformer` for the TF lookup/transform) -- splitting the
+TF transform into its own node meant re-publishing a full PointCloud2 (10Hz
+x 32ch x 1024pts) purely to hand it to this node, for no benefit since
+nothing else consumed the transformed cloud.
+
+design.md 4-1 / 6-4 / 6-5 / 7-3 / 7-4: the elevation map itself is no
+longer published on a 1Hz timer. It is published exactly once, when
+`navigation_status` reports the robot's move as complete -- accumulation
+keeps running regardless, but only that one final snapshot goes out.
 
 The grid is implemented directly with numpy rather than the grid_map C++/
 Python bindings: this node only ever needs one layer (`elevation`), plain
@@ -18,42 +30,66 @@ spec-correct `grid_map_msgs/msg/GridMap` message by hand -- see
 verify once this runs against a real grid_map consumer (RViz2 / a future
 map-fusion module).
 
-design.md 4-4 / 6-7 / 7-6 (완료 상태 제공 책임) now lives in
-ground_elevation_map_saver, not here -- this node only ever does
-accumulation/publish.
+design.md 4-2 (지도 저장 책임) now lives in ground_elevation_map_saver, not
+here -- this node only ever does accumulation/publish.
 """
 
 from geometry_msgs.msg import Pose
 from grid_map_msgs.msg import GridMap, GridMapInfo
 import numpy as np
 import rclpy
+from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
+from rclpy.time import Time
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py.point_cloud2 import read_points_numpy
-from std_msgs.msg import Float32MultiArray, MultiArrayDimension
+from std_msgs.msg import Bool, Float32MultiArray, MultiArrayDimension
+from tf2_ros import Buffer, TransformException, TransformListener
+from tf2_sensor_msgs.tf2_sensor_msgs import do_transform_cloud
 
 
 class GroundElevationMapper(Node):
-    """Bins a robot's map-frame point cloud into a growing elevation grid."""
+    """Transforms a robot's raw PointCloud2 into map and bins it into a grid."""
 
     def __init__(self):
         super().__init__('ground_elevation_mapper')
 
         # CONTRIBUTING 5: relative topic names, resolved by the launch
-        # namespace (e.g. /wheel/points_map -> /wheel/elevation_map).
-        self.declare_parameter('points_map_topic', 'points_map')
+        # namespace (e.g. /wheel/points -> /wheel/elevation_map).
+        self.declare_parameter('points_topic', 'points')
         self.declare_parameter('elevation_map_topic', 'elevation_map')
+        self.declare_parameter('navigation_status_topic', 'navigation_status')
+        # README 3.1: single global frame `map`.
+        self.declare_parameter('target_frame', 'map')
+        # 변경사항 5 검토 결과: /wheel/points, /leg/points의 실제 header.frame_id가
+        # 사설 프레임인지 전역 프레임인지 이 환경에서 실측하지 못했고(브릿지 설정
+        # 자체가 아직 리포에 없음), wheel/leg의 정적 분석 결과도 서로 달랐다. 실측
+        # 없이 단정하는 대신 파라미터로 노출한다: 비워두면(기본값) 기존처럼
+        # msg.header.frame_id를 신뢰하고, 값이 있으면 그 전역 프레임 이름으로
+        # source_frame을 덮어쓴다. drone은 애초에 frame_id가 전역 이름이라 비워둔다.
+        self.declare_parameter('target_source_frame', '')
         # README 3.3: fixed 0.10 m/cell resolution across all maps.
         self.declare_parameter('resolution', 0.10)
-        # design.md 7-4: default 1 Hz publish rate.
-        self.declare_parameter('publish_period_sec', 1.0)
         self.declare_parameter('frame_id', 'map')
+        # design.md 4-1: 수신 감시 책임(구 ground_pointcloud_collector)을 그대로
+        # 이식. 원본 점군 수신이 끊겼는지 감지하는 헬스체크는 노드가 통합되어도
+        # 여전히 유용하다는 판단(사용자 결정).
+        self.declare_parameter('data_timeout_sec', 2.0)
+        self.declare_parameter('check_period_sec', 1.0)
 
-        points_map_topic = self.get_parameter('points_map_topic').value
+        points_topic = self.get_parameter('points_topic').value
         elevation_map_topic = self.get_parameter('elevation_map_topic').value
+        navigation_status_topic = self.get_parameter('navigation_status_topic').value
+        self._target_frame = self.get_parameter('target_frame').value
+        self._target_source_frame = self.get_parameter('target_source_frame').value
         self._resolution = float(self.get_parameter('resolution').value)
         self._frame_id = self.get_parameter('frame_id').value
+        self._data_timeout = Duration(
+            seconds=self.get_parameter('data_timeout_sec').value)
+
+        self._tf_buffer = Buffer()
+        self._tf_listener = TransformListener(self._tf_buffer, self)
 
         # Grid state, in OUR OWN convention (not grid_map's wire convention,
         # see _build_grid_map_message): (row, col) = (0, 0) is the min-x/
@@ -65,36 +101,71 @@ class GroundElevationMapper(Node):
         self._origin_x = 0.0
         self._origin_y = 0.0
         self._last_stamp = None
+        self._last_received = None
+        self._published = False
 
-        # design.md 7-3: input matches ground_lidar_tf_transformer's output QoS.
-        input_qos = QoSProfile(
+        # design.md 7-1: raw sensor cloud is best effort / volatile /
+        # keep last / depth 5.
+        points_qos = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
             durability=QoSDurabilityPolicy.VOLATILE,
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=5,
         )
-        # design.md 7-4: output is reliable + transient_local, depth 1.
-        output_qos = QoSProfile(
+        # design.md 7-3 / 7-4: elevation_map and navigation_status are both
+        # one-shot signals (final map / completion), so both use reliable +
+        # transient_local + keep_last + depth 1 -- a best_effort profile
+        # would have no recovery if that single message were dropped. Same
+        # reasoning as module E's merge_trigger.
+        latched_qos = QoSProfile(
             reliability=QoSReliabilityPolicy.RELIABLE,
             durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=1,
         )
 
-        self._points_map_sub = self.create_subscription(
-            PointCloud2, points_map_topic, self._points_map_callback, input_qos)
+        self._points_sub = self.create_subscription(
+            PointCloud2, points_topic, self._points_callback, points_qos)
+        self._navigation_status_sub = self.create_subscription(
+            Bool, navigation_status_topic, self._navigation_status_callback, latched_qos)
         self._elevation_map_pub = self.create_publisher(
-            GridMap, elevation_map_topic, output_qos)
+            GridMap, elevation_map_topic, latched_qos)
 
-        publish_period = self.get_parameter('publish_period_sec').value
-        self._publish_timer = self.create_timer(
-            publish_period, self._publish_elevation_map)
+        check_period = self.get_parameter('check_period_sec').value
+        self._check_timer = self.create_timer(
+            check_period, self._check_data_received)
 
         self.get_logger().info(
-            f'Accumulating "{points_map_topic}" -> "{elevation_map_topic}" '
-            f'(resolution={self._resolution} m/cell)')
+            f'Accumulating "{points_topic}" -> "{elevation_map_topic}" '
+            f'(resolution={self._resolution} m/cell, target_frame='
+            f'"{self._target_frame}"), publishing once on '
+            f'"{navigation_status_topic}"')
 
-    def _points_map_callback(self, msg):
+    def _points_callback(self, msg):
+        self._last_received = self.get_clock().now()
+
+        source_frame = self._target_source_frame or msg.header.frame_id
+        try:
+            # design.md 7-2: look up the TF at the cloud's own measurement
+            # stamp. No wait timeout: if it isn't available yet, drop this
+            # cloud rather than blocking the single-threaded executor.
+            transform = self._tf_buffer.lookup_transform(
+                self._target_frame, source_frame, Time.from_msg(msg.header.stamp))
+        except TransformException as ex:
+            self.get_logger().warn(
+                f'TF lookup failed for "{source_frame}" -> '
+                f'"{self._target_frame}" at {msg.header.stamp.sec}.'
+                f'{msg.header.stamp.nanosec:09d}s, dropping cloud: {ex}')
+            return
+
+        # only frame_id changes on this internal map-frame conversion,
+        # original stamp is kept (no longer a separate published topic).
+        cloud_map = do_transform_cloud(msg, transform)
+        cloud_map.header.stamp = msg.header.stamp
+        cloud_map.header.frame_id = self._target_frame
+        self._accumulate(cloud_map)
+
+    def _accumulate(self, msg):
         points = read_points_numpy(msg, field_names=('x', 'y', 'z'), skip_nans=True)
         if points.shape[0] == 0:
             return
@@ -104,7 +175,7 @@ class GroundElevationMapper(Node):
         col_idx = np.floor((ys - self._origin_y) / self._resolution).astype(np.int64)
         row_idx, col_idx = self._grow_to_fit(row_idx, col_idx)
 
-        # design.md 3/4-3: bin points into cells and accumulate ("누적") a
+        # design.md 3/4-1: bin points into cells and accumulate ("누적") a
         # running average height per cell, vectorized via bincount.
         n_rows, n_cols = self._sum.shape
         cell_count = n_rows * n_cols
@@ -148,10 +219,29 @@ class GroundElevationMapper(Node):
 
         return row_idx, col_idx
 
-    def _publish_elevation_map(self):
+    def _navigation_status_callback(self, msg):
+        # design.md 4-1 / 6-4 / 6-5: publish the accumulated map exactly once,
+        # the moment navigation reports completion. Further True messages
+        # (or a late-joining latched redelivery) must not republish.
+        if not msg.data or self._published:
+            return
         if self._sum is None:
+            self.get_logger().warn(
+                'navigation_status reported complete but no points were '
+                'accumulated yet, nothing to publish.')
             return
         self._elevation_map_pub.publish(self._build_grid_map_message())
+        self._published = True
+
+    def _check_data_received(self):
+        if self._last_received is None:
+            self.get_logger().warn('no point cloud received yet.')
+            return
+        elapsed = self.get_clock().now() - self._last_received
+        if elapsed > self._data_timeout:
+            self.get_logger().warn(
+                f'no point cloud in the last {elapsed.nanoseconds / 1e9:.2f}s '
+                '(topic may be stalled).')
 
     def _build_grid_map_message(self):
         n_rows, n_cols = self._sum.shape

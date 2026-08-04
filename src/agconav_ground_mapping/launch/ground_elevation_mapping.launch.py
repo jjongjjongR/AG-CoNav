@@ -1,15 +1,20 @@
-"""design.md 8: launches module D's 4 custom nodes for both wheel and leg.
+"""design.md 8: launches module D's 2 custom nodes for both wheel and leg.
 
 ros_gz_bridge (wheel/leg) is owned by agconav_gz_bridge (CONTRIBUTING 4) and
-is intentionally not launched here -- this file only brings up the 4 nodes
-this package owns: ground_pointcloud_collector, ground_lidar_tf_transformer,
-ground_elevation_mapper, ground_elevation_map_saver.
+is intentionally not launched here -- this file only brings up the 2 nodes
+this package owns: ground_elevation_mapper, ground_elevation_map_saver.
 
-design.md 4-4 / 6-7 / 7-6: ground_elevation_map_saver now also publishes
+design.md 4-1: ground_elevation_mapper now absorbs what used to be two
+separate nodes, ground_pointcloud_collector (receipt monitoring) and
+ground_lidar_tf_transformer (TF lookup/transform) -- both removed, since
+splitting the TF transform into its own node only added the overhead of
+re-publishing a full PointCloud2 for a single downstream consumer.
+
+design.md 4-2 / 6-7: ground_elevation_map_saver still publishes
 elevation_map_status itself once its save succeeds, absorbing what used to
-be the separate ground_completion_status_publisher node (removed -- it
-raced independently against the saver on the same navigation_complete
-input, so elevation_map_status could go out before the save finished).
+be the separate ground_completion_status_publisher node (removed earlier --
+it raced independently against the saver on the same completion input, so
+elevation_map_status could go out before the save finished).
 
 Each node is launched twice, once per robot, in the `wheel`/`leg` namespace,
 running the exact same code (design.md: "wheel과 leg는 반드시 같은 노드
@@ -19,9 +24,8 @@ README 3.4: with Gazebo up, /clock is the only time source and this should
 be run with `use_sim_time:=true`. It is a launch argument (default `false`)
 rather than hardcoded so it can also be run against a system-clock source
 with no Gazebo up (e.g. test/publish_fake_lidar.py) -- with use_sim_time
-forced true and no /clock publisher, every timer in this package
-(ground_pointcloud_collector's check_period_sec, ground_elevation_mapper's
-publish_period_sec, ...) never fires.
+forced true and no /clock publisher, ground_elevation_mapper's
+check_period_sec timer never fires.
 """
 
 import os
@@ -36,10 +40,8 @@ from launch_ros.parameter_descriptions import ParameterValue
 PACKAGE_NAME = 'agconav_ground_mapping'
 ROBOTS = ('wheel', 'leg')
 
-# design.md 5-1: (executable, config-file-suffix) for each of the 4 nodes.
+# design.md 5-1: (executable, config-file-suffix) for each of the 2 nodes.
 NODE_SPECS = (
-    ('ground_pointcloud_collector', 'pointcloud_collector'),
-    ('ground_lidar_tf_transformer', 'tf_transformer'),
     ('ground_elevation_mapper', 'elevation_mapper'),
     ('ground_elevation_map_saver', 'elevation_map_saver'),
 )

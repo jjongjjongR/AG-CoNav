@@ -3,22 +3,23 @@
 
 Not a pytest test (no `test_` prefix, not collected by pytest) and not a
 production node -- it exists purely so a developer can run
-`ground_pointcloud_collector` / `ground_lidar_tf_transformer` /
-`ground_elevation_mapper` against something without needing wheel/leg's real
-Gazebo + LiDAR bridge up. Run it directly:
+`ground_elevation_mapper` / `ground_elevation_map_saver` against something
+without needing wheel/leg's real Gazebo + LiDAR bridge up. Run it directly:
 
     python3 test/publish_fake_lidar.py
 
 At 2 Hz it publishes a small random PointCloud2 on /wheel/points and
 /leg/points (frame_id "wheel/os1_lidar" / "leg/os1_lidar"), matching
-ground_pointcloud_collector's and ground_lidar_tf_transformer's points_qos
-(best effort / volatile / keep last / depth 5, design.md 7-1). It also
-statically broadcasts, once, the map -> {robot}/odom -> {robot}/base_link ->
-{robot}/os1_lidar TF chain for both robots (near-origin, arbitrary offsets)
-so ground_lidar_tf_transformer's lookup_transform succeeds. After 5 seconds
-it publishes Bool(True) once on each robot's navigation_complete topic,
-matching ground_elevation_map_saver's completion_topic subscription QoS
-(reliable / transient_local / keep last / depth 1, design.md 7-6).
+ground_elevation_mapper's points_qos (best effort / volatile / keep last /
+depth 5, design.md 7-1). It also statically broadcasts, once, the map ->
+{robot}/odom -> {robot}/base_link -> {robot}/os1_lidar TF chain for both
+robots (near-origin, arbitrary offsets) so ground_elevation_mapper's
+lookup_transform succeeds. After 5 seconds it publishes Bool(True) once on
+each robot's navigation_status topic, matching ground_elevation_mapper's
+navigation_status subscription QoS (reliable / transient_local / keep last /
+depth 1, design.md 7-4) -- this in turn makes the mapper publish
+elevation_map once, which ground_elevation_map_saver treats as its save
+trigger.
 
 The node keeps spinning after publishing so points keep flowing and the
 static TF stays available; stop it with Ctrl+C.
@@ -39,7 +40,7 @@ POINTS_HZ = 2.0
 NUM_POINTS = 40
 POINT_SPREAD = 1.0  # meters, x/y drawn from [-POINT_SPREAD, POINT_SPREAD]
 POINT_HEIGHT = 0.5  # meters, z drawn from [0, POINT_HEIGHT]
-NAV_COMPLETE_DELAY_SEC = 5.0
+NAV_STATUS_DELAY_SEC = 5.0
 
 # Arbitrary near-origin offsets per TF chain link, distinct per robot so the
 # two chains are easy to tell apart in RViz2/tf2_echo. (x, y, z) meters,
@@ -94,17 +95,17 @@ class FakeLidarPublisher(Node):
     def __init__(self):
         super().__init__('publish_fake_lidar')
 
-        # ground_pointcloud_collector's / ground_lidar_tf_transformer's
-        # points_qos (design.md 7-1): best effort / volatile / keep last / depth 5.
+        # ground_elevation_mapper's points_qos (design.md 7-1): best effort /
+        # volatile / keep last / depth 5.
         points_qos = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
             durability=QoSDurabilityPolicy.VOLATILE,
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=5,
         )
-        # ground_elevation_map_saver's completion_topic subscription QoS
-        # (design.md 7-6): reliable / transient_local / keep last / depth 1.
-        nav_complete_qos = QoSProfile(
+        # ground_elevation_mapper's navigation_status subscription QoS
+        # (design.md 7-4): reliable / transient_local / keep last / depth 1.
+        nav_status_qos = QoSProfile(
             reliability=QoSReliabilityPolicy.RELIABLE,
             durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
             history=QoSHistoryPolicy.KEEP_LAST,
@@ -118,16 +119,16 @@ class FakeLidarPublisher(Node):
             robot: self.create_publisher(PointCloud2, f'/{robot}/points', points_qos)
             for robot in ROBOTS
         }
-        self._nav_complete_pubs = {
+        self._nav_status_pubs = {
             robot: self.create_publisher(
-                Bool, f'/{robot}/navigation_complete', nav_complete_qos)
+                Bool, f'/{robot}/navigation_status', nav_status_qos)
             for robot in ROBOTS
         }
 
         self._publish_static_tf()
         self._points_timer = self.create_timer(1.0 / POINTS_HZ, self._publish_fake_clouds)
-        self._nav_complete_timer = self.create_timer(
-            NAV_COMPLETE_DELAY_SEC, self._publish_nav_complete_once)
+        self._nav_status_timer = self.create_timer(
+            NAV_STATUS_DELAY_SEC, self._publish_nav_status_once)
 
     def _publish_static_tf(self):
         stamp = self.get_clock().now().to_msg()
@@ -143,13 +144,13 @@ class FakeLidarPublisher(Node):
             cloud = create_cloud_xyz32(header, _build_fake_points(self._rng))
             self._points_pubs[robot].publish(cloud)
 
-    def _publish_nav_complete_once(self):
-        self._nav_complete_timer.cancel()
+    def _publish_nav_status_once(self):
+        self._nav_status_timer.cancel()
         for robot in ROBOTS:
-            self._nav_complete_pubs[robot].publish(Bool(data=True))
-            self.get_logger().info(f'{robot}: published navigation_complete=True')
+            self._nav_status_pubs[robot].publish(Bool(data=True))
+            self.get_logger().info(f'{robot}: published navigation_status=True')
         self.get_logger().info(
-            'both navigation_complete topics published. keeping node alive so '
+            'both navigation_status topics published. keeping node alive so '
             'points keep flowing -- Ctrl+C to stop.')
 
 

@@ -1,14 +1,25 @@
-"""Saves a robot's latest elevation map to an mcap rosbag2 on completion.
+"""Saves a robot's elevation map to an mcap rosbag2 as soon as it arrives.
 
-design.md 4-4 / 6-6 / 7-5: this node is launched once per robot (wheel/leg),
-each in its own namespace, running the exact same code. It keeps the most
-recently received elevation_map (GridMap) and, when a navigation_complete
-signal arrives, serializes that map into a single-topic rosbag2 (mcap).
-Saving happens directly from the completion topic's callback, not via a
-service call -- a manual save Service (std_srvs/Trigger) is available too,
-for debugging/reproduction, but stays off unless explicitly enabled.
+design.md 4-2 / 6-4 / 6-6 / 7-3: this node is launched once per robot
+(wheel/leg), each in its own namespace, running the exact same code. It no
+longer subscribes to navigation_status itself -- ground_elevation_mapper now
+only publishes elevation_map once, exactly when navigation reports
+completion (design.md 4-1), so receiving elevation_map already means
+"move complete + final map ready". Saving happens directly from that
+callback, not via a service call -- a manual save Service (std_srvs/Trigger)
+is available too, for debugging/reproduction, but stays off unless
+explicitly enabled.
 
-design.md 4-4 / 6-7 / 7-6: once the save actually succeeds, this node also
+This replaces the previous design where saver and mapper each independently
+subscribed to the completion topic: with no ordering guarantee between two
+independent subscribers, saver could try to save before mapper had published
+the final map -- the same class of race previously solved by folding
+ground_completion_status_publisher into this node (design.md 4-2 note
+below). This time the fix runs the other direction: the publish side
+(mapper) only emits once it has the completion signal, and the save side
+(saver) treats that single emission itself as the trigger.
+
+design.md 4-2 / 6-7 / 7-5: once the save actually succeeds, this node also
 publishes elevation_map_status=True itself, in the same callback, after the
 file is on disk. This absorbs the responsibility that used to live in the
 now-removed ground_completion_status_publisher node, which republished
@@ -34,7 +45,7 @@ class GroundElevationMapSaver(Node):
     def __init__(self):
         super().__init__('ground_elevation_map_saver')
 
-        # design.md 7-5: map_name defaults from the launch namespace, e.g.
+        # design.md 6-7: map_name defaults from the launch namespace, e.g.
         # /wheel -> "wheel_elevation_map", /leg -> "leg_elevation_map".
         namespace = self.get_namespace().strip('/')
         default_map_name = f'{namespace}_elevation_map' if namespace else 'elevation_map'
@@ -43,22 +54,15 @@ class GroundElevationMapSaver(Node):
         # namespace. use_sim_time is declared automatically by rclpy.Node,
         # not redeclared here (README 3.4: set true from launch).
         self.declare_parameter('input_topic', 'elevation_map')
-        self.declare_parameter('completion_topic', 'navigation_complete')
-        # design.md 7-5 marks the completion message type "확정 필요" and says
-        # to assume std_msgs/msg/Bool for now. This parameter only records
-        # that assumption for visibility; the subscribed type is fixed in
-        # code below, since switching it dynamically isn't needed yet.
-        self.declare_parameter('completion_type', 'std_msgs/msg/Bool')
         self.declare_parameter('output_directory', 'maps')
         self.declare_parameter('map_name', default_map_name)
         self.declare_parameter('output_format', 'mcap')
         self.declare_parameter('enable_manual_save_service', False)
-        # design.md 4-4 / 6-7 / 7-6: status_topic used to belong to the now-
-        # removed ground_completion_status_publisher node.
+        # design.md 4-2 / 6-7: status_topic used to belong to the now-removed
+        # ground_completion_status_publisher node.
         self.declare_parameter('status_topic', 'elevation_map_status')
 
         self._input_topic = self.get_parameter('input_topic').value
-        self._completion_topic = self.get_parameter('completion_topic').value
         self._output_directory = self.get_parameter('output_directory').value
         self._map_name = self.get_parameter('map_name').value
         self._output_format = self.get_parameter('output_format').value
@@ -66,7 +70,7 @@ class GroundElevationMapSaver(Node):
 
         self._latest_elevation_map = None
 
-        # design.md 7-4: elevation_map is published reliable / transient_local
+        # design.md 7-3: elevation_map is published reliable / transient_local
         # / keep_last / depth 1 -- match that here.
         elevation_map_qos = QoSProfile(
             reliability=QoSReliabilityPolicy.RELIABLE,
@@ -74,15 +78,7 @@ class GroundElevationMapSaver(Node):
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=1,
         )
-        # design.md 7-5: assume reliable / transient_local until the external
-        # navigation module's actual QoS is confirmed.
-        completion_qos = QoSProfile(
-            reliability=QoSReliabilityPolicy.RELIABLE,
-            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
-            history=QoSHistoryPolicy.KEEP_LAST,
-            depth=1,
-        )
-        # design.md 7-6: elevation_map_status is reliable / transient_local /
+        # design.md 7-5: elevation_map_status is reliable / transient_local /
         # keep_last / depth 1.
         status_qos = QoSProfile(
             reliability=QoSReliabilityPolicy.RELIABLE,
@@ -93,8 +89,6 @@ class GroundElevationMapSaver(Node):
 
         self._elevation_map_sub = self.create_subscription(
             GridMap, self._input_topic, self._elevation_map_callback, elevation_map_qos)
-        self._completion_sub = self.create_subscription(
-            Bool, self._completion_topic, self._completion_callback, completion_qos)
         self._status_pub = self.create_publisher(Bool, self._status_topic, status_qos)
 
         self._save_service = None
@@ -104,21 +98,18 @@ class GroundElevationMapSaver(Node):
 
         self.get_logger().info(
             f'input_topic="{self._input_topic}", '
-            f'completion_topic="{self._completion_topic}" '
-            f'(type assumed: {self.get_parameter("completion_type").value}), '
             f'output="{os.path.join(self._output_directory, self._map_name)}" '
             f'({self._output_format}), '
             f'status_topic="{self._status_topic}"')
 
     def _elevation_map_callback(self, msg):
+        # design.md 6-4 / 6-6: elevation_map is now published exactly once, by
+        # ground_elevation_mapper, only after navigation_status reports
+        # completion -- so receiving it here already means "move complete +
+        # final map ready", and triggers the save directly, no separate
+        # completion topic or service call involved.
         self._latest_elevation_map = msg
-
-    def _completion_callback(self, msg):
-        # design.md 6-6: the completion topic's callback triggers the save
-        # directly, no service call involved. Only an actual "complete"
-        # signal (data == True) triggers it.
-        if msg.data:
-            self._save_elevation_map()
+        self._save_elevation_map()
 
     def _manual_save_callback(self, request, response):
         response.success, response.message = self._save_elevation_map()
