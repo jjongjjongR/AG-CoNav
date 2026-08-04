@@ -336,17 +336,11 @@ map
 ```
 ground_elevation_mapping.launch.py
  │
- ├─ wheel 브릿지(ros_gz_bridge)
- │   └─ wheel_bridge.yaml
- │
  ├─ wheel 지도 생성(ground_elevation_mapper)
  │   └─ wheel_elevation_mapper.yaml
  │
  ├─ wheel 지도 저장 + 완료 상태 제공(ground_elevation_map_saver)
  │   └─ wheel_elevation_map_saver.yaml
- │
- ├─ leg 브릿지(ros_gz_bridge)
- │   └─ leg_bridge.yaml
  │
  ├─ leg 지도 생성(ground_elevation_mapper)
  │   └─ leg_elevation_mapper.yaml
@@ -354,6 +348,8 @@ ground_elevation_mapping.launch.py
  └─ leg 지도 저장 + 완료 상태 제공(ground_elevation_map_saver)
      └─ leg_elevation_map_saver.yaml
 ```
+
+`ros_gz_bridge`(wheel/leg, `wheel_bridge.yaml`/`leg_bridge.yaml`)는 `agconav_gz_bridge` 패키지가 소유하며 이 launch 파일에서는 의도적으로 띄우지 않는다 — `ground_elevation_mapping.launch.py`는 이 패키지가 소유한 노드만 다룬다.
 
 로봇당 노드 수가 4개(수집/변환/생성/저장)에서 2개(생성/저장)로 줄었다 (4-1 참고).
 
