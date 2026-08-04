@@ -9,21 +9,25 @@ without needing wheel/leg's real Gazebo + LiDAR bridge up. Run it directly:
     python3 test/publish_fake_lidar.py
 
 At 2 Hz it publishes a small random PointCloud2 on /wheel/points and
-/leg/points (frame_id "wheel/os1_lidar" / "leg/os1_lidar"), matching
-ground_elevation_mapper's points_qos (best effort / volatile / keep last /
-depth 5, design.md 7-1). It also statically broadcasts, once, the map ->
-{robot}/odom -> {robot}/base_link -> {robot}/os1_lidar TF chain for both
-robots (near-origin, arbitrary offsets) so ground_elevation_mapper's
-lookup_transform succeeds. After 5 seconds it publishes Bool(True) once on
-each robot's navigation_status topic, matching ground_elevation_mapper's
-navigation_status subscription QoS (reliable / transient_local / keep last /
-depth 1, design.md 7-4) -- this in turn makes the mapper publish
-elevation_map once, which ground_elevation_map_saver treats as its save
-trigger.
+/leg/points, with frame_id set to each robot's actual target_source_frame
+(read from config/{robot}_elevation_mapper.yaml at import time -- see
+LIDAR_FRAME below, since wheel and leg carry different LiDAR models and so
+use different frame names), matching ground_elevation_mapper's points_qos
+(best effort / volatile / keep last / depth 5, design.md 7-1). It also
+statically broadcasts, once, the map -> {robot}/odom -> {robot}/base_link
+-> LIDAR_FRAME[robot] TF chain for both robots (near-origin, arbitrary
+offsets) so ground_elevation_mapper's lookup_transform succeeds. After 5
+seconds it publishes Bool(True) once on each robot's navigation_status
+topic, matching ground_elevation_mapper's navigation_status subscription
+QoS (reliable / transient_local / keep last / depth 1, design.md 7-4) --
+this in turn makes the mapper publish elevation_map once, which
+ground_elevation_map_saver treats as its save trigger.
 
 The node keeps spinning after publishing so points keep flowing and the
 static TF stays available; stop it with Ctrl+C.
 """
+
+import os
 
 from geometry_msgs.msg import TransformStamped
 import numpy as np
@@ -34,6 +38,7 @@ from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py.point_cloud2 import create_cloud_xyz32
 from std_msgs.msg import Bool, Header
 from tf2_ros import StaticTransformBroadcaster
+import yaml
 
 ROBOTS = ('wheel', 'leg')
 POINTS_HZ = 2.0
@@ -42,19 +47,43 @@ POINT_SPREAD = 1.0  # meters, x/y drawn from [-POINT_SPREAD, POINT_SPREAD]
 POINT_HEIGHT = 0.5  # meters, z drawn from [0, POINT_HEIGHT]
 NAV_STATUS_DELAY_SEC = 5.0
 
+CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config')
+
+
+def _load_lidar_frame(robot):
+    """Return `robot`'s target_source_frame, read from its mapper config.
+
+    Reads config/{robot}_elevation_mapper.yaml directly instead of
+    hardcoding the frame name here, so this script can't drift out of sync
+    with whatever frame ground_elevation_mapper actually looks up TF for --
+    wheel and leg carry different LiDAR models and thus different last-link
+    frame names (see config/wheel_elevation_mapper.yaml and
+    config/leg_elevation_mapper.yaml).
+    """
+    config_path = os.path.join(CONFIG_DIR, f'{robot}_elevation_mapper.yaml')
+    with open(config_path) as config_file:
+        params = yaml.safe_load(config_file)
+    return params['/**']['ros__parameters']['target_source_frame']
+
+
+# e.g. {'wheel': 'wheel/lidar3d_0_sensor_link', 'leg': 'leg/os1_lidar'} as of
+# this writing -- see _load_lidar_frame, always sourced from the yamls above.
+LIDAR_FRAME = {robot: _load_lidar_frame(robot) for robot in ROBOTS}
+
 # Arbitrary near-origin offsets per TF chain link, distinct per robot so the
 # two chains are easy to tell apart in RViz2/tf2_echo. (x, y, z) meters,
-# identity rotation throughout.
+# identity rotation throughout. The last link's frame name comes from
+# LIDAR_FRAME, not from this dict (differs per robot's LiDAR model).
 TF_CHAIN_OFFSETS = {
     'wheel': {
         'odom': (0.0, 0.0, 0.0),        # map -> wheel/odom
         'base_link': (0.5, 0.0, 0.0),   # wheel/odom -> wheel/base_link
-        'os1_lidar': (0.0, 0.0, 0.3),   # wheel/base_link -> wheel/os1_lidar
+        'lidar': (0.0, 0.0, 0.3),       # wheel/base_link -> LIDAR_FRAME['wheel']
     },
     'leg': {
         'odom': (0.0, 1.0, 0.0),        # map -> leg/odom
         'base_link': (0.3, 0.0, 0.0),   # leg/odom -> leg/base_link
-        'os1_lidar': (0.0, 0.0, 0.25),  # leg/base_link -> leg/os1_lidar
+        'lidar': (0.0, 0.0, 0.25),      # leg/base_link -> LIDAR_FRAME['leg']
     },
 }
 
@@ -66,7 +95,7 @@ def _build_static_transforms(stamp):
         chain = (
             ('map', f'{robot}/odom', offsets['odom']),
             (f'{robot}/odom', f'{robot}/base_link', offsets['base_link']),
-            (f'{robot}/base_link', f'{robot}/os1_lidar', offsets['os1_lidar']),
+            (f'{robot}/base_link', LIDAR_FRAME[robot], offsets['lidar']),
         )
         for parent, child, (x, y, z) in chain:
             t = TransformStamped()
@@ -133,14 +162,15 @@ class FakeLidarPublisher(Node):
     def _publish_static_tf(self):
         stamp = self.get_clock().now().to_msg()
         self._tf_broadcaster.sendTransform(_build_static_transforms(stamp))
-        self.get_logger().info(
-            'published static TF: map -> {wheel,leg}/odom -> .../base_link -> '
-            '.../os1_lidar')
+        chain_desc = ', '.join(
+            f'map -> {robot}/odom -> .../base_link -> {LIDAR_FRAME[robot]}'
+            for robot in ROBOTS)
+        self.get_logger().info(f'published static TF: {chain_desc}')
 
     def _publish_fake_clouds(self):
         stamp = self.get_clock().now().to_msg()
         for robot in ROBOTS:
-            header = Header(stamp=stamp, frame_id=f'{robot}/os1_lidar')
+            header = Header(stamp=stamp, frame_id=LIDAR_FRAME[robot])
             cloud = create_cloud_xyz32(header, _build_fake_points(self._rng))
             self._points_pubs[robot].publish(cloud)
 
