@@ -51,4 +51,14 @@ if ! grep -q '<param name="initial_value">1.0143535</param>' "${GO2_LEG_XACRO}" 
   exit 1
 fi
 
+# 이전 Gazebo/ROS 프로세스가 남아있으면 정리한다.
+if pgrep -f "gz sim" > /dev/null 2>&1 || pgrep -f "ros_gz_bridge" > /dev/null 2>&1 || pgrep -f "ekf_node" > /dev/null 2>&1 || pgrep -f "robot_state_publisher" > /dev/null 2>&1; then
+  echo "[WARN] 이전 시뮬레이션 프로세스가 남아있습니다. 정리합니다..."
+  pkill -f "gz sim" || true
+  pkill -f "ros2 launch" || true
+  killall parameter_bridge robot_state_publisher ekf_node marker_server twist_mux joy_linux_node teleop_node quadruped_controller_node state_estimation_node navsat_transform_node tf_prefix_relay spawner component_container 2>/dev/null || true
+  fastdds shm clean || true
+  sleep 2
+fi
+
 exec ros2 launch agconav_bringup agconav_sim.launch.py "$@"

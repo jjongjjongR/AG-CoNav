@@ -1,0 +1,5 @@
+- ros_topic_name: "points"
+  gz_topic_name: "/model/leg/sensor/lidar/scan/points" # os1 LiDAR 센서를 추가한 후 실제 토픽 이름으로 수정해야 함
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "gz.msgs.PointCloudPacked" # os1 LiDAR 센서를 추가한 후 실제 토픽 이름으로 수정해야 함
+  direction: GZ_TO_ROS
