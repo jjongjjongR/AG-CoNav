@@ -24,6 +24,7 @@ wandb/
 rosbag*/
 experiments/results/
 experiments/media/
+maps/
 
 # 대용량 에셋 (필요시 Git LFS)
 *.stl
@@ -44,3 +45,6 @@ jongheon_dev.md
 발표_jongheon.md
 jongheon_dev_0802.md
 module_F.md
+
+*.world.bak
+*.world.bak2

@@ -20,6 +20,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     clearpath_setup_path = LaunchConfiguration("clearpath_setup_path")
     use_nav2 = LaunchConfiguration("use_nav2")
+    use_localization = LaunchConfiguration("use_localization")
     nav2_params_file = LaunchConfiguration("nav2_params_file")
 
     # 설치된 ROS2 패키지의 공유 디렉터리
@@ -72,6 +73,11 @@ def generate_launch_description():
         "launch",
         "bringup_launch.py",
     )
+    localization_launch_path = os.path.join(
+        get_package_share_directory("agconav_localization"),
+        "launch",
+        "localization.launch.py",
+    )
 
     # 소스/설치 경로를 역산하지 않는다. 일반 colcon build에서는 launch 파일이
     # install 아래로 복사되므로 __file__ 기준 "저장소 루트" 계산은 잘못된
@@ -91,6 +97,12 @@ def generate_launch_description():
         "use_nav2",
         default_value="false",
         description="Launch Nav2 for wheel/leg (needs /X/nav_map and localization TF)"
+    )
+
+    declare_use_localization = DeclareLaunchArgument(
+        "use_localization",
+        default_value="true",
+        description="Launch EKF and Navsat nodes for Module B",
     )
 
     declare_nav2_params_file = DeclareLaunchArgument(
@@ -126,7 +138,7 @@ def generate_launch_description():
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(gz_sim_launch_path),
         launch_arguments={
-            "gz_args": [world_path],
+            "gz_args": [world_path, " -r"],
         }.items(),
     )
 
@@ -138,6 +150,20 @@ def generate_launch_description():
         output="screen",
         arguments=[
             "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
+        ],
+    )
+
+    # clearpath(wheel)는 PushRosNamespace("wheel")를 사용하므로 자체 /wheel/clock을 기다립니다.
+    wheel_clock_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="wheel_clock_bridge",
+        output="screen",
+        arguments=[
+            "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
+        ],
+        remappings=[
+            ("/clock", "/wheel/clock"),
         ],
     )
 
@@ -171,7 +197,7 @@ def generate_launch_description():
             "world": "agconav_world",
             "use_sim_time": use_sim_time,
             "rviz": "false",
-            "generate": "true",
+            "generate": "false",
             "x": "-5.0",
             "y": "0.0",
             "z": "0.3",
@@ -187,6 +213,7 @@ def generate_launch_description():
         ),
         launch_arguments={
             "use_sim_time": use_sim_time,
+            "use_localization": use_localization,
             "rviz": "false",
             "robot_name": "leg",
             "world_init_x": "5.0",
@@ -231,20 +258,43 @@ def generate_launch_description():
     nav2_wheel = _nav2_for("wheel")
     nav2_leg = _nav2_for("leg")
 
+    # Localization (EKF + navsat) for ground robots
+    def _localization_for(namespace, odom_topic):
+        return GroupAction(
+            actions=[
+                IncludeLaunchDescription(
+                    PythonLaunchDescriptionSource(localization_launch_path),
+                    launch_arguments={
+                        "namespace": namespace,
+                        "use_sim_time": use_sim_time,
+                        "odom_topic": odom_topic,
+                    }.items(),
+                )
+            ],
+            condition=IfCondition(use_localization)
+        )
+
+    localization_wheel = _localization_for("wheel", "platform/odom/filtered")
+    localization_leg = _localization_for("leg", "/odom")
+
 
     return LaunchDescription(
         [
             declare_use_sim_time,
             declare_clearpath_setup_path,
+            declare_use_localization,
             declare_use_nav2,
             declare_nav2_params_file,
             set_gz_resource_path,
             gazebo,
             clock_bridge,
+            wheel_clock_bridge,
             drone_cmd_vel_bridge,
             spawn_wheel,
             spawn_leg,
             sensor_bridge,
+            localization_wheel,
+            localization_leg,
             nav2_wheel,
             nav2_leg,
         ]

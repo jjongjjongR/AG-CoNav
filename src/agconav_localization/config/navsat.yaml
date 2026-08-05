@@ -1,0 +1,14 @@
+/**:
+  ros__parameters:
+    use_sim_time: true
+    frequency: 30.0
+    delay: 0.0
+    magnetic_declination_radians: 0.0
+    yaw_offset: 0.0
+    zero_altitude: true
+    broadcast_cartesian_transform: false
+    publish_filtered_gps: true
+    use_odometry_yaw: false
+    wait_for_datum: true
+    # AG-CoNav project datum: Seoul, Seongsu-dong
+    datum: [37.5412278, 127.0565741, 0.0]
