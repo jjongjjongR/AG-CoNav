@@ -67,6 +67,16 @@ class MergedElevationMapSaver(Node):
         down a node whose only job is reacting to further incoming maps.
         """
         bag_path = os.path.join(self._output_directory, self._map_name)
+        # Independent restart guard, alongside elevation_map_merger's own
+        # (see that node's _merge_done): don't trust that side alone to
+        # prevent a second save, so check here too -- if the output already
+        # exists, a previous run already saved it, so skip rather than
+        # overwrite.
+        if os.path.exists(bag_path):
+            self.get_logger().warn(
+                f'"{bag_path}" already exists -- not overwriting (likely a '
+                'restart after a previous successful save), skipping this save.')
+            return
         try:
             writer = rosbag2_py.SequentialWriter()
             writer.open(

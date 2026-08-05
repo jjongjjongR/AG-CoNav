@@ -8,3 +8,5 @@
     merge_status_topic: /merged/merge_status
     merge_error_topic: /merged/merge_error
     max_grid_cells: 30000000
+    output_directory: maps
+    map_name: merged_elevation_map

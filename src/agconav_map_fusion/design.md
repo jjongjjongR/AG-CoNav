@@ -156,6 +156,7 @@
 - **출력:** 통합 2.5D 지도(`/merged/elevation_map`), 지도 병합 완료·오류 상태(`/merged/merge_status`, `/merged/merge_error`)
 - **하는 일**
   - 드론/wheel/leg 세 지도 토픽을 `map_merge_collector`와는 별도로 직접 구독해 최신본을 자체 보관 (신뢰성 있게 하기 위해 두 노드 모두 동일한 reliable/transient_local 토픽을 구독 — 새 지도가 도착한 뒤 트리거가 오므로, 트리거 수신 시점에는 이미 최신 지도를 갖고 있음)
+  - 노드 기동 시 `merged_elevation_map_saver`와 동일한 `output_directory`/`map_name`으로 계산한 저장 경로가 이미 디스크에 있는지 확인해 `_merge_done`의 초기값을 결정 (있으면 `True`로 시작, 경고 로그를 남기고 이후 `merge_trigger`를 무시 — 재시작 시 이미 지나간 `merge_trigger=True`가 transient_local로 즉시 재수신되어 병합을 중복 실행하는 것을 방지)
   - 병합 트리거 수신 시(단 1회): 세 지도의 범위를 비교해 합집합 출력 격자(원점, 크기) 계산, 메모리 한계(`max_grid_cells`) 초과 여부 확인
   - 각 지도의 셀 값을 출력 격자에 배치, 중복 셀에서 `wheel > leg > 드론` 순서로 우선 적용 (입력 순회 순서에 의존하지 않는 결정적 처리)
   - 유효값을 `NaN`으로 덮지 않음, 세 지도 모두 미관측인 셀만 `NaN` 유지
@@ -169,6 +170,7 @@
 - **출력:** 저장된 통합 지도 파일
 - **하는 일**
   - `/merged/elevation_map` 구독, 메시지 수신 자체를 저장 트리거로 사용 (별도 완료 토픽 불필요 — `elevation_map_merger`가 이 토픽을 정확히 1회만 발행하므로, 메시지 도착이 곧 "병합 완료" 신호)
+  - 저장 직전, 저장 경로(`output_directory`/`map_name`)에 파일이 이미 있는지 확인 — 있으면 저장하지 않고 경고 로그만 남김 (기존 파일을 덮어쓰지 않음. `elevation_map_merger`의 재시작 방지 로직과는 별개로, 이 노드도 독립적으로 같은 원칙을 지킴 — 아래 참고)
   - rosbag2 `mcap` 형식으로 변환
   - 지정 경로에 저장
 
@@ -410,6 +412,8 @@
 | `output_format` | 저장 형식 | `mcap` |
 | `use_sim_time` | Gazebo 시간 사용 | `true` |
 
+> `elevation_map_merger`도 이름과 기본값이 동일한 `output_directory`/`map_name` 파라미터를 갖는다 — 저장을 위해서가 아니라, 노드 재시작 시 이 경로에 결과 파일이 이미 있는지 확인해 중복 병합을 막기 위한 용도다 (6-2, 구현 시 참고사항 참고).
+
 ---
 
 ## 10. 실행 묶음 (launch 구조)
@@ -482,6 +486,7 @@ elevation_map_merge.launch.py
 - 지도 병합 로직(numpy 기반 격자 처리)은 모듈 D의 `ground_elevation_mapper`에서 사용한 방식(grid_map C++ 바인딩 대신 numpy 직접 구현, `grid_map_msgs/msg/GridMap` 메시지로 수동 패킹)을 최대한 재사용한다. 특히 grid_map wire-format 패킹(축 flip, column-major flatten) 규약은 모듈 D와 동일하게 적용해야 통합 지도가 올바르게 렌더링된다. (모듈 D 코드 자체는 import하지 않고, 같은 규약을 이 패키지 안에 재구현한다 — CONTRIBUTING 5.)
 - 지도 저장 로직(rosbag2 mcap 직렬화)은 모듈 D의 `ground_elevation_map_saver` 구조를 재사용한다 (마찬가지로 재구현, import 아님).
 - `elevation_map` 3종 토픽은 `map_merge_collector`와 `elevation_map_merger` 양쪽 모두가, `elevation_map_status`는 wheel/leg 2종만 `map_merge_collector`가, 모두 절대 경로(`/drone/...`, `/wheel/...`, `/leg/...`)로 고정 구독한다 (이 노드들은 네임스페이스로 재사용되는 다중 인스턴스 구조가 아니라, 각각 단일 통합 노드이므로 CONTRIBUTING 5번의 "상대 토픽 이름" 규칙은 입력 구독 부분에는 적용되지 않음 — 단, 파라미터로 토픽 이름을 노출해 유연성은 유지할 것). `/drone/elevation_map_status`는 어느 노드도 구독하지 않는다 (1절 / 7-0).
-- 병합 트리거는 **정확히 1회만** 발동해야 하며, 이후 재트리거되지 않도록 내부 상태 플래그로 관리할 것 (`map_merge_collector`의 `merge_trigger` 발행, `elevation_map_merger`의 실제 병합 실행 모두 각자 자신의 프로세스 안에서 1회 플래그로 관리 — 프로세스가 다르므로 플래그도 노드마다 따로 있다).
+- 병합 트리거는 **정확히 1회만** 발동해야 하며, 이후 재트리거되지 않도록 내부 상태 플래그로 관리할 것 (`map_merge_collector`의 `merge_trigger` 발행, `elevation_map_merger`의 실제 병합 실행 모두 각자 자신의 프로세스 안에서 1회 플래그로 관리 — 프로세스가 다르므로 플래그도 노드마다 따로 있다). `elevation_map_merger`는 이 플래그(`_merge_done`)를 무조건 `False`로 시작하지 않는다 — `merge_trigger`가 reliable/transient_local이라 노드가 재시작되면 예전에 이미 발행된 `True`가 그대로 다시 전달되는데, 메모리만 믿으면 이걸 "아직 안 한 일"로 착각해 병합을 중복 실행하기 때문이다. 대신 노드 기동 시 `merged_elevation_map_saver`와 같은 `output_directory`/`map_name` 경로에 결과 파일이 이미 있는지 확인해서 초기값을 정한다(있으면 `True`, 경고 로그 남김). `merged_elevation_map_saver`도 저장 직전에 같은 경로의 파일 존재 여부를 독립적으로 한 번 더 확인해, 어느 한쪽의 방어 로직만 믿지 않는 이중 방어 구조로 만들었다.
 - 해상도 불일치, frame 불일치, **격자 정렬 불일치**(신규) 등 검증 실패 시 절대로 임의로 리샘플링하거나 강제로 병합을 진행하지 말고, 명확히 중단하고 오류를 발행할 것.
 - 중복 셀 처리는 파이썬 딕셔너리나 set 등 순서가 보장되지 않는 자료구조에 의존하지 말고, 결정적(deterministic) 순서로 처리할 것 (예: 드론 배열 먼저 덮어쓰기 → 그 위에 leg 유효값만 덮어쓰기 → 그 위에 wheel 유효값만 덮어쓰기, 벡터화 연산으로 처리).
+- 로봇별 원시 센서 계약(`/wheel/points`, `/leg/points`, `/drone/points` 토픽 이름, `lidar3d_0_sensor_link`/`os1_lidar` 등 사설·전역 TF 프레임 이름)은 모듈 D(지상 로봇 지도 생성)와 모듈 A(드론 지도 생성) 단계가 처리하는 원본 센서 계약이며, 모듈 E는 이미 `map` 좌표계로 변환·누적된 GridMap(`elevation_map` 3종)만 입력으로 받으므로 이 계약과 직접 관련이 없다 (2절 "범위 밖" 참고).

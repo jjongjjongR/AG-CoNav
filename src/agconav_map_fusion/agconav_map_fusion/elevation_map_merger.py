@@ -22,6 +22,8 @@ ordering guarantee -- it aborts via merge_error + merge_status=False instead
 of crashing.
 """
 
+import os
+
 from agconav_map_fusion.grid_math import (
     build_merged_grid_map_message, build_output_grid, extract_elevation, MERGE_ORDER, ROBOTS,
 )
@@ -54,9 +56,31 @@ class ElevationMapMerger(Node):
         # the same inputs, but this node re-derives the output grid itself
         # (see module docstring) so it re-checks rather than assuming.
         self.declare_parameter('max_grid_cells', 30_000_000)
+        # Same defaults as merged_elevation_map_saver's output_directory/
+        # map_name -- read here only to check whether that saver has
+        # already written the merged map to disk (see _merge_done below),
+        # never to write anything from this node.
+        self.declare_parameter('output_directory', 'maps')
+        self.declare_parameter('map_name', 'merged_elevation_map')
 
         self._maps = {robot: None for robot in ROBOTS}
-        self._merge_done = False
+        # design.md: the merge fires exactly once, ever. An in-memory flag
+        # alone doesn't survive a node restart -- merge_trigger is
+        # reliable/transient_local, so a restarted node immediately gets
+        # the already-fired True again and, starting from _merge_done =
+        # False, would redo the merge. Seeding the flag from whether the
+        # saver's output file already exists on disk instead survives a
+        # restart: if it's there, a previous run already completed the
+        # merge, so this run ignores merge_trigger and doesn't repeat it.
+        merged_map_path = os.path.join(
+            self.get_parameter('output_directory').value,
+            self.get_parameter('map_name').value)
+        self._merge_done = os.path.exists(merged_map_path)
+        if self._merge_done:
+            self.get_logger().warn(
+                f'merged map already exists at "{merged_map_path}" -- '
+                'assuming a previous run already completed the merge '
+                '(e.g. this node restarted), ignoring merge_trigger.')
 
         # design.md 9-1: elevation_map is reliable / transient_local / keep_last / depth 1.
         map_qos = QoSProfile(
