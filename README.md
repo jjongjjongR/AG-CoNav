@@ -203,7 +203,7 @@ AG-CoNav/
 ├── CONTRIBUTING.md        # 기여 규칙(브랜치·PR·커밋)
 ├── config/
 ├── src/
-│   ├── agconav_worlds/           # 공통(이종헌)  서울 성수동 500×500 월드·지형
+│   ├── agconav_worlds/           # 공통(홍연주)  서울 성수동 500×500 월드·지형
 │   ├── agconav_description/      # 공통(이종헌)  로봇 3종 모델 + OS1-32/GPS/IMU, 정적 TF
 │   ├── agconav_gz_bridge/        # 공통(이종헌)  Gazebo↔ROS2 브리지 설정
 │   ├── agconav_bringup/          # 공통(이종헌)  전체 통합 launch(원클릭)
