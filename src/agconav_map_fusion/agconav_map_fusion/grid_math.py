@@ -166,8 +166,9 @@ def extract_elevation(grid_map):
     """
     layer_index = grid_map.layers.index(ELEVATION_LAYER)
     layer = grid_map.data[layer_index]
-    n_rows = layer.layout.dim[0].size
-    n_cols = layer.layout.dim[1].size
+    # dim[0]=column_index(열 개수), dim[1]=row_index(행 개수) -- 패킹과 대칭.
+    n_cols = layer.layout.dim[0].size
+    n_rows = layer.layout.dim[1].size
     gm_matrix = np.asarray(layer.data, dtype=np.float32).reshape((n_rows, n_cols), order='F')
     elevation = gm_matrix[::-1, ::-1]
     origin_x, origin_y = _map_origin(grid_map)
@@ -187,9 +188,11 @@ def build_merged_grid_map_message(elevation, output_grid, stamp):
 
     gm_matrix = elevation[::-1, ::-1]
     elevation_layer = Float32MultiArray()
+    # std_msgs/MultiArrayLayout: 차원은 바깥->안 순서, 최내곽은 stride == size.
+    # Eigen 열 우선이므로 바깥이 열(column_index), 안쪽이 행(row_index)이다.
     elevation_layer.layout.dim = [
-        MultiArrayDimension(label='column_index', size=n_rows, stride=n_rows * n_cols),
-        MultiArrayDimension(label='row_index', size=n_cols, stride=n_rows),
+        MultiArrayDimension(label='column_index', size=n_cols, stride=n_rows * n_cols),
+        MultiArrayDimension(label='row_index', size=n_rows, stride=n_rows),
     ]
     elevation_layer.data = gm_matrix.flatten(order='F').tolist()
 

@@ -1,0 +1,8 @@
+terrain_feature_calculator:
+  ros__parameters:
+    use_sim_time: true
+    input_topic: /drone/elevation_map
+    trigger_topic: /drone/elevation_map_status
+    elevation_layer: elevation
+    output_topic: /terrain/features
+    slope_window: 1   # 경사 계산 이웃 반경(셀)

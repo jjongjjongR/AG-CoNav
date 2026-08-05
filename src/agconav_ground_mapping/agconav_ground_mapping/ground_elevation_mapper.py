@@ -262,15 +262,16 @@ class GroundElevationMapper(Node):
         # axes are flipped before packing. Data is flattened column-major
         # (Eigen's default storage order), matching
         # matrixEigenCopyToMultiArrayMessage in grid_map_ros.
-        # NOTE: this layout is implemented from the documented grid_map
-        # convention, not runtime-verified in this sandbox (no ROS2/RViz2
-        # available here) -- confirm cell orientation in RViz2's
-        # grid_map_rviz_plugin once this runs in the real Jazzy environment.
+        # 축 뒤집기와 column-major 평탄화는 실환경(Jazzy)에서 검증 완료.
+        # dim 크기는 std_msgs/MultiArrayLayout 규약을 따른다: 차원은 바깥->안
+        # 순서이고, 최내곽 차원은 stride == size 여야 한다. Eigen 열 우선 저장
+        # 기준으로 바깥 차원이 열(column_index), 안쪽 차원이 행(row_index)이므로
+        # dim[0].size = 열 개수, dim[1].size = dim[1].stride = 행 개수다.
         gm_matrix = elevation[::-1, ::-1]
         elevation_layer = Float32MultiArray()
         elevation_layer.layout.dim = [
-            MultiArrayDimension(label='column_index', size=n_rows, stride=n_rows * n_cols),
-            MultiArrayDimension(label='row_index', size=n_cols, stride=n_rows),
+            MultiArrayDimension(label='column_index', size=n_cols, stride=n_rows * n_cols),
+            MultiArrayDimension(label='row_index', size=n_rows, stride=n_rows),
         ]
         elevation_layer.data = gm_matrix.flatten(order='F').tolist()
         # ---------------------------------------------------------------------

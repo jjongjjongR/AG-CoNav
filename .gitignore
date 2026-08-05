@@ -30,6 +30,8 @@ maps/
 *.stl
 *.dae
 *.obj
+# Seongdong_gu world가 참조하는 건물 메시는 없으면 world 로드 자체가 실패하므로 예외.
+!src/agconav_worlds/worlds/Seongdong_gu/mesh/buildings.dae
 
 # vcstool로 별도 관리하는 외부 패키지 (deps.repos 참조)
 src/unitree_go2_ros2_jazzy/
@@ -41,10 +43,15 @@ src/unitree_go2_ros2_jazzy/
 *.swp
 
 # 개인 개발일지 (커밋 안 함)
-jongheon_dev.md
+jongheon_dev_sim.md
 발표_jongheon.md
 jongheon_dev_0802.md
 module_F.md
+jongheon_dev_f_module.md
 
 *.world.bak
 *.world.bak2
+*.world.bak*
+*.world.bak*
+*.launch.py.bak
+!src/agconav_worlds/worlds/Seongdong_gu/mesh/buildings.dae

@@ -30,11 +30,12 @@ def generate_launch_description():
     clearpath_gz_share = get_package_share_directory("clearpath_gz")
     nav2_bringup_share = get_package_share_directory("nav2_bringup")
 
-    # 실행할 공용 Gazebo 월드
+    # 실행할 공용 Gazebo 월드 (성동구 실지형 heightmap)
     world_path = os.path.join(
         agconav_worlds_share,
         "worlds",
-        "agconav_integrated.sdf",
+        "Seongdong_gu",
+        "Seongdong_gu.world",
     )
 
     # 각 하위 launch 파일 경로
@@ -68,6 +69,27 @@ def generate_launch_description():
         default_value="true",
         description="Use Gazebo simulation time",
     )
+
+    # 스폰 위치는 launch 인자로 덮어쓸 수 있다. 파일을 고치지 않고
+    #   ros2 launch agconav_bringup agconav_sim.launch.py wheel_x:=-160 wheel_y:=148
+    # 처럼 넘기면 된다. 원점 일대는 건물이 덮고 있어 로봇이 파묻히므로
+    # 기본값은 개활지 (-159, 149) 기준 배치다.
+    # 이 값들은 scripts/capture_poses.py --apply 로 갱신한다 (GUI에서 옮긴 뒤 실행).
+    # 드론(X3)은 월드 파일의 <include>에 있어 여기서는 다루지 않는다.
+    spawn_defaults = (
+        ("wheel_x", "-159.6820", "A300(wheel) 스폰 x [m]"),
+        ("wheel_y", "147.5380", "A300(wheel) 스폰 y [m]"),
+        ("wheel_z", "6.4545", "A300(wheel) 스폰 z [m] — 지면보다 조금 위"),
+        ("wheel_yaw", "-0.4349", "A300(wheel) 스폰 heading [rad]"),
+        ("leg_x", "-158.8710", "Go2(leg) 스폰 x [m]"),
+        ("leg_y", "150.8310", "Go2(leg) 스폰 y [m]"),
+        ("leg_z", "6.4916", "Go2(leg) 스폰 z [m] — 지면보다 조금 위"),
+        ("leg_yaw", "-0.4613", "Go2(leg) 스폰 heading [rad]"),
+    )
+    declare_spawn_args = [
+        DeclareLaunchArgument(name, default_value=default, description=desc)
+        for name, default, desc in spawn_defaults
+    ]
     nav2_launch_path = os.path.join(
         nav2_bringup_share,
         "launch",
@@ -122,17 +144,18 @@ def generate_launch_description():
     # ROS 2 Jazzy는 Gazebo Harmonic(gz-sim8)과 페어링되며, gz sim은
     # classic 전용 GAZEBO_MODEL_PATH가 아니라 GZ_SIM_RESOURCE_PATH를 읽는다.
     # 기존 값(예: /opt/ros/jazzy/share)을 유지하려고 앞에 우리 models 경로만 덧붙인다.
-    _gz_models_dir = os.path.join(
-        get_package_share_directory("agconav_description"), "models"
-    )
+    # Seongdong_gu 월드는 agconav_worlds/models의 bump_*·ramp_*를 model://로
+    # 참조하므로 그 경로도 함께 넣어야 한다. 빠지면 월드 로드가 실패한다.
+    _gz_models_dirs = [
+        os.path.join(get_package_share_directory("agconav_description"), "models"),
+        os.path.join(agconav_worlds_share, "models"),
+    ]
     _existing_gz_resource_path = os.environ.get("GZ_SIM_RESOURCE_PATH", "")
+    if _existing_gz_resource_path:
+        _gz_models_dirs.append(_existing_gz_resource_path)
     set_gz_resource_path = SetEnvironmentVariable(
         name="GZ_SIM_RESOURCE_PATH",
-        value=(
-            _gz_models_dir + os.pathsep + _existing_gz_resource_path
-            if _existing_gz_resource_path
-            else _gz_models_dir
-        ),
+        value=os.pathsep.join(_gz_models_dirs),
     )
 
     gazebo = IncludeLaunchDescription(
@@ -194,14 +217,14 @@ def generate_launch_description():
         ),
         launch_arguments={
             "setup_path": clearpath_setup_path,
-            "world": "agconav_world",
+            "world": "Seongdong_gu",
             "use_sim_time": use_sim_time,
             "rviz": "false",
             "generate": "false",
-            "x": "-5.0",
-            "y": "0.0",
-            "z": "0.3",
-            "yaw": "0.0",
+            "x": LaunchConfiguration("wheel_x"),
+            "y": LaunchConfiguration("wheel_y"),
+            "z": LaunchConfiguration("wheel_z"),
+            "yaw": LaunchConfiguration("wheel_yaw"),
         }.items(),
     )
 
@@ -216,10 +239,10 @@ def generate_launch_description():
             "use_localization": use_localization,
             "rviz": "false",
             "robot_name": "leg",
-            "world_init_x": "5.0",
-            "world_init_y": "0.0",
-            "world_init_z": "0.25",
-            "world_init_heading": "3.14159",
+            "world_init_x": LaunchConfiguration("leg_x"),
+            "world_init_y": LaunchConfiguration("leg_y"),
+            "world_init_z": LaunchConfiguration("leg_z"),
+            "world_init_heading": LaunchConfiguration("leg_yaw"),
             "ros_control_file": os.path.join(
                 agconav_bringup_share,
                 "config",
@@ -285,6 +308,7 @@ def generate_launch_description():
             declare_use_localization,
             declare_use_nav2,
             declare_nav2_params_file,
+            *declare_spawn_args,
             set_gz_resource_path,
             gazebo,
             clock_bridge,

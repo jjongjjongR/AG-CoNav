@@ -11,4 +11,8 @@
     use_odometry_yaw: false
     wait_for_datum: true
     # AG-CoNav project datum: Seoul, Seongsu-dong
-    datum: [37.5412278, 127.0565741, 0.0]
+    # Seongdong_gu.world의 <spherical_coordinates>와 반드시 같아야 한다.
+    # 이 값이 map 프레임 원점(0,0)의 위경도이기 때문이다. 어긋나면 GPS 기반
+    # 위치가 그 차이만큼 통째로 평행이동한다(구 datum은 동 347m·북 124m 오차).
+    # world를 바꾸면 이 값도 같이 갱신할 것.
+    datum: [37.54233814881853, 127.06050643805561, 0.0]
