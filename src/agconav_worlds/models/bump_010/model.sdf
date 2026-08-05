@@ -1,0 +1,29 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <model name="bump_010">
+    <static>true</static>
+    <link name="link">
+      <collision name="collision">
+        <geometry>
+          <box>
+            <!-- ===== 여기 두 숫자만 수정하면 가로/세로 크기가 바뀝니다 ===== -->
+            <!-- 순서: 가로(진행방향과 수직, 도로 폭) 세로(로봇 진행방향) 높이(0.10 고정, 절대 수정 X) -->
+            <size>5 3 0.10</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <!-- collision과 반드시 같은 숫자로! (한 곳만 고치면 눈에 보이는 모양과 실제 충돌 영역이 어긋남) -->
+            <size>5 3 0.10</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.35 0.35 0.35 1</ambient>
+          <diffuse>0.4 0.4 0.4 1</diffuse>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

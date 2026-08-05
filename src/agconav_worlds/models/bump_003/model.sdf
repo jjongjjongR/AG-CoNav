@@ -1,0 +1,31 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <model name="bump_005">
+    <static>true</static>
+    <link name="link">
+      <collision name="collision">
+        <geometry>
+          <box>
+            <!-- ===== 여기 두 숫자만 수정하면 가로/세로 크기가 바뀝니다 ===== -->
+            <!-- 순서: 가로(도로 폭) 세로(로봇 진행방향) 높이(0.03, "0.05 이하" 규격에서 -->
+            <!-- 여유를 두어 더 낮게 설정 - 확실하게 통과되도록. 0.06 이상으로는 절대 올리지 마세요) -->
+            <size>45 15 0.03</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <!-- collision과 반드시 같은 숫자로! -->
+            <size>45 15 0.03</size>
+          </box>
+        </geometry>
+        <material>
+          <!-- 다른 방지턱들과 통일된 노란색 -->
+          <ambient>1 0.75 0 1</ambient>
+          <diffuse>1 0.8 0 1</diffuse>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>
