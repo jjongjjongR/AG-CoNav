@@ -24,6 +24,7 @@ wandb/
 rosbag*/
 experiments/results/
 experiments/media/
+maps/
 
 # 대용량 에셋 (필요시 Git LFS)
 *.stl
