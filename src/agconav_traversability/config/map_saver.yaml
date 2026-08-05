@@ -1,0 +1,6 @@
+map_saver:
+  ros__parameters:
+    use_sim_time: true
+    save_map_timeout: 2.0
+    free_thresh_default: 0.25
+    occupied_thresh_default: 0.65

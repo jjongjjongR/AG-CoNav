@@ -1,0 +1,10 @@
+traversability_verdictor_leg:
+  ros__parameters:
+    use_sim_time: true
+    features_topic: /terrain/features
+    output_map_topic: /leg/nav_map
+    status_topic: /leg/nav_map_status
+    max_slope_deg: 30.0   # README §3.3 leg 통과 기준
+    max_step_m: 0.15
+    unknown_value: -1
+    frame_id: map

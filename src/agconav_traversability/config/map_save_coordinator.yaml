@@ -1,0 +1,13 @@
+map_save_coordinator:
+  ros__parameters:
+    use_sim_time: true
+    wheel_status_topic: /wheel/nav_map_status
+    leg_status_topic: /leg/nav_map_status
+    save_service: /map_saver/save_map
+    wheel_map_topic: /wheel/nav_map
+    leg_map_topic: /leg/nav_map
+    wheel_map_url: maps/wheel_nav_map
+    leg_map_url: maps/leg_nav_map
+    image_format: pgm
+    map_mode: trinary
+    retry_count: 3

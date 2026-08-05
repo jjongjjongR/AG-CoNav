@@ -75,9 +75,11 @@ def _build_grid_map_message(elevation, stamp):
 
     gm_matrix = elevation[::-1, ::-1]
     elevation_layer = Float32MultiArray()
+    # std_msgs/MultiArrayLayout: dim[0]=열(column_index), dim[1]=행(row_index),
+    # 최내곽은 stride == size.
     elevation_layer.layout.dim = [
-        MultiArrayDimension(label='column_index', size=n_rows, stride=n_rows * n_cols),
-        MultiArrayDimension(label='row_index', size=n_cols, stride=n_rows),
+        MultiArrayDimension(label='column_index', size=n_cols, stride=n_rows * n_cols),
+        MultiArrayDimension(label='row_index', size=n_rows, stride=n_rows),
     ]
     elevation_layer.data = gm_matrix.flatten(order='F').tolist()
 
