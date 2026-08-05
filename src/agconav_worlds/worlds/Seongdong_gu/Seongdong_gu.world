@@ -1,0 +1,975 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+    <world name="Seongdong_gu">
+
+        <!-- Plugin for simulating physics -->
+        <plugin
+                filename="gz-sim-physics-system"
+                name="gz::sim::systems::Physics">
+        </plugin>
+
+        <!-- Plugin for handling user commands -->
+        <plugin
+                filename="gz-sim-user-commands-system"
+                name="gz::sim::systems::UserCommands">
+        </plugin>
+
+        <!-- Plugin for broadcasting scene updates -->
+        <plugin
+                filename="gz-sim-scene-broadcaster-system"
+                name="gz::sim::systems::SceneBroadcaster">
+        </plugin>
+
+        <!-- Plugin for handling sensors like the LIDAR -->
+        <plugin
+                filename="gz-sim-sensors-system"
+                name="gz::sim::systems::Sensors">
+            <render_engine>ogre2</render_engine>
+        </plugin>
+
+        <!-- Plugin for IMU -->
+        <plugin filename="gz-sim-imu-system"
+                name="gz::sim::systems::Imu">
+        </plugin>
+
+        <!-- plugin for GPS  -->
+        <plugin
+                filename="gz-sim-navsat-system"
+                name="gz::sim::systems::NavSat">
+        </plugin>
+
+        <light type="directional" name="sun">
+            <cast_shadows>true</cast_shadows>
+            <pose>0 -7000 7000 0 0 0</pose>
+            <diffuse>0.9 0.88 0.82 1</diffuse>
+            <!-- Zero specular prevents glint/reflection artifacts on terrain -->
+            <specular>0 0 0 1</specular>
+            <!-- gz-sim/OGRE2 bug: shadow map artifact appears when both X and Y are non-zero.
+                 Workaround: keep one horizontal component zero. Y-only = sun from north. -->
+            <direction>0.0 0.6 -0.6</direction>
+        </light>
+
+        <scene>
+            <!-- Ambient fills in shadows — simulates sky/bounce light -->
+            <ambient>0.45 0.48 0.55 1</ambient>
+            <grid>false</grid>
+            <origin_visual>false</origin_visual>
+            <!-- Procedural sky with atmosphere scattering and clouds -->
+            <sky>
+                <time>10</time>
+                <sunrise>6</sunrise>
+                <sunset>20</sunset>
+                <clouds>
+                    <speed>12</speed>
+                </clouds>
+            </sky>
+        </scene>
+
+        <!-- Polymath standard physics simulation engine config,
+        ODE does not behave correctly with heightmaps, we'll use bullet instead -->
+        <!--        <physics type='ode'>-->
+        <!--            <max_step_size>0.005</max_step_size>-->
+        <!--            <real_time_factor>1</real_time_factor>-->
+        <!--            <real_time_update_rate>200</real_time_update_rate>-->
+        <!--        </physics>-->
+        <physics name="1ms" type="ignored">
+            <dart>
+                <!-- Heightmaps behave better with the bullet collision detector -->
+                <collision_detector>bullet</collision_detector>
+            </dart>
+        </physics>
+        <gravity>0 0 -9.8066</gravity>
+
+        <gui fullscreen='0'>
+            <!-- 3D scene — camera_pose: 80m above launch point, north (yaw=π/2), 30° nose down (pitch=π/6) -->
+            <plugin filename="MinimalScene" name="3D View">
+                <gz-gui>
+                    <title>3D View</title>
+                    <property type="bool" key="showTitleBar">false</property>
+                    <property type="string" key="state">docked</property>
+                </gz-gui>
+                <engine>ogre2</engine>
+                <scene>scene</scene>
+                <ambient_light>0.4 0.4 0.4</ambient_light>
+                <background_color>0.8 0.8 0.8</background_color>
+                <!-- 로봇 3대(wheel -159.7,147.5 / drone -156.5,148.2 / leg -158.9,150.8)를
+                     한 화면에 담는 초기 시점. 원점 일대는 건물이 덮고 있어 개활지로 옮겼다.
+                     이 값과 X3 pose는 scripts/capture_poses.py 의 apply 옵션으로 갱신한다.
+                     지형 전체를 보려면 0 0 217.4 0 1.3963 1.5708 로 되돌린다. -->
+                <camera_pose>-163.57 156.43 13.56 0 0.8627 -0.8014</camera_pose>
+                <camera_clip>
+                    <near>0.1</near>
+                    <far>50000</far>
+                </camera_clip>
+            </plugin>
+            <plugin filename="EntityContextMenuPlugin" name="Entity context menu">
+                <gz-gui>
+                    <property key="state" type="string">floating</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="GzSceneManager" name="Scene Manager">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="InteractiveViewControl" name="Interactive view control">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="CameraTracking" name="Camera Tracking">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="MarkerManager" name="Marker manager">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="SelectEntities" name="Select Entities">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="Spawn" name="Spawn Entities">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="VisualizationCapabilities" name="Visualization Capabilities">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="WorldControl" name="World control">
+                <gz-gui>
+                    <title>World control</title>
+                    <property type="bool" key="showTitleBar">false</property>
+                    <property type="bool" key="resizable">false</property>
+                    <property type="double" key="height">72</property>
+                    <property type="double" key="z">1</property>
+                    <property type="string" key="state">floating</property>
+                    <anchors target="3D View">
+                        <line own="left" target="left"/>
+                        <line own="bottom" target="bottom"/>
+                    </anchors>
+                </gz-gui>
+                <play_pause>true</play_pause>
+                <step>true</step>
+                <start_paused>true</start_paused>
+                <use_event>true</use_event>
+            </plugin>
+            <plugin filename="WorldStats" name="World stats">
+                <gz-gui>
+                    <title>World stats</title>
+                    <property type="bool" key="showTitleBar">false</property>
+                    <property type="bool" key="resizable">false</property>
+                    <property type="double" key="height">110</property>
+                    <property type="double" key="width">290</property>
+                    <property type="double" key="z">1</property>
+                    <property type="string" key="state">floating</property>
+                    <anchors target="3D View">
+                        <line own="right" target="right"/>
+                        <line own="bottom" target="bottom"/>
+                    </anchors>
+                </gz-gui>
+                <sim_time>true</sim_time>
+                <real_time>true</real_time>
+                <real_time_factor>true</real_time_factor>
+                <iterations>true</iterations>
+            </plugin>
+            <plugin filename="Shapes" name="Shapes">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="x" type="double">0</property>
+                    <property key="y" type="double">0</property>
+                    <property key="width" type="double">250</property>
+                    <property key="height" type="double">50</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                    <property key="cardBackground" type="string">#666666</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="Lights" name="Lights">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="x" type="double">250</property>
+                    <property key="y" type="double">0</property>
+                    <property key="width" type="double">150</property>
+                    <property key="height" type="double">50</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                    <property key="cardBackground" type="string">#666666</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="TransformControl" name="Transform control">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="x" type="double">0</property>
+                    <property key="y" type="double">50</property>
+                    <property key="width" type="double">250</property>
+                    <property key="height" type="double">50</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                    <property key="cardBackground" type="string">#777777</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="Screenshot" name="Screenshot">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="x" type="double">250</property>
+                    <property key="y" type="double">50</property>
+                    <property key="width" type="double">50</property>
+                    <property key="height" type="double">50</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                    <property key="cardBackground" type="string">#777777</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="CopyPaste" name="CopyPaste">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="x" type="double">300</property>
+                    <property key="y" type="double">50</property>
+                    <property key="width" type="double">100</property>
+                    <property key="height" type="double">50</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                    <property key="cardBackground" type="string">#777777</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="ComponentInspector" name="Component inspector">
+                <gz-gui>
+                    <property type="bool" key="showTitleBar">false</property>
+                    <property type="string" key="state">docked</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="EntityTree" name="Entity tree">
+                <gz-gui>
+                    <property type="bool" key="showTitleBar">false</property>
+                    <property type="string" key="state">docked</property>
+                </gz-gui>
+            </plugin>
+        </gui>
+
+        <spherical_coordinates>
+            <surface_model>EARTH_WGS84</surface_model>
+            <latitude_deg>37.54233814881853</latitude_deg>
+            <longitude_deg>127.06050643805561</longitude_deg>
+            <elevation>15.400000000001455</elevation>
+        </spherical_coordinates>
+
+        <!-- OGRE2 ignores both model and link <pose> for heightmap visuals;
+             visual position is controlled by <heightmap><pos> (world frame).
+             DART ignores <heightmap><pos> for collision; collision position
+             is controlled by <collision><pose> (standard SDF pose chain). -->
+        <model name="Seongdong_gu">
+            <static>true</static>
+            <pose>0 0 0 0 0 0</pose>
+
+            <link name="ground">
+                <collision name="collision">
+                    <pose>11.39 1.61 -1.0 0 0 0</pose>
+                    <geometry>
+                        <heightmap>
+                            <uri>mesh/height_map.png</uri>
+                            <size>717.9 665.36 18.4</size>
+                            <!-- DART ignores <pos> for collision heightmaps; positioning
+                                 is handled by <collision><pose> above instead -->
+                            <pos>0 0 0</pos>
+                        </heightmap>
+                    </geometry>
+                </collision>
+                <visual name="ground_visual">
+                    <geometry>
+                        <heightmap>
+                            <use_terrain_paging>false</use_terrain_paging>
+                            <texture>
+                                <diffuse>mesh/aerial.png</diffuse>
+                                <normal>mesh/normal_map.png</normal>
+                                <size>717.9</size>
+                            </texture>
+                            <uri>mesh/height_map.png</uri>
+                            <size>717.9 665.36 18.4</size>
+                            <!-- OGRE2 ignores model/link <pose> for heightmaps; <pos> is world frame -->
+                            <pos>11.39 1.61 -1.0</pos>
+                            <!-- sampling: mesh vertices per heightmap pixel (SDF 1.8+ default = 1).
+                                 Tested with 16-bit heightmaps at sampling 1, 4, 8: no visual or
+                                 physics difference observed — OGRE2 interpolates extra vertices but
+                                 the result is indistinguishable at SRTM source resolution. Higher
+                                 values only increase vertex buffer memory (cost scales as sampling²).
+                                 sdformat PR #459 changed default from 2->1: "no good reason to
+                                 subsample by default". Explicitly set to 1 to match intent. -->
+                            <sampling>1</sampling>
+                        </heightmap>
+                    </geometry>
+                </visual>
+            </link>
+
+
+        <!-- ===================== -->
+        <!-- Buildings model -->
+        <!-- ===================== -->
+        <model name="Seongdong_gu_buildings">
+            <static>true</static>
+            <!-- XY shifts buildings from tile-center-origin (AEQD) to launch-point-origin (world).
+                 Z is 0 because building mesh Z values are already in world space (baked by GeoJSONToDAE). -->
+            <pose>11.39 1.61 0 0 0 0</pose>
+            <link name="buildings">
+                <visual name="buildings_visual">
+                    <geometry>
+                        <mesh>
+                            <uri>mesh/buildings.dae</uri>
+                            <scale>1 1 1</scale>
+                        </mesh>
+                    </geometry>
+                    <material>
+                        <!-- Light grey -->
+                        <ambient>0.75 0.75 0.75 1</ambient>
+                        <diffuse>0.85 0.85 0.85 1</diffuse>
+                        <specular>0.05 0.05 0.05 1</specular>
+                        <emissive>0 0 0 1</emissive>
+                    </material>
+                </visual>
+                <collision name="buildings_collision">
+                    <geometry>
+                        <mesh>
+                            <uri>mesh/buildings.dae</uri>
+                            <scale>1 1 1</scale>
+                        </mesh>
+                    </geometry>
+                </collision>
+            </link>
+        </model>
+
+
+
+        </model>
+
+        <include>
+      <name>oak_tree_0</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>167.08 281.70 11.77 0.00 0.00 0.00</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_1</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>169.31 274.62 9.87 0.00 0.00 0.00</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_2</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-144.521000 321.987000 0.000000 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_3</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-139.305000 320.693000 0.000000 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_4</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>29.29 67.85 1.95 0.00 0.00 0.00</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_5</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>110.100000 69.865700 3.656180 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_6</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>127.029000 65.280000 2.437540 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_7</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>142.661000 58.908900 2.977100 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_8</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>156.920000 54.306000 2.990240 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_9</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>173.677000 48.862200 3.668170 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_10</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>188.680000 43.964500 4.404120 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_11</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>210.509000 34.954300 5.993530 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_12</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>229.878000 30.774700 3.776570 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_13</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>247.261000 23.366600 3.672400 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_14</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>262.482000 17.548600 2.577320 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_15</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>278.105000 11.372300 2.783180 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_16</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>293.084000 5.972430 3.337600 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_17</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-87.166600 -33.846900 3.617760 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_18</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-42.074300 -51.601300 3.433700 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_19</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-30.379800 -57.580400 1.595080 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_20</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-50.712000 -47.173000 2.898400 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_21</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-33.379700 -66.175300 1.795860 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_22</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-166.037000 6.563680 4.631970 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_23</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-158.833000 3.601220 4.933260 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_24</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-201.490000 -0.552061 5.174730 0.000000 -0.000000 1.294080</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_25</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-151.953000 1.198080 4.327600 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_26</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-146.182000 0.030651 4.079640 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_27</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-140.155000 -3.086860 4.274910 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_28</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-133.149000 -5.572530 6.295900 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_29</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-107.873000 -16.120700 7.926450 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_30</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-125.770000 -8.153150 3.147920 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_31</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-119.217000 -9.980340 3.140280 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_32</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-113.244000 -13.149500 2.960570 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_33</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-78.391400 -36.943400 2.197880 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_34</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-71.569000 -40.164800 2.471130 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_35</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>217.405000 -64.263400 7.603700 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_36</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>224.400000 -60.763200 5.191350 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_37</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>277.063000 -31.107800 1.793410 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_38</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>230.480000 -19.726200 4.199480 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_39</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>225.942000 -32.306500 3.718570 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_40</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>271.017000 -21.114700 2.060830 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_41</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>245.076000 -134.488000 0.000000 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_42</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>238.977000 -144.304000 0.000000 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_43</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>224.748000 -177.754000 0.000000 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_44</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>220.971000 -184.972000 0.000000 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_45</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>216.028000 -191.019000 0.000000 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_46</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>204.994000 -213.524000 0.000000 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_47</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-160.080000 33.783500 4.954690 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_48</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-164.351000 25.444500 7.589570 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_49</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-167.240000 18.856200 6.430410 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_50</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-168.115000 12.088700 6.019540 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_51</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-181.561000 21.861500 6.362670 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_52</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-184.820000 12.824200 5.507930 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_53</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-113.460000 129.956000 0.000000 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_54</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-28.116100 92.711800 5.452760 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_55</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-21.214600 89.696100 7.012830 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_56</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>25.621000 60.329500 1.212730 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_57</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>22.695600 53.080200 0.641649 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_58</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>59.702800 59.126300 6.090600 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_59</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>91.041300 49.152100 3.790570 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_60</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>106.125000 43.257000 3.450010 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_61</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>120.98 81.61 2.88 0.00 0.00 0.00</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_62</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>123.560000 33.688500 3.504020 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_63</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>136.558000 28.639700 3.365660 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_64</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>151.094000 23.506100 5.239840 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_65</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>163.424000 19.270100 5.743430 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_66</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>262.61 -17.54 1.57 0.00 0.00 0.00</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_67</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>188.277000 25.308500 0.000000 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_68</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>189.157000 11.345100 6.037850 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_69</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>202.802000 6.715610 5.159480 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_70</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>216.589000 1.338480 4.227660 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <include>
+      <name>oak_tree_71</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>232.802000 -3.967960 2.439000 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    # bumps and ramps 
+    <include>
+      <uri>model://bump_010</uri>
+      <pose>83.495000 -205.757000 3.676050 0.000000 0.000000 -0.320000</pose>
+    </include>
+    <include>
+      <uri>model://bump_003</uri>
+      <pose>77.631800 73.602900 3.656370 0.000000 -0.000000 1.216340</pose>
+    </include>
+    <include>
+      <uri>model://bump_022</uri>
+      <pose>-119.61 -201.21 2.52 0 0 -0.36</pose>
+    </include>
+    <include>
+      <uri>model://ramp_010</uri>
+      <pose>103.288000 10.191900 2.743270 0.000000 -0.000000 1.208410</pose>
+    </include>
+    <include>
+      <uri>model://ramp_025</uri>
+      <pose>151.520000 -204.555000 4.058940 0.000000 -0.000000 1.210000</pose>
+    </include>
+    <include>
+      <uri>model://ramp_040</uri>
+      <pose>-84.619900 -111.997000 2.613660 0.000000 -0.000000 1.210000</pose>
+    </include>
+
+    <!-- 드론(모듈 A). agconav_integrated.sdf에서 그대로 이식.
+         wheel(-5, 0) / leg(5, 0) 사이에 배치되어 지상 로봇 2대와
+         함께 초기 GUI 시점에 들어온다. -->
+    <include>
+      <uri>
+        model://agconav_drone
+      </uri>
+      <name>X3</name>
+      <pose>-156.48 148.18 6.15 -0.0144 -0.0345 -0.3897</pose>
+      <plugin
+        filename="gz-sim-multicopter-motor-model-system"
+        name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_0_joint</jointName>
+        <linkName>X3/rotor_0</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>8.436e-05</motorConstant>
+        <momentConstant>0.016</momentConstant>
+        <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+        <actuator_number>0</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/0</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin
+        filename="gz-sim-multicopter-motor-model-system"
+        name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_1_joint</jointName>
+        <linkName>X3/rotor_1</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>8.436e-05</motorConstant>
+        <momentConstant>0.016</momentConstant>
+        <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+        <actuator_number>1</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/1</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin
+        filename="gz-sim-multicopter-motor-model-system"
+        name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_2_joint</jointName>
+        <linkName>X3/rotor_2</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>8.436e-05</motorConstant>
+        <momentConstant>0.016</momentConstant>
+        <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+        <actuator_number>2</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/2</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin
+        filename="gz-sim-multicopter-motor-model-system"
+        name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_3_joint</jointName>
+        <linkName>X3/rotor_3</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>8.436e-05</motorConstant>
+        <momentConstant>0.016</momentConstant>
+        <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+        <actuator_number>3</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/3</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin
+        filename="gz-sim-multicopter-control-system"
+        name="gz::sim::systems::MulticopterVelocityControl">
+        <robotNamespace>X3</robotNamespace>
+        <commandSubTopic>gazebo/command/twist</commandSubTopic>
+        <enableSubTopic>enable</enableSubTopic>
+        <comLinkName>X3/base_link</comLinkName>
+        <velocityGain>2.7 2.7 2.7</velocityGain>
+        <attitudeGain>2 3 0.15</attitudeGain>
+        <angularRateGain>0.4 0.52 0.18</angularRateGain>
+        <maximumLinearAcceleration>2 2 2</maximumLinearAcceleration>
+
+        <rotorConfiguration>
+          <rotor>
+            <jointName>X3/rotor_0_joint</jointName>
+            <forceConstant>8.436e-05</forceConstant>
+            <momentConstant>0.016</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_1_joint</jointName>
+            <forceConstant>8.436e-05</forceConstant>
+            <momentConstant>0.016</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_2_joint</jointName>
+            <forceConstant>8.436e-05</forceConstant>
+            <momentConstant>0.016</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_3_joint</jointName>
+            <forceConstant>8.436e-05</forceConstant>
+            <momentConstant>0.016</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+        </rotorConfiguration>
+      </plugin>
+      <plugin
+        filename="gz-sim-odometry-publisher-system"
+        name="gz::sim::systems::OdometryPublisher">
+        <dimensions>3</dimensions>
+      </plugin>
+    </include>
+
+    </world>
+</sdf>

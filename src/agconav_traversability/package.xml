@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>agconav_traversability</name>
+  <version>0.0.1</version>
+  <description>
+    AG-CoNav 모듈 F (지형 주행성 분석). 드론 2.5D 높이 지도에서 셀별 경사·단차를
+    계산하고, wheel/leg 통과 기준으로 갈라 로봇별 Nav2용 2D 주행 가능 맵을 만든다.
+  </description>
+
+  <maintainer email="lee@example.com">lee</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>grid_map_msgs</exec_depend>
+  <exec_depend>nav2_msgs</exec_depend>
+  <exec_depend>nav2_map_server</exec_depend>
+  <exec_depend>nav2_lifecycle_manager</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

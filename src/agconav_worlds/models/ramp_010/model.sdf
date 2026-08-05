@@ -1,0 +1,41 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <model name="ramp_010">
+    <static>true</static>
+    <link name="link">
+
+      <!-- 각도: 10.0도 / 경사면 길이: 4.0m / 높이(H)=0.6946m / 수평거리(D)=3.9392m -->
+
+      <collision name="up_collision">
+        <pose>1.9696 0 0.3473 0 -0.174533 0</pose>
+        <geometry><box><size>4.0 3.0 0.1</size></box></geometry>
+      </collision>
+      <visual name="up_visual">
+        <pose>1.9696 0 0.3473 0 -0.174533 0</pose>
+        <geometry><box><size>4.0 3.0 0.1</size></box></geometry>
+        <material><ambient>0.8 0.15 0.1 1</ambient><diffuse>0.85 0.2 0.15 1</diffuse></material>
+      </visual>
+
+      <collision name="flat_collision">
+        <pose>4.6892 0 0.6946 0 0 0</pose>
+        <geometry><box><size>1.5 3.0 0.1</size></box></geometry>
+      </collision>
+      <visual name="flat_visual">
+        <pose>4.6892 0 0.6946 0 0 0</pose>
+        <geometry><box><size>1.5 3.0 0.1</size></box></geometry>
+        <material><ambient>0.8 0.15 0.1 1</ambient><diffuse>0.85 0.2 0.15 1</diffuse></material>
+      </visual>
+
+      <collision name="down_collision">
+        <pose>7.4088 0 0.3473 0 0.174533 0</pose>
+        <geometry><box><size>4.0 3.0 0.1</size></box></geometry>
+      </collision>
+      <visual name="down_visual">
+        <pose>7.4088 0 0.3473 0 0.174533 0</pose>
+        <geometry><box><size>4.0 3.0 0.1</size></box></geometry>
+        <material><ambient>0.8 0.15 0.1 1</ambient><diffuse>0.85 0.2 0.15 1</diffuse></material>
+      </visual>
+
+    </link>
+  </model>
+</sdf>
