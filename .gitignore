@@ -44,3 +44,7 @@ src/unitree_go2_ros2_jazzy/
 jongheon_dev.md
 *.world.bak
 *.world.bak2
+*.world.bak*
+*.world.bak*
+*.launch.py.bak
+!src/agconav_worlds/worlds/Seongdong_gu/mesh/buildings.dae
