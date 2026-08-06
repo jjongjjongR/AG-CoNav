@@ -149,6 +149,41 @@ def generate_launch_description():
         ],
     )
 
+    # agconav_description/models/agconav_drone/model.sdf의 os1_lidar_mount/
+    # os1_lidar 링크 pose(둘 다 model 프레임 = drone/base_link 기준, relative_to
+    # 없음)에서 그대로 가져온 고정 오프셋. 드론은 URDF/xacro + robot_state_publisher가
+    # 아니라 SDF로 직접 스폰되는 구조라 이 구간을 자동으로 발행해주는 노드가 없어서
+    # drone_elevation_mapper가 쓸 map -> ... -> drone/os1_lidar TF 체인을 완성하려면
+    # 이 static publisher가 필요하다.
+    lidar_static_tf = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="drone_os1_lidar_static_tf",
+        output="screen",
+        arguments=[
+            "--x", "0", "--y", "0", "--z", "-0.175406",
+            "--roll", "0", "--pitch", "1.5708", "--yaw", "0",
+            "--frame-id", "drone/base_link",
+            "--child-frame-id", "drone/os1_lidar",
+        ],
+        parameters=[{"use_sim_time": use_sim_time}],
+    )
+
+    elevation_mapper_yaml = os.path.join(
+        agconav_drone_share, "config", "drone_elevation_mapper.yaml"
+    )
+
+    drone_elevation_mapper = Node(
+        package="agconav_drone",
+        executable="drone_elevation_mapper",
+        name="drone_elevation_mapper",
+        output="screen",
+        parameters=[
+            elevation_mapper_yaml,
+            {"use_sim_time": use_sim_time},
+        ],
+    )
+
     return LaunchDescription(
         [
             declare_world_name,
@@ -161,5 +196,7 @@ def generate_launch_description():
             set_pose_bridge,
             drone_path_player,
             drone_pose_controller,
+            lidar_static_tf,
+            drone_elevation_mapper,
         ]
     )

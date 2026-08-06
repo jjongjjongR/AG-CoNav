@@ -11,10 +11,15 @@
 
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>sensor_msgs_py</depend>
   <depend>std_msgs</depend>
+  <depend>grid_map_msgs</depend>
   <depend>tf2_ros</depend>
   <depend>tf2_geometry_msgs</depend>
+  <depend>tf2_sensor_msgs</depend>
   <depend>python3-yaml</depend>
+  <depend>python3-numpy</depend>
   <depend>ros_gz_interfaces</depend>
 
   <exec_depend>ros_gz_bridge</exec_depend>

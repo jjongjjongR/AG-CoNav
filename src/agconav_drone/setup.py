@@ -26,6 +26,7 @@ setup(
         'console_scripts': [
             'drone_path_player = agconav_drone.drone_path_player:main',
             'drone_pose_controller = agconav_drone.drone_pose_controller:main',
+            'drone_elevation_mapper = agconav_drone.drone_elevation_mapper:main',
         ],
     },
 )
