@@ -18,8 +18,9 @@ import yaml
 
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy, HistoryPolicy
 from geometry_msgs.msg import PoseStamped, TransformStamped
+from std_msgs.msg import Bool
 from tf2_ros import TransformBroadcaster
 
 
@@ -119,6 +120,19 @@ class DronePathPlayer(Node):
         self.pose_pub = self.create_publisher(PoseStamped, "/drone/cmd_pose", qos)
         self.tf_broadcaster = TransformBroadcaster(self)
 
+        # ground_elevation_mapper의 navigation_status(Bool, latched)와 동일한 패턴:
+        # 경로 재생이 끝났음을 다른 노드(예: drone_elevation_mapper)가 늦게
+        # 구독해도 놓치지 않도록 latched로 한 번만 발행한다.
+        path_status_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
+        self.path_status_pub = self.create_publisher(
+            Bool, "/drone/path_status", path_status_qos
+        )
+
         # 재생 상태
         self.current_idx = 0
         self.segment_elapsed = 0.0
@@ -177,6 +191,7 @@ class DronePathPlayer(Node):
     def _finish(self):
         self.finished = True
         self.get_logger().info("경로 재생 종료 (waypoint 남지 않음, 스캔 완료)")
+        self.path_status_pub.publish(Bool(data=True))
 
     def _publish_pose(self, wp):
         now = self.get_clock().now().to_msg()
