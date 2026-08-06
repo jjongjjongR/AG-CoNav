@@ -88,8 +88,11 @@ class DronePathPlayer(Node):
         # use_sim_time은 ROS2가 모든 노드에 자동으로 선언하는 built-in 파라미터라
         # 여기서 다시 declare_parameter 하면 ParameterAlreadyDeclaredException 발생.
         # 필요하면 self.get_parameter("use_sim_time").value 로 값만 읽으면 됨.
-        # README에 없는 값 - 팀 확정 필요. 임시 기본값.
-        self.declare_parameter("cruise_speed_mps", 3.0)
+        # README에 없는 값 - 팀 확정 필요. 업계 표준(라이다 매핑 미션 기준
+        # 5-10 m/s: UgCS 기본 5 m/s/DJI 센서 최대 8-9 m/s, Propeller Aero
+        # DJI L1/L2 9 m/s 이하 권장, Anvil Labs DJI M300 5-10 m/s)을 참고해
+        # 3.0 -> 8.0으로 조정. 최종 확정은 팀 논의 필요.
+        self.declare_parameter("cruise_speed_mps", 8.0)
 
         self.path_file = self.get_parameter("path_file").value
         self.frame_id = self.get_parameter("frame_id").value

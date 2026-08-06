@@ -9,5 +9,6 @@ drone_path_player:
     loop: false
     interpolate: true
     use_sim_time: true
-    # README 확정 표에 없는 값 - 팀 확정 필요
-    cruise_speed_mps: 3.0
+    # README 확정 표에 없는 값 - 팀 확정 필요. 업계 표준(5-10 m/s) 참고해서
+    # 8.0으로 조정, 최종 확정은 팀 논의 필요.
+    cruise_speed_mps: 8.0
