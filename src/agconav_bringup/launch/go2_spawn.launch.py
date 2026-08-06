@@ -7,19 +7,16 @@ from launch_ros.actions import Node, SetRemap
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
-    ExecuteProcess,
     GroupAction,
-    RegisterEventHandler,
-    TimerAction,
 )
-from launch.event_handlers import OnProcessExit
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 
 
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
+    use_localization = LaunchConfiguration("use_localization", default="false")
     base_frame = "base_link"
 
     unitree_go2_sim = launch_ros.substitutions.FindPackageShare(
@@ -183,19 +180,7 @@ def generate_launch_description():
         remappings=[("odometry/filtered", "odom")],
     )
 
-    # Go2 static frame connection (map -> odom)
-    map_to_odom_tf_node = Node(
-        package='tf2_ros',
-        name='map_to_odom_tf_node',
-        executable='static_transform_publisher',
-        parameters=[{'use_sim_time': use_sim_time}],
-        arguments=[
-            '--x', '0', '--y', '0', '--z', '0',
-            '--roll', '0', '--pitch', '0', '--yaw', '0',
-            '--frame-id', 'map', '--child-frame-id', 'odom'
-        ],
-    )
-    
+    # map_to_odom_tf_node was removed to guarantee it does not run.
     # Go2 URDF connection (base_footprint -> base_link)  
     base_footprint_to_base_link_tf_node = Node(
         package='tf2_ros',
@@ -246,7 +231,7 @@ def generate_launch_description():
             # CHAMP EKF 두 개의 imu0도 /leg/imu로 재배선했으므로 원본 imu 브리지는 비활성화.
             # '/imu/data@sensor_msgs/msg/Imu@gz.msgs.IMU',
             '/leg/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
-            '/tf@tf2_msgs/msg/TFMessage@gz.msgs.Pose_V',
+            '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
             # AG-CoNav: go2 원본 3D LiDAR/카메라는 os1_lidar 오버레이(leg/points 등)로 대체되어 비활성화.
             # 브리지를 끊으면 velodyne/lidar_l1은 구독자가 없어(always_on 미설정=기본 false)
             # raycasting 자체가 멈춰 GPU 부하가 준다. rgb_camera는 always_on=1이라 렌더는 계속되나
@@ -263,8 +248,7 @@ def generate_launch_description():
         ],
     )
     
-    # 일시정지된 물리 월드에서 controller를 load/configure한다. paused 상태에서는
-    # switch_controller가 update cycle을 기다리므로 activation은 다음 단계에서 한다.
+    # 시뮬레이션이 -r(unpaused)로 시작하므로 바로 active로 로드한다.
     controller_loader = Node(
         package="controller_manager",
         executable="spawner",
@@ -272,47 +256,9 @@ def generate_launch_description():
         arguments=[
             "joint_states_controller",
             "joint_group_effort_controller",
-            "--inactive",
             "--controller-manager-timeout", "120",
             "--switch-timeout", "120",
         ],
-    )
-
-    controller_activator = ExecuteProcess(
-        cmd=[
-            "ros2", "control", "switch_controllers",
-            "--strict",
-            "--activate-asap",
-            "--controller-manager", "/controller_manager",
-            "--activate",
-            "joint_states_controller",
-            "joint_group_effort_controller",
-        ],
-        output="screen",
-    )
-
-    unpause_world = TimerAction(
-        period=0.25,
-        actions=[
-            ExecuteProcess(
-                cmd=[
-                    "gz", "service",
-                    "-s", "/world/agconav_world/control",
-                    "--reqtype", "gz.msgs.WorldControl",
-                    "--reptype", "gz.msgs.Boolean",
-                    "--timeout", "5000",
-                    "--req", "pause: false",
-                ],
-                output="screen",
-            )
-        ],
-    )
-
-    activate_after_load = RegisterEventHandler(
-        OnProcessExit(
-            target_action=controller_loader,
-            on_exit=[controller_activator, unpause_world],
-        )
     )
     
     # leg 스택은 CHAMP가 프레임 이름을 하드코딩(base_link 등)해서 frame_prefix를 못 쓴다.
@@ -337,11 +283,9 @@ def generate_launch_description():
         footprint_to_odom_ekf,
 
         # TF publishers for frame connections
-        map_to_odom_tf_node,
         base_footprint_to_base_link_tf_node,
 
-        # Controller startup handles load/configure → activate request → unpause.
-        activate_after_load,
+        # Controller loader — 시뮬레이션이 unpaused이므로 바로 활성화.
         controller_loader,
 
         # Visualization (only if rviz flag is set)
@@ -352,6 +296,7 @@ def generate_launch_description():
         [
             # Launch arguments
             declare_use_sim_time,
+            DeclareLaunchArgument("use_localization", default_value="false"),
             declare_rviz,
             declare_robot_name,
             declare_lite,

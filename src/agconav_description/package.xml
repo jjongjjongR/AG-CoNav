@@ -4,7 +4,7 @@
   <name>agconav_description</name>
   <version>0.0.1</version>
   <description>로봇 3종 모델과 OS1-32/GPS/IMU 센서 정의</description>
-  <maintainer email="whdgjs1012@gmail.com">이종헌</maintainer>
+  <maintainer email="lee@example.com">이종헌</maintainer>
   <license>TODO</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

@@ -1,0 +1,10 @@
+traversability_verdictor_wheel:
+  ros__parameters:
+    use_sim_time: true
+    features_topic: /terrain/features
+    output_map_topic: /wheel/nav_map
+    status_topic: /wheel/nav_map_status
+    max_slope_deg: 20.0   # README §3.3 wheel 통과 기준
+    max_step_m: 0.08
+    unknown_value: -1
+    frame_id: map

@@ -129,7 +129,7 @@ wheel 주행가능 맵 · leg 주행가능 맵 분리   ← 드론 2.5D 에서 �
 
 - 해상도 **0.10 m/cell**(전 지도 동일 → 병합 시 리샘플 불필요) · 2.5D 핵심 레이어 **`elevation`**(m).
 - **미관측 셀 = `NaN`** (grid_map 표준). Nav2용 2D(OccupancyGrid) 투영 시 자유 0 / 점유 100 / 미관측 −1(NaN→−1).
-- **주행성 통과 기준(F)**: wheel = 최대 경사 20°·최대 단차 **0.08 m**, leg = 최대 경사 30°·최대 단차 **0.15 m**. → 월드의 낮은 장애물은 **≈0.12 m**(wheel 막힘·leg 통과)로 배치해야 두 nav_map이 갈린다. (값은 yaml 튜닝)
+- **주행성 통과 기준(F)**: wheel = 최대 경사 20°·최대 단차 **0.08 m**, leg = 최대 경사 30°·최대 단차 **0.15 m**. → 월드의 낮은 장애물은 **정확히 0.10 m**(wheel 막힘·leg 통과)로 배치해야 두 nav_map이 갈린다. (0.11 m↑는 leg 판정 불안정 구간, 값은 yaml 튜닝)
 - **병합 규칙(E)**: 같은 해상도 전제, 출력 = 세 입력의 합집합 범위. 중복 셀은 **지상(wheel/leg) 관측 우선 → 드론**(가림영역 세부 보완 목적), 유효값을 NaN으로 덮지 않음.
 - **저장 형식**: 2.5D elevation = **rosbag2 `mcap`으로 GridMap 직렬화**, 2D nav_map/occupancy = **map_server `.yaml`+`.pgm`**.
 - **미관측 셀** = `NaN` (2D 투영 시 −1) — 3.3
@@ -165,7 +165,7 @@ export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 | **D 지상 지도 누적** | 채현우 | wheel·leg가 이동하며 주변 지형을 2.5D 지도로 누적 | `/X/points`, B의 pose/TF | `/wheel/elevation_map`, `/leg/elevation_map`, 저장 |
 | **E 모든 지도 병합** | 채현우 | 세 2.5D 지도를 하나로 병합 | 3개 `elevation_map` | `/merged_map`, 저장 |
 
-- **F(주행성 분석)**: 드론 2.5D에서 로봇별(경사·단차·장애물 높이 기준) 통과 영역을 갈라 `/wheel/nav_map`·`/leg/nav_map`을 만든다. 낮은 장애물 = wheel 막힘 / leg 통과. Nav2 설정은 **공통 하나**, 로봇별 차이는 **입력 주행맵·footprint**뿐.
+- **F(주행성 분석)**: 드론 2.5D에서 로봇별(경사·단차 기준) 통과 영역을 갈라 `/wheel/nav_map`·`/leg/nav_map`을 만든다. 낮은 장애물 = wheel 막힘 / leg 통과. Nav2 설정은 **공통 하나**, 로봇별 차이는 **입력 주행맵·footprint**뿐.
 - D는 A의 지도 생성 구조를 재사용(협업: 홍연주 ↔ 채현우). E는 이미 map 프레임으로 정렬된 지도를 겹치기만 한다(정렬은 B).
 
 ---
@@ -203,7 +203,7 @@ AG-CoNav/
 ├── CONTRIBUTING.md        # 기여 규칙(브랜치·PR·커밋)
 ├── config/
 ├── src/
-│   ├── agconav_worlds/           # 공통(이종헌)  코펜하겐 500×500 월드·지형
+│   ├── agconav_worlds/           # 공통(홍연주)  서울 성수동 500×500 월드·지형
 │   ├── agconav_description/      # 공통(이종헌)  로봇 3종 모델 + OS1-32/GPS/IMU, 정적 TF
 │   ├── agconav_gz_bridge/        # 공통(이종헌)  Gazebo↔ROS2 브리지 설정
 │   ├── agconav_bringup/          # 공통(이종헌)  전체 통합 launch(원클릭)
@@ -247,7 +247,7 @@ AG-CoNav/
 **남은 튜닝·조율**
 
 1. 통과 기준 파라미터 실측 튜닝(위 값은 시작점).
-2. **월드의 낮은 장애물 높이 ≈ 0.12 m 배치** (worlds·F 모두 이종헌). wheel(0.08)와 leg(0.15) 통과 기준 사이여야 두 nav_map이 갈림.
+2. **월드의 낮은 장애물 높이 0.10 m 배치** (worlds·F 모두 이종헌). wheel(0.08)와 leg(0.15) 통과 기준 사이이며, leg 판정이 안정적인 0.10 m로 맞춘다.
 3. 지도 저장 경로·파일명 규칙(형식은 확정).
 
 ---
@@ -265,25 +265,18 @@ AG-CoNav/
 ## 10. 설치 · 실행 (요약)
 
 ```bash
-# ROS2 Jazzy + 도구 (venv 안 씀, 시스템에 설치)
-sudo apt install ros-jazzy-desktop gz-harmonic ros-jazzy-ros-gz \
-  ros-jazzy-navigation2 ros-jazzy-nav2-bringup ros-jazzy-robot-localization \
-  ros-jazzy-teleop-twist-keyboard ros-jazzy-xacro \
-  ros-jazzy-robot-state-publisher ros-jazzy-joint-state-publisher \
-  python3-numpy python3-scipy python3-matplotlib python3-opencv \
-  python3-vcstool
-# grid_map / elevation_mapping / Husky A300 모델은 소스 빌드
-
-git clone <이 저장소 URL> AG-CoNav && cd AG-CoNav
-
-# 외부 패키지(Go2 + CHAMP, ~170MB)는 커밋되어 있지 않음 → vcstool로 받기
-vcs import src < deps.repos
-
-colcon build --symlink-install && source install/setup.bash
-# ros2 launch agconav_bringup <통합 launch>   # 원클릭 실행 (구현 후)
+git clone https://github.com/jjongjjongR/AG-CoNav.git && cd AG-CoNav
+./scripts/setup_simulation.sh
+./scripts/run_simulation.sh
 ```
 
-> `deps.repos`에 등록된 외부 저장소를 최신 커밋으로 갱신하려면 `vcs pull src` 후 `deps.repos`의 `version`을 새 커밋 해시로 고쳐 커밋한다(임의 갱신 금지 — 팀 전원이 같은 커밋을 쓰기 위함).
+자동 설정 스크립트가 apt 의존성, Go2/CHAMP 고정 커밋 다운로드, AG-CoNav용
+Go2 패치, rosdep, 전체 빌드와 설치 검증까지 수행한다. 자세한 수동 절차와
+트러블슈팅은 [simulation_guide_jongheon.md](simulation_guide_jongheon.md)를 따른다.
+
+> `deps.repos`에 등록된 외부 저장소를 갱신하려면 `deps.repos`의 `version`뿐 아니라
+> `patches/unitree_go2_ros2_jazzy.patch`도 새 upstream 기준으로 재검증해야 한다.
+> 임의 갱신 금지 — 팀 전원이 같은 커밋과 같은 패치를 사용해야 한다.
 
 ---
 
@@ -291,3 +284,4 @@ colcon build --symlink-install && source install/setup.bash
 
 MuJoCo/4족 RL · LLM 재배분 · 드론 자율비행 · 로봇별 알고리즘 최적화 · 정밀 목표 탐지(`/X/detections`) · 임무 배분 · 지상 독립 SLAM · LaserScan 변환.
 (필요가 실제로 확인되기 전까지 추가하지 않는다.)
+d
