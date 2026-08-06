@@ -14,7 +14,7 @@ Husky A300, Unitree Go2가 하나의 Gazebo 월드에 나타나는 상태까지 
 통합 launch를 한 번 실행하면 Gazebo Harmonic 월드 하나에 로봇 세 대가 생성된다.
 
 ```text
-agconav_world
+Seongdong_gu (Gazebo world)
 ├── X3          드론
 ├── wheel/robot Husky A300
 └── leg         Unitree Go2
@@ -75,11 +75,14 @@ Gazebo 멀티콥터 예제
 커스터마이징되어 있다.
 
 - 모델: `src/agconav_description/models/agconav_drone/model.sdf`
-- 월드 배치와 비행 플러그인: `src/agconav_worlds/worlds/agconav_integrated.sdf`
+- 월드 배치와 비행 플러그인: `src/agconav_worlds/worlds/Seongdong_gu/Seongdong_gu.world`
 
 통합 월드는 로컬 모델을 `model://agconav_drone`으로 불러와 Gazebo 이름을 `X3`로
 지정한다. 네 개의 motor plugin과 `MulticopterVelocityControl` plugin도 같은
-SDF에 배치한다.
+SDF에 배치한다. X3는 이 월드 SDF의 `<include>`로 정의되어 있어, Gazebo가 월드를
+로드하는 즉시 spawn된다 — 아래 A300·Go2처럼 ROS 2 launch(`agconav_sim.launch.py`)
+쪽 spawn 로직에 의존하지 않는다. (이 차이가 7.4절에서 다루는 leg 스폰 실패의
+원인을 이해하는 데 중요하다.)
 
 #### 명령 브리지
 
@@ -116,7 +119,7 @@ Clearpath generator
              ↓
 A300 URDF·launch·controller 설정
              ↓
-현재 agconav_world에 spawn
+현재 Seongdong_gu 월드에 spawn
 ```
 
 `robot.yaml`에는 `/wheel` namespace, A300 attachment, LiDAR, IMU, GPS 구성이
@@ -131,7 +134,7 @@ Clearpath의 전체 simulation launch로 별도 Gazebo를 실행하지 않는다
 clearpath_gz/launch/robot_spawn.launch.py
 ```
 
-이때 `world:=agconav_world`, `generate:=true`를 전달한다. 결과는 다음과 같다.
+이때 `world:=Seongdong_gu`, `generate:=false`를 전달한다. 결과는 다음과 같다.
 
 ```text
 Gazebo 모델 : wheel/robot
@@ -141,6 +144,41 @@ ROS namespace: /wheel
               /wheel/tf
 controller   : /wheel/controller_manager
 ```
+
+#### `generate:=false`와 최초 1회 부트스트랩
+
+`agconav_sim.launch.py`는 실행할 때마다 `generate:=false`를 넘긴다. `generate:=true`는
+매번 URDF·launch·controller parameter를 새로 만드는데, 이 재생성 과정에서 Gazebo
+시뮬레이션 시간이 순간적으로 역행(time jump)하는 문제가 있었기 때문에, 재실행 시에는
+이미 만들어진 산출물(`platform/`, `sensors/`, `manipulators/`)을 그대로 include만
+하도록 고정했다. 이 기본값은 의도된 것이므로 바꾸지 않는다.
+
+문제는 이 산출물이 **소스 코드가 아니라 빌드 산출물**이라는 점이다. `clearpath_generator_gz`가
+`generate:=true`로 최소 한 번 실행돼야 다음 위치에 생성된다.
+
+```text
+install/agconav_bringup/share/agconav_bringup/config/clearpath_a300/
+├── platform/{launch,config}
+├── sensors/{launch,config}
+└── manipulators/{launch,config}
+```
+
+새로 clone한 환경에는 이 산출물이 없으므로, `generate:=false`로 곧바로 `agconav_sim.launch.py`를
+실행하면 A300 spawn이 존재하지 않는 파일을 include하려다 예외로 죽는다. 더 나쁜 것은, 이
+예외가 A300 spawn 하나만 죽이는 게 아니라 **최상위 `ros2 launch` 프로세스 전체를
+종료**시킨다는 점이다 — `agconav_sim.launch.py`의 최상위 `LaunchDescription`에서 A300
+spawn(`spawn_wheel`)이 Go2 spawn(`spawn_leg`)보다 먼저 나열되어 있어서, A300 단계에서
+전체 launch가 죽으면 그 뒤에 나열된 Go2 spawn·sensor bridge·localization·Nav2까지
+전부 도미노로 실행되지 못한다. (X3만은 예외인데, X3는 위 2.2절에서 설명했듯 ROS 2
+launch가 아니라 월드 SDF의 `<include>`로 Gazebo가 직접 spawn하기 때문이다.)
+
+이 문제를 해결하기 위해 `scripts/setup_simulation.sh`의 `[7/9]` 단계가 최초 설정 시
+`generate:=true`로 `clearpath_gz robot_spawn.launch.py`를 한 번 실행해 위 산출물을
+만들어 둔다. Gazebo 없이도 산출물 생성(`generate_description`→`generate_semantic_description`
+→`generate_launch`→`generate_param`) 4단계는 끝까지 실행되므로, 생성이 끝나는 즉시
+프로세스를 정리하고 다음 단계로 넘어간다. 이 산출물은 `install/` 아래에 남아 있으므로
+한 번만 실행하면 되고, `./scripts/setup_simulation.sh`를 다시 실행해도 이미 생성되어
+있으면 건너뛴다.
 
 #### PC마다 Clearpath 설치 위치가 다른 문제
 
@@ -225,20 +263,24 @@ Gazebo를 한 번만 실행하고 A300과 Go2를 그 월드에 추가한다.
 ```text
 agconav_sim.launch.py
 │
-├── agconav_integrated.sdf로 Gazebo 1개 실행
+├── Seongdong_gu.world로 Gazebo 1개 실행
 │   └── X3와 환경 모델 포함
-├── Clearpath robot_spawn.launch.py include
-│   └── A300을 agconav_world에 spawn
+├── Clearpath robot_spawn.launch.py include (generate:=false)
+│   └── A300을 Seongdong_gu 월드에 spawn
 ├── go2_spawn.launch.py include
-│   └── Go2를 agconav_world에 spawn
+│   └── Go2를 Seongdong_gu 월드에 spawn
 ├── /clock과 X3 cmd_vel bridge
 ├── 세 로봇 sensor bridge
 └── Wheel·Leg TF prefix relay
 ```
 
+위 목록에서 A300 spawn(`spawn_wheel`)이 Go2 spawn(`spawn_leg`)보다 먼저 실행된다.
+2.3절에서 설명한 것처럼 A300 쪽이 예외로 죽으면 Go2를 포함한 나머지 항목이 전부
+실행되지 못하므로, 두 로봇의 spawn 순서와 그 사이의 실패 전파 가능성을 기억해 둘 것.
+
 | 파일 | 역할 |
 | --- | --- |
-| `src/agconav_worlds/worlds/agconav_integrated.sdf` | 공통 월드, 환경, X3 배치와 비행 plugin |
+| `src/agconav_worlds/worlds/Seongdong_gu/Seongdong_gu.world` | 공통 월드, 환경, X3 배치와 비행 plugin |
 | `src/agconav_description/models/agconav_drone/model.sdf` | 커스터마이징한 X3 몸체와 센서 |
 | `config/clearpath_a300/robot.yaml` | A300 platform, namespace, attachment와 센서 구성 |
 | `src/agconav_bringup/launch/agconav_sim.launch.py` | 전체 월드와 세 로봇, bridge를 묶는 최상위 launch |
@@ -284,18 +326,21 @@ cd AG-CoNav
 
 1. Ubuntu 24.04인지 확인
 2. ROS 2 apt 저장소 등록
-3. ROS 2 Jazzy, Gazebo, Clearpath, Nav2와 빌드 도구 설치
+3. ROS 2 Jazzy, Gazebo, Clearpath, Nav2와 빌드 도구 설치 (`ros2 control` CLI용
+   `ros2controlcli` 포함)
 4. `deps.repos`의 고정 commit으로 Go2와 CHAMP 다운로드
 5. Go2 초기 자세와 controller patch 적용
 6. rosdep 의존성 설치
 7. 환경 모델 5종과 X3 UAV를 Gazebo Fuel cache에 다운로드
 8. 전체 workspace 빌드
-9. ROS package, Clearpath YAML, Go2 patch, launch와 OpenGL 검증
+9. Clearpath A300 생성물 부트스트랩 (최초 1회, `generate:=true`로 `platform/sensors/manipulators`
+   산출물 생성 — 2.3절 참고. 이미 생성되어 있으면 건너뜀)
+10. ROS package, Clearpath YAML, Go2 patch, launch와 OpenGL 검증
 
 모든 과정이 끝나면 다음 메시지가 나온다.
 
 ```text
-[8/8] 완료
+[9/9] 완료
 설정과 빌드 검증이 끝났습니다.
 ```
 
@@ -525,6 +570,62 @@ glxinfo -B
 드라이버를 새로 설치했다면 PC를 재부팅한 뒤 다시 실행한다. GPU 드라이버는 하드웨어별로
 다르므로 프로젝트 스크립트가 임의로 설치하지 않는다.
 
+### X3만 뜨고 wheel/robot, leg가 둘 다 안 뜸
+
+`gz model --list`에 `X3`만 있고 `wheel/robot`과 `leg`가 둘 다 없다면, Go2(leg)
+고유의 버그가 아니라 **A300(wheel)의 `generate:=false` 산출물 누락**이 원인일 가능성이
+매우 높다. 2.3절에서 설명했듯 A300 spawn이 `agconav_sim.launch.py`의 최상위
+`LaunchDescription`에서 Go2 spawn보다 먼저 나열되어 있어서, A300 쪽이 존재하지 않는
+생성 파일을 include하려다 예외로 죽으면 그 예외가 전체 `ros2 launch` 프로세스를
+종료시켜 뒤에 나열된 Go2 spawn까지 도미노로 실행되지 못한다. X3는 월드 SDF의
+`<include>`로 Gazebo가 직접 spawn하므로 이 도미노와 무관하게 항상 뜬다.
+
+```bash
+grep -n "PackageNotFoundError\|No such file or directory" \
+  ~/.ros/log/latest/launch.log
+```
+
+위와 같은 에러가 A300(`clearpath_gz`, `platform-service.launch.py` 등) 관련으로 보이면,
+`./scripts/setup_simulation.sh`의 `[7/9]` 부트스트랩 단계가 정상적으로 끝났는지
+확인한다.
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+test -f "$(ros2 pkg prefix agconav_bringup)/share/agconav_bringup/config/clearpath_a300/platform/launch/platform-service.launch.py" \
+  && echo OK
+```
+
+파일이 없으면 `./scripts/setup_simulation.sh`를 다시 실행한다(이미 끝난 단계는
+건너뛰고 `[7/9]`만 다시 수행된다). Go2 자체에는 별도 patch 미적용이나 경로 문제가
+없었다 — go2_spawn.launch.py, `unitree_go2_ros2_jazzy.patch` 적용 상태를 확인한 결과
+정상이었고, A300 문제만 해결하면 leg도 함께 정상 스폰된다.
+
+### A300 `platform_velocity_controller` 활성화가 5초 타임아웃으로 실패함
+
+```text
+[ERROR] [wheel.controller_manager]: Switch controller timed out after 5 seconds!
+[ERROR] [wheel.spawner_platform_velocity_controller]: Failed to activate controller : platform_velocity_controller
+```
+
+`gz model --list`에는 `wheel/robot`이 정상적으로 보이지만 `/wheel/platform/odom`에
+메시지가 발행되지 않는 경우 이 로그를 확인한다. 저사양/소프트웨어 렌더링 환경(GPU
+가속 없는 VM 등)에서 Gazebo가 처음 기동할 때 실시간성이 떨어지면서, 생성된
+`platform-service.launch.py`가 사용하는 controller switch 기본 타임아웃(5초)을
+넘기는 것으로 보인다. 재현 환경에서는 아래처럼 controller를 수동으로 다시
+활성화하면 즉시 성공했다.
+
+```bash
+ros2 run controller_manager spawner platform_velocity_controller \
+  --controller-manager-timeout 60 --switch-timeout 30 \
+  --ros-args -r __ns:=/wheel
+```
+
+이 항목은 A300/Go2 spawn 자체와는 무관한 별개 이슈이며, 근본 원인(느린 콜드 스타트
+vs. 생성된 launch 파일의 고정 타임아웃)은 아직 확정되지 않았다. 매번 재현되면
+`clearpath_generator_gz`가 생성하는 spawner의 `--switch-timeout` 값을 늘리는 방향을
+검토한다.
+
 ### Nav2를 켰더니 실패함
 
 현재 저장소에는 시험 후 삭제한 Nav2 parameter와 map이 없다. 기본 실행처럼
@@ -535,7 +636,7 @@ glxinfo -B
 
 ## 8. 보고서에 사용할 수 있는 검증 문장
 
-> Gazebo 모델 목록에서 X3 드론, Go2, A300이 하나의 `agconav_world`에 동시에
+> Gazebo 모델 목록에서 X3 드론, Go2, A300이 하나의 `Seongdong_gu` 월드에 동시에
 > 생성된 것을 확인하였다. ROS 2에서는 `/clock`, Go2의 `/joint_states`, A300의
 > `/wheel/platform/odom` 메시지를 실제로 수신하였다. 또한 드론 명령 토픽
 > `/drone/cmd_vel`에 Gazebo bridge가 연결되었으며, Go2와 A300의 controller가
@@ -547,7 +648,7 @@ glxinfo -B
 > 각 로봇은 서로 다른 형태로 제공되었다. X3는 Gazebo SDF 예제를 기반으로 프로젝트에
 > 로컬화한 모델, A300은 Clearpath의 `robot.yaml` 기반 자동 생성 방식, Go2는
 > URDF/Xacro와 CHAMP 제어 패키지 형태였다. 각 로봇의 기존 모델과 제어 구조를
-> 유지하되 개별 Gazebo 실행 부분은 사용하지 않았다. 하나의 `agconav_world`를
+> 유지하되 개별 Gazebo 실행 부분은 사용하지 않았다. 하나의 `Seongdong_gu` 월드를
 > 실행하고 A300과 Go2를 해당 월드에 동적으로 spawn함으로써 X3, A300, Go2가
 > 하나의 Gazebo Harmonic 환경에서 동시에 실행되도록 구성하였다.
 
