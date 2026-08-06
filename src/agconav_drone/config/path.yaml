@@ -1,0 +1,313 @@
+frame_id: map
+altitude: 84.0
+strip_spacing: 32.581
+num_waypoints: 44
+waypoints:
+- position:
+    x: -347.56
+    y: -331.07
+    z: 84.0
+  orientation: &id001
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 370.34
+    y: -331.07
+    z: 84.0
+  orientation: *id001
+- position:
+    x: 370.34
+    y: -299.386
+    z: 84.0
+  orientation: &id002
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -347.56
+    y: -299.386
+    z: 84.0
+  orientation: *id002
+- position:
+    x: -347.56
+    y: -267.702
+    z: 84.0
+  orientation: &id003
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 370.34
+    y: -267.702
+    z: 84.0
+  orientation: *id003
+- position:
+    x: 370.34
+    y: -236.019
+    z: 84.0
+  orientation: &id004
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -347.56
+    y: -236.019
+    z: 84.0
+  orientation: *id004
+- position:
+    x: -347.56
+    y: -204.335
+    z: 84.0
+  orientation: &id005
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 370.34
+    y: -204.335
+    z: 84.0
+  orientation: *id005
+- position:
+    x: 370.34
+    y: -172.651
+    z: 84.0
+  orientation: &id006
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -347.56
+    y: -172.651
+    z: 84.0
+  orientation: *id006
+- position:
+    x: -347.56
+    y: -140.967
+    z: 84.0
+  orientation: &id007
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 370.34
+    y: -140.967
+    z: 84.0
+  orientation: *id007
+- position:
+    x: 370.34
+    y: -109.283
+    z: 84.0
+  orientation: &id008
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -347.56
+    y: -109.283
+    z: 84.0
+  orientation: *id008
+- position:
+    x: -347.56
+    y: -77.6
+    z: 84.0
+  orientation: &id009
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 370.34
+    y: -77.6
+    z: 84.0
+  orientation: *id009
+- position:
+    x: 370.34
+    y: -45.916
+    z: 84.0
+  orientation: &id010
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -347.56
+    y: -45.916
+    z: 84.0
+  orientation: *id010
+- position:
+    x: -347.56
+    y: -14.232
+    z: 84.0
+  orientation: &id011
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 370.34
+    y: -14.232
+    z: 84.0
+  orientation: *id011
+- position:
+    x: 370.34
+    y: 17.452
+    z: 84.0
+  orientation: &id012
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -347.56
+    y: 17.452
+    z: 84.0
+  orientation: *id012
+- position:
+    x: -347.56
+    y: 49.136
+    z: 84.0
+  orientation: &id013
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 370.34
+    y: 49.136
+    z: 84.0
+  orientation: *id013
+- position:
+    x: 370.34
+    y: 80.82
+    z: 84.0
+  orientation: &id014
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -347.56
+    y: 80.82
+    z: 84.0
+  orientation: *id014
+- position:
+    x: -347.56
+    y: 112.503
+    z: 84.0
+  orientation: &id015
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 370.34
+    y: 112.503
+    z: 84.0
+  orientation: *id015
+- position:
+    x: 370.34
+    y: 144.187
+    z: 84.0
+  orientation: &id016
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -347.56
+    y: 144.187
+    z: 84.0
+  orientation: *id016
+- position:
+    x: -347.56
+    y: 175.871
+    z: 84.0
+  orientation: &id017
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 370.34
+    y: 175.871
+    z: 84.0
+  orientation: *id017
+- position:
+    x: 370.34
+    y: 207.555
+    z: 84.0
+  orientation: &id018
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -347.56
+    y: 207.555
+    z: 84.0
+  orientation: *id018
+- position:
+    x: -347.56
+    y: 239.239
+    z: 84.0
+  orientation: &id019
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 370.34
+    y: 239.239
+    z: 84.0
+  orientation: *id019
+- position:
+    x: 370.34
+    y: 270.922
+    z: 84.0
+  orientation: &id020
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -347.56
+    y: 270.922
+    z: 84.0
+  orientation: *id020
+- position:
+    x: -347.56
+    y: 302.606
+    z: 84.0
+  orientation: &id021
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 370.34
+    y: 302.606
+    z: 84.0
+  orientation: *id021
+- position:
+    x: 370.34
+    y: 334.29
+    z: 84.0
+  orientation: &id022
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -347.56
+    y: 334.29
+    z: 84.0
+  orientation: *id022

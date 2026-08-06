@@ -1,0 +1,14 @@
+drone_path_player:
+  ros__parameters:
+    # path_file: launch/drone_sim_test.launch.py에서 get_package_share_directory로
+    # 동적으로 계산해 덮어쓴다. 아래 값은 launch 없이 ros2 run --params-file로
+    # 단독 테스트할 때만 쓰이는 이 개발 환경 전용 절대경로다.
+    path_file: "/home/yeonj/AG-CoNav/src/agconav_drone/config/path.yaml"
+    frame_id: "map"
+    publish_rate_hz: 10.0
+    loop: false
+    interpolate: true
+    use_sim_time: true
+    # README 확정 표에 없는 값 - 팀 확정 필요. 업계 표준(5-10 m/s) 참고해서
+    # 8.0으로 조정, 최종 확정은 팀 논의 필요.
+    cruise_speed_mps: 8.0

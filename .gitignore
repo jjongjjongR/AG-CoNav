@@ -43,6 +43,7 @@ src/unitree_go2_ros2_jazzy/
 *.swp
 
 # 개인 개발일지 (커밋 안 함)
+jongheon_dev.md
 jongheon_dev_sim.md
 발표_jongheon.md
 jongheon_dev_0802.md
@@ -52,6 +53,4 @@ jongheon_dev_f_module.md
 *.world.bak
 *.world.bak2
 *.world.bak*
-*.world.bak*
 *.launch.py.bak
-!src/agconav_worlds/worlds/Seongdong_gu/mesh/buildings.dae

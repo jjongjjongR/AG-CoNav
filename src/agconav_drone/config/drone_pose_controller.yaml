@@ -1,0 +1,10 @@
+drone_pose_controller:
+  ros__parameters:
+    # world_name은 노드 코드에도 기본값이 없는 필수 파라미터라 여기 넣지 않는다.
+    # launch/drone_sim_test.launch.py의 world_name 인자(기본값 Seongdong_gu)나
+    # -p world_name:=... 로 명시적으로 지정해야 한다.
+    entity_name: "X3"
+    allowed_frame: "map"
+    service_timeout_sec: 1.0
+    max_retries: 3
+    use_sim_time: true

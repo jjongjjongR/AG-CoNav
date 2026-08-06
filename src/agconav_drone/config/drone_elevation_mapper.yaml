@@ -1,0 +1,14 @@
+/**:
+  ros__parameters:
+    points_topic: /drone/points
+    elevation_map_topic: /drone/elevation_map
+    path_status_topic: /drone/path_status
+    target_frame: map
+    # model.sdf의 os1_lidar 센서가 gz_frame_id를 이미 "drone/os1_lidar"(전역
+    # 이름)로 지정해뒀고 /drone/points의 실측 header.frame_id도 동일하게
+    # 찍히는 것을 확인했다 - ground(wheel)와 달리 오버라이드가 필요 없다.
+    target_source_frame: ""
+    resolution: 0.10
+    frame_id: map
+    data_timeout_sec: 2.0
+    check_period_sec: 1.0
