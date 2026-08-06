@@ -184,6 +184,21 @@ def generate_launch_description():
         ],
     )
 
+    elevation_map_saver_yaml = os.path.join(
+        agconav_drone_share, "config", "elevation_map_saver.yaml"
+    )
+
+    elevation_map_saver = Node(
+        package="agconav_drone",
+        executable="elevation_map_saver",
+        name="elevation_map_saver",
+        output="screen",
+        parameters=[
+            elevation_map_saver_yaml,
+            {"use_sim_time": use_sim_time},
+        ],
+    )
+
     return LaunchDescription(
         [
             declare_world_name,
@@ -198,5 +213,6 @@ def generate_launch_description():
             drone_pose_controller,
             lidar_static_tf,
             drone_elevation_mapper,
+            elevation_map_saver,
         ]
     )

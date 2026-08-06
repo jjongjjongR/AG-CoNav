@@ -21,6 +21,8 @@
   <depend>python3-yaml</depend>
   <depend>python3-numpy</depend>
   <depend>ros_gz_interfaces</depend>
+  <depend>std_srvs</depend>
+  <depend>rosbag2_py</depend>
 
   <exec_depend>ros_gz_bridge</exec_depend>
   <exec_depend>ros_gz_sim</exec_depend>
