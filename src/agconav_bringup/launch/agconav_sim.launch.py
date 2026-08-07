@@ -302,7 +302,7 @@ def generate_launch_description():
                 Node(
                     package="agconav_navigation",
                     executable="navigation_complete_node",
-                    name="navigation_complete_node",
+                    name="navigation_complete",
                     namespace=namespace,
                     output="screen",
                     parameters=[{"use_sim_time": use_sim_time}]
@@ -331,8 +331,8 @@ def generate_launch_description():
             condition=IfCondition(use_localization)
         )
 
-    localization_wheel = _localization_for("wheel", "/wheel/platform/odom")
-    localization_leg = _localization_for("leg", "/odom")
+    localization_wheel = _localization_for("wheel", "/wheel/odom")
+    localization_leg = _localization_for("leg", "/leg/odom")
 
 
     return LaunchDescription(
