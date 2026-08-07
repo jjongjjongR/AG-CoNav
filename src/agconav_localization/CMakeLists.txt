@@ -6,6 +6,25 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+
+add_executable(yaw_consistency_checker src/yaw_consistency_checker.cpp)
+ament_target_dependencies(yaw_consistency_checker
+  rclcpp
+  nav_msgs
+  sensor_msgs
+  diagnostic_msgs
+  tf2
+)
+
+install(
+  TARGETS yaw_consistency_checker
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 install(
   DIRECTORY launch config

@@ -123,7 +123,7 @@ local_costmap:
         mark_threshold: 0
         observation_sources: pointcloud
         pointcloud:
-          topic: points
+          topic: points_filtered
           max_obstacle_height: 2.0
           clearing: true
           marking: true
@@ -151,12 +151,13 @@ global_costmap:
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: true
+        map_topic: nav_map
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
         observation_sources: pointcloud
         pointcloud:
-          topic: points
+          topic: points_filtered
           max_obstacle_height: 2.0
           clearing: true
           marking: true
