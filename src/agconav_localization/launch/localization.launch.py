@@ -43,13 +43,17 @@ def _launch_setup(context, *args, **kwargs):
     ekf_node = Node(
         package='robot_localization',
         executable='ekf_node',
-        name='ekf_filter_node',
+        name='ekf_node',
         output='screen',
         parameters=[
             ekf_config,
             {
                 'use_sim_time': use_sim_time,
                 'odom0': odom_topic,
+                'map_frame': 'map',
+                'odom_frame': f'{ns}/odom',
+                'base_link_frame': f'{ns}/base_link',
+                'world_frame': 'map',
             },
         ],
         # odometry/filtered is NOT remapped here (Gap #3: keep as odometry/filtered)
@@ -64,7 +68,10 @@ def _launch_setup(context, *args, **kwargs):
         output='screen',
         parameters=[
             navsat_config,
-            {'use_sim_time': use_sim_time},
+            {
+                'use_sim_time': use_sim_time,
+                'base_link_frame': f'{ns}/base_link',
+            },
         ],
         remappings=[
             # gps/fix → gps/fix (/{ns}/gps/fix = 계약 토픽 /X/gps/fix)
@@ -116,7 +123,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'odom_topic',
             description='Absolute odometry topic for EKF odom0 '
-                        '(e.g. /wheel/platform/odom, /odom)'),
+                        '(e.g. /wheel/odom, /leg/odom)'),
 
         DeclareLaunchArgument(
             'use_sim_time',

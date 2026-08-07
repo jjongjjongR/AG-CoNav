@@ -21,7 +21,13 @@ class GroundSegmentationNode(Node):
         self.grid_size = self.get_parameter('grid_size').value
         self.z_threshold = self.get_parameter('z_threshold').value
         self.max_height = self.get_parameter('max_height').value
-        self.odom_frame = self.get_parameter('odom_frame').value
+        odom_frame_param = self.get_parameter('odom_frame').value
+        
+        if odom_frame_param == 'odom':
+            ns = self.get_namespace().strip('/')
+            self.odom_frame = f"{ns}/odom" if ns else "odom"
+        else:
+            self.odom_frame = odom_frame_param
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
