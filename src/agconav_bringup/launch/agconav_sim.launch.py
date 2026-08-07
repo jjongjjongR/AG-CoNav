@@ -13,7 +13,7 @@ from launch.substitutions import LaunchConfiguration
 from launch.conditions import IfCondition
 from launch.actions import SetEnvironmentVariable
 
-from launch_ros.actions import Node
+from launch_ros.actions import Node, SetRemap
 
 
 def generate_launch_description():
@@ -211,22 +211,36 @@ def generate_launch_description():
 
     # Clearpath 공식 구조와 동일하게 최상위에서 바로 include한다.
     # 내부 생성 체인이 끝난 뒤 A300 spawn이 실행된다.
-    spawn_wheel = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            clearpath_spawn_launch_path
+    # Module B의 EKF 노드가 /wheel/tf에서 odom->base_link를 수신할 수 있도록,
+    # 그리고 tf_prefix_relay가 작동할 수 있도록 전체 휠 스택의 TF를 격리한다.
+    spawn_wheel = GroupAction([
+        SetRemap('/tf', '/wheel/tf'),
+        SetRemap('/tf_static', '/wheel/tf_static'),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                clearpath_spawn_launch_path
+            ),
+            launch_arguments={
+                "setup_path": clearpath_setup_path,
+                "world": "Seongdong_gu",
+                "use_sim_time": use_sim_time,
+                "rviz": "false",
+                "generate": "false",
+                "x": LaunchConfiguration("wheel_x"),
+                "y": LaunchConfiguration("wheel_y"),
+                "z": LaunchConfiguration("wheel_z"),
+                "yaw": LaunchConfiguration("wheel_yaw"),
+            }.items(),
         ),
-        launch_arguments={
-            "setup_path": clearpath_setup_path,
-            "world": "Seongdong_gu",
-            "use_sim_time": use_sim_time,
-            "rviz": "false",
-            "generate": "false",
-            "x": LaunchConfiguration("wheel_x"),
-            "y": LaunchConfiguration("wheel_y"),
-            "z": LaunchConfiguration("wheel_z"),
-            "yaw": LaunchConfiguration("wheel_yaw"),
-        }.items(),
-    )
+        # Clearpath의 기본 spawner가 /controller_manager 타임아웃 오류로 실패하므로,
+        # /wheel/controller_manager에 명시적으로 연결하는 spawner를 추가합니다.
+        Node(
+            package='controller_manager',
+            executable='spawner',
+            arguments=['platform_velocity_controller', '-c', '/wheel/controller_manager'],
+            output='screen',
+        )
+    ])
 
     # Go2 원본 launch도 Gazebo와 spawn을 동시에 시작하는 구조다.
     # spawn-only 복사본이 기존 Gazebo의 create 서비스를 사용한다.
@@ -273,6 +287,25 @@ def generate_launch_description():
                         "use_composition": "False",
                         "autostart": "True",
                     }.items(),
+                ),
+                Node(
+                    package="agconav_navigation",
+                    executable="ground_segmentation_node",
+                    name="ground_segmentation_node",
+                    namespace=namespace,
+                    output="screen",
+                    parameters=[
+                        {"use_sim_time": use_sim_time},
+                        {"odom_frame": "odom"}
+                    ]
+                ),
+                Node(
+                    package="agconav_navigation",
+                    executable="navigation_complete_node",
+                    name="navigation_complete_node",
+                    namespace=namespace,
+                    output="screen",
+                    parameters=[{"use_sim_time": use_sim_time}]
                 )
             ],
             condition=IfCondition(use_nav2)
@@ -281,14 +314,15 @@ def generate_launch_description():
     nav2_wheel = _nav2_for("wheel")
     nav2_leg = _nav2_for("leg")
 
-    # Localization (EKF + navsat) for ground robots
-    def _localization_for(namespace, odom_topic):
+    # Localization (EKF + navsat) for ground robots — Module B
+    # localization.launch.py가 map→odom TF를 /{ns}/tf에 발행한다.
+    def _localization_for(namespace_name, odom_topic):
         return GroupAction(
             actions=[
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(localization_launch_path),
                     launch_arguments={
-                        "namespace": namespace,
+                        "namespace": namespace_name,
                         "use_sim_time": use_sim_time,
                         "odom_topic": odom_topic,
                     }.items(),
@@ -297,7 +331,7 @@ def generate_launch_description():
             condition=IfCondition(use_localization)
         )
 
-    localization_wheel = _localization_for("wheel", "platform/odom/filtered")
+    localization_wheel = _localization_for("wheel", "/wheel/platform/odom")
     localization_leg = _localization_for("leg", "/odom")
 
 

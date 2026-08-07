@@ -1,82 +1,127 @@
+"""Module B 지상 위치추정 — 로봇 공통 EKF + navsat launch.
+
+wheel·leg 동일 구조. 네임스페이스(PushRosNamespace)로 분리하고,
+같은 config(ekf_node.yaml, navsat_transform_node.yaml)를 공유한다.
+
+[TF 발행]  map ↔ X/odom  → /{ns}/tf 에 발행 (tf_prefix_relay가 전역 /tf로 중계)
+[Topic]    /{ns}/odom (nav_msgs/Odometry) — EKF 필터 출력
+
+사용법 (agconav_sim.launch.py에서 include):
+  ros2 launch agconav_localization localization.launch.py \\
+      namespace:=wheel odom_topic:=/wheel/platform/odom
+"""
 import os
+
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
+from launch.actions import DeclareLaunchArgument, GroupAction, OpaqueFunction
+from launch_ros.actions import Node, PushRosNamespace, SetRemap
 
-def generate_launch_description():
+
+def _launch_setup(context, *args, **kwargs):
+    """OpaqueFunction — resolve namespace at launch time for SetRemap dst."""
+    from launch.substitutions import LaunchConfiguration
+
+    ns = LaunchConfiguration('namespace').perform(context)
+    odom_topic = LaunchConfiguration('odom_topic').perform(context)
+    use_sim_time_str = LaunchConfiguration('use_sim_time').perform(context)
+    use_sim_time = use_sim_time_str.lower() in ('true', '1', 'yes')
+
     pkg_dir = get_package_share_directory('agconav_localization')
+    ekf_config = os.path.join(pkg_dir, 'config', 'ekf_node.yaml')
+    navsat_config = os.path.join(pkg_dir, 'config', 'navsat_transform_node.yaml')
 
-    namespace = LaunchConfiguration('namespace')
-    use_sim_time = LaunchConfiguration('use_sim_time')
+    # 사설 TF 토픽 — tf_prefix_relay가 여기서 구독해 전역 /tf로 중계
+    tf_topic = f'/{ns}/tf'
+    tf_static_topic = f'/{ns}/tf_static'
 
-    declare_namespace_cmd = DeclareLaunchArgument(
-        'namespace',
-        default_value='',
-        description='Top-level namespace (e.g., wheel or leg)')
-
-    declare_use_sim_time_cmd = DeclareLaunchArgument(
-        'use_sim_time',
-        default_value='true',
-        description='Use simulation (Gazebo) clock if true')
-
-    declare_odom_topic_cmd = DeclareLaunchArgument(
-        'odom_topic',
-        default_value='odom',
-        description='Local odometry topic for EKF odom0 input')
-
-    ekf_config = os.path.join(pkg_dir, 'config', 'ekf.yaml')
-    navsat_config = os.path.join(pkg_dir, 'config', 'navsat.yaml')
-
-    # EKF Node
+    # ── EKF Node ──────────────────────────────────────────────────
+    # world_frame=map → map→odom TF 발행 (README §3.1).
+    # odom0는 실제 시뮬 토픽(절대 경로)으로 override.
+    # 나머지 입력(imu0=imu, odom1=odometry/gps)은 상대 이름 →
+    # PushRosNamespace로 /{ns}/imu, /{ns}/odometry/gps로 해결.
     ekf_node = Node(
         package='robot_localization',
         executable='ekf_node',
         name='ekf_filter_node',
-        namespace=namespace,
         output='screen',
         parameters=[
             ekf_config,
             {
                 'use_sim_time': use_sim_time,
-                'odom0': LaunchConfiguration('odom_topic'),
-            }
+                'odom0': odom_topic,
+            },
         ],
-        remappings=[
-            ('odometry/filtered', 'odometry/filtered'),
-            ('set_pose', 'set_pose'),
-            ('/tf', 'tf'),
-            ('/tf_static', 'tf_static')
-        ]
+        # odometry/filtered is NOT remapped here (Gap #3: keep as odometry/filtered)
     )
 
-    # Navsat Transform Node
-    navsat_transform_node = Node(
+    # ── Navsat Transform Node ─────────────────────────────────────
+    # GPS(WGS84) → map 좌표 변환.
+    navsat_node = Node(
         package='robot_localization',
         executable='navsat_transform_node',
         name='navsat_transform_node',
-        namespace=namespace,
         output='screen',
         parameters=[
             navsat_config,
-            {'use_sim_time': use_sim_time}
+            {'use_sim_time': use_sim_time},
         ],
         remappings=[
-            ('gps/fix', 'gps'),               # Subscribe to /X/gps
-            ('imu', 'imu'),                   # Subscribe to /X/imu
-            ('odometry/filtered', 'odometry/filtered'), # Subscribe to EKF output
-            ('odometry/gps', 'odometry/gps'), # Publish to /X/odometry/gps
-            ('/tf', 'tf'),
-            ('/tf_static', 'tf_static')
-        ]
+            # gps/fix → gps/fix (/{ns}/gps/fix = 계약 토픽 /X/gps/fix)
+            ('gps/fix', 'gps/fix'),
+            # output odometry/gps → gps/odom (Gap #2)
+            ('odometry/gps', 'gps/odom'),
+        ],
     )
 
-    ld = LaunchDescription()
-    ld.add_action(declare_namespace_cmd)
-    ld.add_action(declare_use_sim_time_cmd)
-    ld.add_action(declare_odom_topic_cmd)
-    ld.add_action(ekf_node)
-    ld.add_action(navsat_transform_node)
+    # ── Yaw Consistency Checker ───────────────────────────────────
+    # odometry yaw와 IMU yaw 비교 (Gap #4)
+    yaw_checker_config = os.path.join(pkg_dir, 'config', 'yaw_consistency_checker.yaml')
+    yaw_checker_node = Node(
+        package='agconav_localization',
+        executable='yaw_consistency_checker',
+        name='yaw_consistency_checker',
+        output='screen',
+        parameters=[
+            yaw_checker_config,
+            {
+                'use_sim_time': use_sim_time,
+                'odom_topic': odom_topic, # raw odom topic
+            },
+        ],
+        # output is /yaw_check_status → /{ns}/yaw_check_status (via namespace)
+    )
 
-    return ld
+    # ── GroupAction: 네임스페이스 + 사설 TF ────────────────────────
+    # PushRosNamespace: 상대 토픽을 /{ns}/... 으로 해결
+    # SetRemap: /tf → /{ns}/tf 로 격리 (TF 소유권 — README §3.1)
+    localization_group = GroupAction([
+        PushRosNamespace(ns),
+        SetRemap(src='/tf', dst=tf_topic),
+        SetRemap(src='/tf_static', dst=tf_static_topic),
+        ekf_node,
+        navsat_node,
+        yaw_checker_node,
+    ])
+
+    return [localization_group]
+
+
+def generate_launch_description():
+    return LaunchDescription([
+        DeclareLaunchArgument(
+            'namespace',
+            description='Robot namespace: "wheel" or "leg"'),
+
+        DeclareLaunchArgument(
+            'odom_topic',
+            description='Absolute odometry topic for EKF odom0 '
+                        '(e.g. /wheel/platform/odom, /odom)'),
+
+        DeclareLaunchArgument(
+            'use_sim_time',
+            default_value='true',
+            description='Use simulation (Gazebo) clock if true'),
+
+        OpaqueFunction(function=_launch_setup),
+    ])

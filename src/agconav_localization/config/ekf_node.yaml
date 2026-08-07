@@ -6,47 +6,59 @@
     publish_tf: true
     publish_acceleration: false
 
-    # Frames will be configured via launch file params to support multiple namespaces,
-    # but defaults are set here. (map -> odom -> base_link)
+    # Frames — 상대 이름. PushRosNamespace로 wheel·leg 양쪽에 동일 적용.
+    # world_frame=map이므로 EKF가 map→odom TF를 발행한다 (README §3.1).
     map_frame: map
     odom_frame: odom
     base_link_frame: base_link
     world_frame: map
 
-    # Input odometry from wheels/legs (local velocity/position)
+    # Kickstart: 초기 상태를 제공해야 navsat_transform_node가 데드락 없이 시작한다.
+    initial_state: [0.0,  0.0,  0.0,
+                    0.0,  0.0,  0.0,
+                    0.0,  0.0,  0.0,
+                    0.0,  0.0,  0.0,
+                    0.0,  0.0,  0.0]
+
+    # ── 1. Odometry (wheel 또는 leg) ──
+    # 토픽 이름은 launch에서 odom_topic 인자로 override한다
+    # (wheel=/wheel/platform/odom, leg=/odom — 시뮬 인프라가 정한 이름).
+    # [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
     odom0: odom
     odom0_config: [false, false, false,
-                   false, false, false,
+                   false, false, true,
                    true,  true,  false,
                    false, false, true,
                    false, false, false]
+    odom0_queue_size: 10
     odom0_differential: false
-    odom0_relative: true
+    odom0_relative: false
 
-    # Input IMU from the robot
-    imu0: imu
-    imu0_config: [false, false, false,
-                  true,  true,  true,
-                  false, false, false,
-                  true,  true,  true,
-                  false, false, false]
-    imu0_differential: false
-    imu0_relative: false
-    imu0_remove_gravitational_acceleration: true
-
-    # Input GPS-derived odometry (from navsat_transform_node)
-    odom1: odometry/gps
+    # ── 2. GPS-derived odometry (navsat_transform_node 출력) ──
+    odom1: gps/odom
     odom1_config: [true,  true,  false,
                    false, false, false,
                    false, false, false,
                    false, false, false,
                    false, false, false]
+    odom1_queue_size: 5
     odom1_differential: false
     odom1_relative: false
 
+    # ── 3. IMU ──
+    imu0: imu
+    imu0_config: [false, false, false,
+                  true,  true,  true,
+                  false, false, false,
+                  true,  true,  true,
+                  true,  true,  true]
+    imu0_queue_size: 10
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true
+
     use_control: false
 
-    # Override covariances if necessary
     process_noise_covariance: [0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                0.0, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                0.0, 0.0, 0.06, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
