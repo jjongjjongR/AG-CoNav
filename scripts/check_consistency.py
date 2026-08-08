@@ -71,9 +71,16 @@ class Checker(Node):
             self.create_subscription(
                 Odometry, topic, lambda m, t=topic: self.msgs.setdefault(t, m), 10)
         self.tf_buffer = tf2_ros.Buffer()
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
+        # 전용 노드+스레드로 TF를 받는다(node=None, spin_thread=True).
+        # 이 노드에 얹으면 아래 collect()가 토픽이 다 왔다고 일찍 빠져나갈 때
+        # 래치된 /tf_static을 아직 못 받은 상태로 TF 조회에 들어간다.
+        # 그러면 정적 TF에 매달린 프레임만
+        #   LookupException: "leg/base_link" ... source_frame does not exist
+        # 로 실패한다 — 시뮬은 멀쩡한데 점검만 틀리는 오탐이다(실측 1회).
+        self.tf_listener = tf2_ros.TransformListener(
+            self.tf_buffer, None, spin_thread=True)
 
-    def collect(self, seconds, min_tf_seconds=4.0):
+    def collect(self, seconds, min_tf_seconds=8.0):
         """토픽 메시지를 모은다.
 
         토픽이 다 들어와도 최소 min_tf_seconds 동안은 계속 spin한다.

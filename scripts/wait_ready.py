@@ -14,7 +14,8 @@
   1. /clock 이 흐른다 (시뮬이 돌고 있다)
   2. 로봇별 EKF 출력 /X/odometry/filtered 가 나온다 (모듈 B 준비 완료)
   3. map -> X/base_link TF가 조회된다 (전체 TF 체인 연결)
-  4. 로봇별 Nav2 bt_navigator 가 active (모듈 C 준비 완료)
+  4. 로봇별 Nav2 bt_navigator 가 active
+  5. 모듈 C의 지면 분할 결과 /X/points_filtered 가 실제로 나온다
 
 사용법:
     ./scripts/wait_ready.py --timeout 420
@@ -28,6 +29,8 @@ import rclpy
 from lifecycle_msgs.srv import GetState
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
+from sensor_msgs.msg import PointCloud2
 import tf2_ros
 
 ROBOTS = ('wheel', 'leg')
@@ -37,10 +40,21 @@ class ReadinessGate(Node):
     def __init__(self):
         super().__init__('readiness_gate')
         self.odom_seen = set()
+        self.cloud_seen = set()
         for robot in ROBOTS:
             self.create_subscription(
                 Odometry, f'/{robot}/odometry/filtered',
                 lambda _m, r=robot: self.odom_seen.add(r), 10)
+            # 모듈 C는 Nav2와 함께 뜨므로 가장 늦게 준비된다. 이것까지 기다려야
+            # 점검이 "아직 안 뜬 것"을 "고장난 것"으로 잡지 않는다.
+            self.create_subscription(
+                PointCloud2, f'/{robot}/points_filtered',
+                lambda _m, r=robot: self.cloud_seen.add(r),
+                qos_profile_sensor_data)
+        self._state_clients = {
+            r: self.create_client(GetState, f'/{r}/bt_navigator/get_state')
+            for r in ROBOTS
+        }
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(
             self.tf_buffer, None, spin_thread=True)
@@ -59,17 +73,19 @@ class ReadinessGate(Node):
             return False
 
     def nav2_active(self, robot):
-        cli = self.create_client(GetState, f'/{robot}/bt_navigator/get_state')
-        try:
-            if not cli.wait_for_service(timeout_sec=2.0):
-                return False
-            fut = cli.call_async(GetState.Request())
-            rclpy.spin_until_future_complete(self, fut, timeout_sec=5.0)
-            if not fut.done() or fut.result() is None:
-                return False
-            return fut.result().current_state.label == 'active'
-        finally:
-            self.destroy_client(cli)
+        # 클라이언트는 __init__에서 한 번만 만든다.
+        # 호출할 때마다 create/destroy 하면 아직 처리 중인 future가 남은 채로
+        # 파괴돼 rclpy가 InvalidHandle을 던지고 이 스크립트가 죽는다
+        #   InvalidHandle: cannot use Destroyable because destruction was requested
+        # 그러면 게이트가 실패로 끝나 점검이 기동 도중에 들어간다(실측 1회).
+        cli = self._state_clients[robot]
+        if not cli.service_is_ready():
+            return False
+        fut = cli.call_async(GetState.Request())
+        rclpy.spin_until_future_complete(self, fut, timeout_sec=5.0)
+        if not fut.done() or fut.result() is None:
+            return False
+        return fut.result().current_state.label == 'active'
 
     def missing(self):
         out = []
@@ -80,6 +96,8 @@ class ReadinessGate(Node):
                 out.append(f'map->{robot}/base_link')
             if not self.nav2_active(robot):
                 out.append(f'{robot}/bt_navigator active')
+            if robot not in self.cloud_seen:
+                out.append(f'/{robot}/points_filtered')
         return out
 
 

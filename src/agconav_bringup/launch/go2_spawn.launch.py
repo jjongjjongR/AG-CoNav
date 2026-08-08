@@ -9,6 +9,7 @@ from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     GroupAction,
+    TimerAction,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -305,7 +306,11 @@ def generate_launch_description():
             # 로 spawner가 죽고, 그러면 leg에 컨트롤러가 없어 CHAMP 명령이 관절까지
             # 못 간다(= /leg/cmd_vel을 넣어도 로봇이 0.000 m 움직인다).
             # 10회 중 1회 재현됐다.
-            "--service-call-timeout", "60",
+            # 60초도 부족했다. 실측 로그를 보면 controller_manager가 요청을
+            # 처리하긴 했는데(=Loading controller ... 이후 "already loaded"),
+            # spawner가 그 직전에 60.0초로 포기해 FATAL로 죽었다.
+            # 즉 실패가 아니라 "응답이 늦게 온" 것이므로 넉넉히 기다리면 된다.
+            "--service-call-timeout", "180",
         ],
         additional_env={
             "ROS_HOME": os.path.join(os.path.expanduser("~"), ".ros", "agconav_leg"),
@@ -340,8 +345,11 @@ def generate_launch_description():
         # TF publishers for frame connections
         base_footprint_to_base_link_tf_node,
 
-        # Controller loader — 시뮬레이션이 unpaused이므로 바로 활성화.
-        controller_loader,
+        # Controller loader — 하드웨어 초기화가 끝날 즈음에 시작한다.
+        # 스폰 직후에 바로 부르면 gz_ros_control이 관절 12개를 올리는 동안
+        # controller_manager가 서비스 콜백을 못 돌려서 요청이 60초씩 대기한다.
+        # 늦게 부르면 그 대기가 통째로 사라진다.
+        TimerAction(period=25.0, actions=[controller_loader]),
 
         # Visualization (only if rviz flag is set)
         rviz2,

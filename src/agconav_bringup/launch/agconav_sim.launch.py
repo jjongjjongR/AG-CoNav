@@ -531,21 +531,27 @@ def generate_launch_description():
             drone_tf_bridge,
             *drone_sensor_tf,
             *wheel_frame_alias,
+            # wheel 스택을 가장 먼저, 혼자 올린다.
+            # clearpath의 ros2_control spawner 2개는 락 하나를 공유하고,
+            # 락을 잡은 쪽이 /wheel/controller_manager를 최대 60초 기다린다.
+            # 그 60초 안에 CM이 못 뜨면
+            #   [FATAL] Could not contact service /wheel/controller_manager/list_controllers
+            # 로 죽고, 락을 못 잡은 나머지도 같이 무너진다. 그러면
+            # /wheel/joint_states가 없어 wheel/base_link TF가 통째로 사라진다.
+            # CM은 A300 모델이 Gazebo에 스폰되고 robot_description을 받은 뒤에야
+            # 뜨므로, 그 구간에 다른 스택이 CPU를 뺏지 않게 하는 것이 핵심이다.
             spawn_wheel,
-            # leg 스폰만 살짝 늦춘다. wheel의 ros2_control spawner가 컨트롤러를
-            # 활성화하는 구간(기본 제한시간 5초)에 leg 스택까지 한꺼번에 올라오면
-            #   [ERROR] Failed to activate controller : joint_state_broadcaster
-            # 로 죽고, 그러면 /wheel/joint_states가 없어 wheel/base_link TF가
-            # 통째로 사라진다. clearpath가 만드는 spawner라 --switch-timeout을
-            # 우리가 넘길 수 없어서 시작 시점을 벌리는 쪽으로 푼다.
-            # 나머지(센서 브리지·위치추정·Nav2)는 늦추지 않는다. 늦췄더니
-            # 모듈 C의 지면 분할이 뒤늦게 떠서 점검 시점에 아직 데이터가 없었다.
-            TimerAction(period=10.0, actions=[spawn_leg]),
-            sensor_bridge,
-            localization_wheel,
-            localization_leg,
-            nav2_wheel,
-            nav2_leg,
+            TimerAction(period=15.0, actions=[spawn_leg]),
+            TimerAction(period=30.0, actions=[
+                sensor_bridge,
+                localization_wheel,
+                localization_leg,
+            ]),
+            # Nav2는 위치추정 TF가 있어야 costmap이 활성화되므로 마지막이다.
+            # 다만 너무 늦추면 모듈 C(지면 분할)도 같이 늦어져 점검 시점에
+            # points_filtered가 비어 있는다 — wait_ready.py가 그것까지
+            # 기다리도록 해서 시점 의존을 없앴다.
+            TimerAction(period=40.0, actions=[nav2_wheel, nav2_leg]),
         ]
 
     return LaunchDescription(

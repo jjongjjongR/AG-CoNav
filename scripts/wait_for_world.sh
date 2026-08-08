@@ -14,7 +14,18 @@ TIMEOUT="${2:-180}"
 START=$(date +%s)
 DEADLINE=$(( START + TIMEOUT ))
 
-echo "[wait_for_world] '${WORLD}' 로드 대기 (최대 ${TIMEOUT}s)"
+# 처음 몇 초는 건드리지 않는다. `gz service` 호출은 매번 gz-transport 노드를
+# 하나 새로 만들어 디스커버리(멀티캐스트)에 참여시킨다. 서버가 아직 초기화
+# 중일 때 이걸 1초마다 두드리면 디스커버리 쪽에서 경합이 생겨, 서버가
+# SDF 한 줄도 파싱하지 못한 채 futex에서 멈추는 실행이 나왔다.
+#   실측 진단: gz sim server가 살아 있고 state=S, wchan=futex_do_wait,
+#              threads=7 인 채로 180초 내내 출력 0줄
+# 기다리는 쪽이 기다리는 대상을 방해하고 있었다. 여유를 두고 간격도 늘린다.
+GRACE="${3:-10}"
+POLL="${4:-3}"
+
+echo "[wait_for_world] '${WORLD}' 로드 대기 (최대 ${TIMEOUT}s, ${GRACE}s 후부터 ${POLL}s 간격 확인)"
+sleep "${GRACE}"
 
 while true; do
   # 서비스 목록에 있는 것만으로는 부족하다. 실제로 호출해 월드 이름이
@@ -50,5 +61,5 @@ while true; do
     pgrep -af "gz sim" >&2 || echo "  (gz sim 프로세스 없음)" >&2
     exit 1
   fi
-  sleep 1
+  sleep "${POLL}"
 done
