@@ -968,6 +968,11 @@
         filename="gz-sim-odometry-publisher-system"
         name="gz::sim::systems::OdometryPublisher">
         <dimensions>3</dimensions>
+        <!-- 드론 TF: 센서 메시지의 frame_id가 drone/* 이므로 TF도 같은 이름으로
+             내보내야 모듈 A가 점군을 map으로 변환할 수 있다. 기본값(X3/odom ->
+             X3/base_footprint)은 센서 프레임과 이름이 맞지 않아 TF가 끊긴다. -->
+        <odom_frame>map</odom_frame>
+        <robot_base_frame>drone/base_link</robot_base_frame>
       </plugin>
     </include>
 

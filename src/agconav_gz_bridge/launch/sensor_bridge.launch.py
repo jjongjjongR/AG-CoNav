@@ -37,7 +37,8 @@ def generate_launch_description():
             ('/drone/points/points', '/drone/points'),
             ('/leg/points/points', '/leg/points'),
             ('/wheel/sensors/lidar3d_0/scan/points', '/wheel/points'),
-            # GPS: README §5 이름 /X/gps (drone/leg는 gz 토픽이 이미 /X/gps라 remap 불필요)
+            # GPS: 계약 이름 /X/gps (topics.md 센서 표 기준).
+            # drone/leg는 gz 토픽이 이미 /X/gps라 remap 불필요.
             ('/wheel/sensors/gps_0/navsat', '/wheel/gps'),
             # IMU: wheel만 clearpath 이름 → 계약 /wheel/imu (drone/imu, leg/imu는 그대로)
             ('/wheel/sensors/imu_0/data', '/wheel/imu'),

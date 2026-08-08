@@ -44,7 +44,7 @@
     <gazebo reference="os1_lidar">
       <sensor name="os1_lidar" type="gpu_lidar">
         <topic>${ns}/points</topic>
-        <gz_frame_id>os1_lidar</gz_frame_id>
+        <gz_frame_id>${ns}/os1_lidar</gz_frame_id>
         <update_rate>10</update_rate>
         <always_on>1</always_on>
         <visualize>true</visualize>
@@ -68,7 +68,7 @@
       <sensor name="leg_imu_sensor" type="imu">
         <pose>0 0 -0.025 0 0 0</pose>
         <topic>${ns}/imu</topic>
-        <gz_frame_id>${parent}</gz_frame_id>
+        <gz_frame_id>${ns}/${parent}</gz_frame_id>
         <update_rate>100</update_rate>
         <always_on>1</always_on>
       </sensor>
@@ -77,7 +77,7 @@
     <gazebo reference="gps_link">
       <sensor name="navsat_sensor" type="navsat">
         <topic>${ns}/gps</topic>
-        <gz_frame_id>gps_link</gz_frame_id>
+        <gz_frame_id>${ns}/gps_link</gz_frame_id>
         <update_rate>10</update_rate>
         <always_on>1</always_on>
       </sensor>

@@ -46,7 +46,7 @@ from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py.point_cloud2 import read_points_numpy
 from std_msgs.msg import Bool, Float32MultiArray, MultiArrayDimension
 from tf2_ros import Buffer, TransformException, TransformListener
-from tf2_sensor_msgs.tf2_sensor_msgs import do_transform_cloud
+from tf2_sensor_msgs.tf2_sensor_msgs import transform_points
 
 
 class GroundElevationMapper(Node):
@@ -158,18 +158,28 @@ class GroundElevationMapper(Node):
                 f'{msg.header.stamp.nanosec:09d}s, dropping cloud: {ex}')
             return
 
-        # only frame_id changes on this internal map-frame conversion,
-        # original stamp is kept (no longer a separate published topic).
-        cloud_map = do_transform_cloud(msg, transform)
-        cloud_map.header.stamp = msg.header.stamp
-        cloud_map.header.frame_id = self._target_frame
-        self._accumulate(cloud_map)
+        self._accumulate(msg, transform.transform)
 
-    def _accumulate(self, msg):
+    def _accumulate(self, msg, transform):
+        # 전체 PointCloud2를 do_transform_cloud로 재조립하지 않는다.
+        # 그 함수는 create_cloud() 호출 시 point_step을 넘기지 않아, 필드 뒤에
+        # trailing padding이 있는 클라우드에서 AssertionError로 죽는다.
+        # 실측: /X/points(gz gpu_lidar)는 x/y/z/intensity/ring에 point_step=32,
+        # 필드 총합 26바이트 - 6바이트 패딩. 모듈 A(drone_elevation_mapper)가
+        # 같은 이유로 이미 이 방식을 쓴다.
+        # 우리는 elevation 계산에 x,y,z만 필요하므로 좌표만 직접 변환한다.
         points = read_points_numpy(msg, field_names=('x', 'y', 'z'), skip_nans=True)
         if points.shape[0] == 0:
             return
 
+        # skip_nans는 NaN만 거른다. gz gpu_lidar는 최대 사거리 밖 점을 NaN이
+        # 아니라 Inf로 채우므로(실측 32768개 중 76%) 따로 걸러야 한다.
+        # 안 걸러내면 _grow_to_fit이 배열을 무한히 키우려다 죽는다.
+        points = points[np.isfinite(points).all(axis=1)]
+        if points.shape[0] == 0:
+            return
+
+        points = transform_points(points, transform)
         xs, ys, zs = points[:, 0], points[:, 1], points[:, 2]
         row_idx = np.floor((xs - self._origin_x) / self._resolution).astype(np.int64)
         col_idx = np.floor((ys - self._origin_y) / self._resolution).astype(np.int64)

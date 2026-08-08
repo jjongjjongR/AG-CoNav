@@ -39,9 +39,13 @@ def generate_launch_description():
                 )
                 ,
                 (
+                    # 모듈 B가 자체 ekf_node를 같은 네임스페이스에 띄우므로
+                    # clearpath 플랫폼 EKF를 끈다(같은 이름 노드 2개 충돌).
+                    # 대신 wheel/odom -> wheel/base_link TF는 아래 control.yaml의
+                    # enable_odom_tf 로 diff_drive_controller가 직접 발행한다.
                     'enable_ekf'
                     ,
-                    'true'
+                    'false'
                 )
                 ,
                 (

@@ -31,8 +31,23 @@ index fbc41cc..f1a1acc 100755
                  <state_interface name="velocity"/>
              </joint>
          </ros2_control> 
+diff --git a/unitree_go2_description/urdf/lidar_4D_lidar.xacro b/unitree_go2_description/urdf/lidar_4D_lidar.xacro
+index 3aaa63b..da7d061 100644
+--- a/unitree_go2_description/urdf/lidar_4D_lidar.xacro
++++ b/unitree_go2_description/urdf/lidar_4D_lidar.xacro
+@@ -68,7 +68,8 @@
+             </lidar>
+             <visualize>false</visualize>
+             <gz_frame_id>lidar_l1_link</gz_frame_id>
+-            <always_on>1</always_on>
++            <!-- AG-CoNav: 미사용 센서. always_on=0으로 구독자 없을 때 raycast 정지. -->
++            <always_on>0</always_on>
+         </sensor>
+     </gazebo>
+ </robot>
+\ No newline at end of file
 diff --git a/unitree_go2_description/urdf/unitree_go2_gazebo.xacro b/unitree_go2_description/urdf/unitree_go2_gazebo.xacro
-index 0aa89f4..677e4cd 100644
+index 0aa89f4..18e9e65 100644
 --- a/unitree_go2_description/urdf/unitree_go2_gazebo.xacro
 +++ b/unitree_go2_description/urdf/unitree_go2_gazebo.xacro
 @@ -1,5 +1,8 @@
@@ -54,10 +69,45 @@ index 0aa89f4..677e4cd 100644
        <robot_param_node>robot_state_publisher</robot_param_node>
      </plugin>
    </gazebo>
-@@ -228,4 +231,4 @@
+@@ -113,9 +116,10 @@
+         </clip>
+       </camera>
+       <gz_frame_id>camera_link</gz_frame_id>
+-      <always_on>1</always_on>
++      <!-- AG-CoNav: 미사용 센서. always_on=0으로 구독자 없을 때 렌더 정지. -->
++      <always_on>0</always_on>
+       <update_rate>10</update_rate>
+-      <visualize>1</visualize>
++      <visualize>0</visualize>
+       <topic>rgb_image</topic>
+     </sensor>
+   </gazebo>
+@@ -228,4 +232,4 @@
      <kd>1.0</kd>
    </gazebo>
  
 -</robot>
 \ No newline at end of file
 +</robot>
+diff --git a/unitree_go2_description/urdf/velodyne.xacro b/unitree_go2_description/urdf/velodyne.xacro
+index 5c70056..0b7f9bd 100644
+--- a/unitree_go2_description/urdf/velodyne.xacro
++++ b/unitree_go2_description/urdf/velodyne.xacro
+@@ -81,9 +81,14 @@
+                 </noise>
+                 <frame_id>velodyne</frame_id>
+             </lidar>
+-            <visualize>true</visualize>
++            <visualize>false</visualize>
+ 
+-            <always_on>1</always_on>
++            <!-- AG-CoNav: 이 센서는 쓰지 않는다(topics.md "Go2에 남아있는 비활성 센서").
++                 always_on=1이면 구독자가 없어도 매 프레임 raycast/렌더를 돌려
++                 GPU와 CPU를 그냥 태운다. 0으로 두면 gz가 구독자가 붙을 때만
++                 갱신하므로 완전히 멈춘다. 실측: 이 3종(velodyne/lidar_l1/rgb_camera)이
++                 켜져 있으면 시스템이 포화(idle 5%)해 EKF가 30 Hz 주기를 놓쳤다. -->
++            <always_on>0</always_on>
+         </sensor>
+     </gazebo>
+ </robot>
+\ No newline at end of file
