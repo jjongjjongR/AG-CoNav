@@ -8,5 +8,14 @@
     merge_trigger_topic: /merged/merge_trigger
     merge_error_topic: /merged/merge_error
     merge_status_topic: /merged/merge_status
-    max_grid_cells: 30000000
+    # 30,000,000이면 이 월드에서 병합이 무조건 거절된다.
+    #   map validation failed, aborting merge: output grid would need
+    #   7402x6768=50096736 cells, over the max_grid_cells limit (30000000)
+    # 드론 경로(path.yaml) bbox 718x665 m에 84 m 상공 OS1-32의 지상 반경
+    # 32.6 m가 더해져 실제 지도는 783x731 m이고, 계약 해상도 0.10 m/cell이면
+    # 5,010만 칸이 된다. 즉 상한이 이 시나리오보다 작게 잡혀 있었다.
+    # 여유를 둬서 6,000만으로 올린다. 이 값은 "말도 안 되는 크기"를 막는
+    # 안전장치이지 성능 한계가 아니다(실측 병합 메모리는 GB 수준).
+    # 탐사 면적이나 해상도를 바꾸면 이 값도 같이 봐야 한다.
+    max_grid_cells: 60000000
     grid_alignment_tolerance: 1.0e-6

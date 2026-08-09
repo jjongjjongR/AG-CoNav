@@ -16,8 +16,8 @@ bt_navigator:
   ros__parameters:
     use_sim_time: true
     global_frame: map
-    robot_base_frame: base_link
-    odom_topic: odom
+    robot_base_frame: $(var namespace)/base_link
+    odom_topic: odometry/filtered
     bt_loop_duration: 10
     default_server_timeout: 20
     # Nav2 기본 BT xml 사용
@@ -30,6 +30,13 @@ bt_navigator:
 controller_server:
   ros__parameters:
     use_sim_time: true
+    # cmd_vel 메시지 타입. 여기 값은 자리표시자이며 agconav_sim.launch.py의
+    # _nav2_for()가 로봇별로 덮어쓴다(wheel=true, leg=false).
+    #   wheel: twist_mux -> diff_drive_controller 체인이 TwistStamped 전용이다
+    #          (ros2_controllers Jazzy에서 unstamped 구독이 제거됐다).
+    #   leg  : CHAMP quadruped_controller가 geometry_msgs/Twist를 구독한다.
+    # 어긋나면 같은 토픽 이름에 타입이 달라 아예 연결되지 않고 로봇이 안 움직인다.
+    enable_stamped_cmd_vel: false
     controller_frequency: 20.0
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.5
@@ -104,8 +111,8 @@ local_costmap:
       use_sim_time: true
       update_frequency: 5.0
       publish_frequency: 2.0
-      global_frame: odom
-      robot_base_frame: base_link
+      global_frame: $(var namespace)/odom
+      robot_base_frame: $(var namespace)/base_link
       rolling_window: true
       width: 3
       height: 3
@@ -142,39 +149,50 @@ global_costmap:
   global_costmap:
     ros__parameters:
       use_sim_time: true
-      update_frequency: 1.0
-      publish_frequency: 1.0
+      # 전역 지도는 모듈 F가 **한 번만** 주는 /X/nav_map이다.
+      # 그래서 갱신도 발행도 자주 할 이유가 없다.
+      update_frequency: 0.5
+      publish_frequency: 0.5
       global_frame: map
-      robot_base_frame: base_link
-      # 정적 맵은 모듈 F의 /X/nav_map으로 제공됨
-      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      robot_base_frame: $(var namespace)/base_link
+      # 정적 맵은 모듈 F의 /X/nav_map으로 제공됨.
+      #
+      # obstacle_layer는 여기서 뺐다.
+      # 그건 10 Hz 실시간 라이다(points_filtered)를 이 격자에 계속 찍는 레이어라,
+      # 1회성 지도인 전역 코스트맵(5,010만 칸)을 매 주기 다시 계산하게 만든다.
+      # 실시간 장애물은 local_costmap의 voxel_layer가 3x3 m 롤링 창으로 이미 본다 —
+      # 이게 Nav2의 원래 역할 분담이다(전역은 정적 지도, 지역은 실시간 센서).
+      # 주의: 종단 검증이 막힌 직접 원인은 이게 아니라 아래 map_topic이었다.
+      # 이 변경은 5,010만 칸을 계속 갱신하지 않게 하는 예방 차원이고,
+      # 성능 효과 자체를 따로 측정하지는 않았다.
+      plugins: ["static_layer", "inflation_layer"]
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: true
-        map_topic: nav_map
-      obstacle_layer:
-        plugin: "nav2_costmap_2d::ObstacleLayer"
-        enabled: true
-        observation_sources: pointcloud
-        pointcloud:
-          topic: points_filtered
-          max_obstacle_height: 2.0
-          clearing: true
-          marking: true
-          data_type: "PointCloud2"
-          raytrace_max_range: 3.0
-          raytrace_min_range: 0.0
-          obstacle_max_range: 2.5
-          obstacle_min_range: 0.0
+        # 반드시 절대 이름으로 준다.
+        # 상대 이름 "nav_map"은 코스트맵 노드 자기 네임스페이스에 붙어
+        # /wheel/global_costmap/nav_map 이 된다. 모듈 F는 /wheel/nav_map으로
+        # 내보내므로 **지도가 한 번도 도달하지 않는다.**
+        #   [global_costmap]: Can't update static costmap layer, no map received
+        #   [planner_server]: GridBased plugin failed to plan from (0.00, 0.00) ...
+        # 시작점이 (0,0)으로 찍히는 것도 지도가 없어 코스트맵이 초기화되지
+        # 않은 결과였다. 종단 검증이 여기서 막혔다.
+        map_topic: /$(var namespace)/nav_map
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
         inflation_radius: 0.55
-      always_send_full_costmap: true
+      # 5,010만 칸이면 전체 발행이 한 번에 50 MB다. 1회성 지도를 주기마다
+      # 통째로 다시 보낼 이유가 없으므로 변경분만 보낸다.
+      always_send_full_costmap: false
 
 behavior_server:
   ros__parameters:
     use_sim_time: true
+    enable_stamped_cmd_vel: false   # _nav2_for()가 로봇별로 덮어쓴다
+    local_frame: $(var namespace)/odom
+    global_frame: map
+    robot_base_frame: $(var namespace)/base_link
     local_costmap_topic: local_costmap/costmap_raw
     global_costmap_topic: global_costmap/costmap_raw
     local_footprint_topic: local_costmap/published_footprint
@@ -187,3 +205,69 @@ behavior_server:
       plugin: "nav2_behaviors::BackUp"
     wait:
       plugin: "nav2_behaviors::Wait"
+
+# collision_monitor는 nav2 lifecycle manager의 관리 대상에 기본 포함되어 있어,
+# 설정이 없으면 'observation_sources is not initialized'로 configure에 실패하고
+# lifecycle manager가 bringup 전체를 중단한다(코스트맵도 활성화되지 않음).
+# 이 프로젝트에는 2D LaserScan이 없으므로 모듈 C의 지면 제거 점군을 쓴다.
+collision_monitor:
+  ros__parameters:
+    use_sim_time: true
+    enable_stamped_cmd_vel: false   # _nav2_for()가 로봇별로 덮어쓴다
+    base_frame_id: $(var namespace)/base_link
+    odom_frame_id: $(var namespace)/odom
+    cmd_vel_in_topic: cmd_vel_smoothed
+    cmd_vel_out_topic: cmd_vel
+    state_topic: collision_monitor_state
+    transform_tolerance: 0.5
+    source_timeout: 1.0
+    base_shift_correction: true
+    stop_pub_timeout: 2.0
+    polygons: ["FootprintApproach"]
+    FootprintApproach:
+      type: "polygon"
+      action_type: "approach"
+      footprint_topic: local_costmap/published_footprint
+      time_before_collision: 1.2
+      simulation_time_step: 0.1
+      min_points: 6
+      visualize: false
+      enabled: true
+    observation_sources: ["pointcloud"]
+    pointcloud:
+      type: "pointcloud"
+      topic: points_filtered
+      min_height: 0.15
+      max_height: 2.0
+      enabled: true
+
+# docking_server도 nav2 lifecycle manager의 관리 대상에 하드코딩돼 있다
+# (navigation_launch.py의 lifecycle_nodes 리스트). 설정이 없으면
+# 'Charging dock plugins not given!'으로 configure에 실패하고, 그 순간
+# lifecycle manager가 "Failed to bring up all requested nodes. Aborting bringup."
+# 으로 **전체 Nav2 bringup을 중단**한다 — controller/planner/bt_navigator까지
+# 통째로 비활성 상태로 남아 navigate_to_pose 액션 자체가 뜨지 않는다.
+# AG-CoNav에 충전 도크는 없지만, bringup을 통과시키려면 플러그인이 최소 1개
+# 필요하므로 nav2 기본값(simple_charging_dock)을 그대로 둔다. 쓰이지 않는다.
+docking_server:
+  ros__parameters:
+    use_sim_time: true
+    enable_stamped_cmd_vel: false   # _nav2_for()가 로봇별로 덮어쓴다
+    base_frame: $(var namespace)/base_link
+    fixed_frame: $(var namespace)/odom
+    controller_frequency: 50.0
+    dock_plugins: ["simple_charging_dock"]
+    simple_charging_dock:
+      plugin: "opennav_docking::SimpleChargingDock"
+      use_battery_status: false
+      use_stall_detection: false
+      use_external_detection_pose: false
+
+# velocity_smoother의 기본 odom_topic은 "odom"이라 네임스페이스가 붙으면
+# /X/odom을 본다. wheel에는 그 이름의 발행자가 없다(clearpath는
+# /wheel/platform/odom). 모듈 B의 융합 결과를 쓰도록 맞춘다.
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: true
+    enable_stamped_cmd_vel: false   # _nav2_for()가 로봇별로 덮어쓴다
+    odom_topic: odometry/filtered

@@ -37,7 +37,11 @@
 
   <!-- lidar3d_0 -->
   <xacro:include filename="$(find clearpath_sensors_description)/urdf/ouster_os1.urdf.xacro"/>
-  <xacro:ouster_os1 name="lidar3d_0" parent_link="base_link" min_ang_h="-3.141592" max_ang_h="3.141592" min_ang_v="-0.261799" max_ang_v="0.261799" min_range="0.9" max_range="130.0" update_rate="20" samples_h="1024" samples_v="64" base="base" cap="halo">
+  <!-- 드론(agconav_drone)·leg(leg_sensors.xacro)의 os1_lidar와 동일 스펙으로 맞춘다.
+       OS1-32: 1024x32, 수직 ±21.2도(0.370010 rad), 0.5~170 m, 10 Hz.
+       clearpath 기본값(64ch / ±15도 / 0.9~130 m / 20 Hz)을 쓰면 wheel만 점군이
+       2배(65536점)라 모듈 D 부하와 지도 밀도가 로봇마다 달라진다. -->
+  <xacro:ouster_os1 name="lidar3d_0" parent_link="base_link" min_ang_h="-3.141592" max_ang_h="3.141592" min_ang_v="-0.370010" max_ang_v="0.370010" min_range="0.5" max_range="170.0" update_rate="10" samples_h="1024" samples_v="32" base="base" cap="halo">
     <origin xyz="0.0 0.0 0.23" rpy="0.0 0.0 0.0"/>
   </xacro:ouster_os1>
 

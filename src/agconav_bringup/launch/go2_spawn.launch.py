@@ -3,11 +3,13 @@ import os
 import launch_ros
 from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node, SetRemap
+from launch_ros.parameter_descriptions import ParameterValue
 
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     GroupAction,
+    TimerAction,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -79,12 +81,22 @@ def generate_launch_description():
     
     # Description nodes and parameters. 같은 control 파일을 robot_state_publisher,
     # CHAMP URDF 파서, Gazebo ros2_control 플러그인에 일관되게 전달한다.
-    robot_description_content = Command([
-        "xacro ",
-        LaunchConfiguration("unitree_go2_description_path"),
-        " ros_control_file:=",
-        LaunchConfiguration("ros_control_file"),
-    ])
+    # ParameterValue(value_type=str)로 감싸는 것이 중요하다.
+    # 감싸지 않으면 launch_ros가 xacro 출력(URDF 원문)을 YAML로 파싱하려 들고,
+    # 주석 등에 "낱말: 낱말" 꼴이 하나라도 있으면
+    #   "Unable to parse the value of parameter robot_description as yaml"
+    # 예외로 **launch 전체가 즉시 종료**된다. 원래 Go2 xacro에 우연히 그런
+    # 문자열이 없어 통과하고 있었을 뿐이라, URDF에 주석 한 줄만 추가해도
+    # 시뮬이 통째로 안 뜨는 지뢰였다(실측: 미사용 센서 비활성화 주석에서 발생).
+    robot_description_content = ParameterValue(
+        Command([
+            "xacro ",
+            LaunchConfiguration("unitree_go2_description_path"),
+            " ros_control_file:=",
+            LaunchConfiguration("ros_control_file"),
+        ]),
+        value_type=str,
+    )
     robot_description = {"robot_description": robot_description_content}
     
     robot_state_publisher_node = Node(
@@ -117,7 +129,12 @@ def generate_launch_description():
             {"publish_foot_contacts": False},
             {"close_loop_odom": True},
         ],
-        remappings=[("/cmd_vel/smooth", "/cmd_vel")],
+        # CHAMP는 상대 이름 "cmd_vel/smooth"를 구독하는데 leg 스택은 루트
+        # 네임스페이스에서 뜨므로 그대로 두면 /cmd_vel/smooth가 된다.
+        # 원본 launch는 이를 /cmd_vel로 돌려놨지만, 계약(topics.md §3)은
+        # /leg/cmd_vel 이고 모듈 C(Nav2)도 네임스페이스 안에서 /leg/cmd_vel로
+        # 낸다. /cmd_vel로 두면 발행자가 없어 leg가 영영 움직이지 않는다.
+        remappings=[("/cmd_vel/smooth", "/leg/cmd_vel")],
     )
 
     state_estimator_node = Node(
@@ -150,6 +167,10 @@ def generate_launch_description():
                 "ekf",
                 "base_to_footprint.yaml",
             ),
+            # yaml 뒤에 둬야 champ 기본값(50 Hz)을 덮는다.
+            # footprint_to_odom_ekf와 같은 이유로 30 Hz로 낮춘다 —
+            # 이 월드에서는 50 Hz 주기를 못 지켜 "Failed to meet update rate"가 난다.
+            {"frequency": 30.0},
         ],
         # 외부 champ yaml의 imu0(imu/data)은 dict override가 안 먹으므로
         # remapping으로 오버레이 imu(/leg/imu)에 연결한다.
@@ -170,7 +191,12 @@ def generate_launch_description():
             {"odom_frame": "odom"},
             {"world_frame": "odom"},
             {"publish_tf": True},
-            {"frequency": 50.0},
+            # 50 Hz면 주기(20 ms) 안에 못 끝내고
+            #   "Failed to meet update rate! Took 0.064 seconds"
+            # 를 간헐적으로 낸다(성동구 월드 + 라이다 3대라 머신이 포화 상태).
+            # 이 EKF 출력 /leg/odom을 받는 쪽은 모듈 B의 EKF(30 Hz)와 TF 소비자들뿐이라
+            # 30 Hz면 충분하다. 라이다가 10 Hz이므로 TF 해상도도 남는다.
+            {"frequency": 30.0},
             {"two_d_mode": True},
             {"odom0": "odom/raw"},
             {"odom0_config": [False, False, False, False, False, False, True, True, False, False, False, True, False, False, False]},
@@ -249,6 +275,19 @@ def generate_launch_description():
     )
     
     # 시뮬레이션이 -r(unpaused)로 시작하므로 바로 active로 로드한다.
+    #
+    # additional_env의 ROS_HOME이 핵심이다.
+    # ros2_control spawner는 `$ROS_HOME/locks/ros2-control-controller-spawner.lock`
+    # 하나를 **모든 spawner가 공유**하고, 그 락을 잡은 채로 자기 controller_manager를
+    # 기다린다(락 획득이 CM 대기보다 먼저다). 다른 spawner는 20초 x 5회 + 3초 x 4
+    # = 최대 112초만 기다리다 exit 1로 죽는다.
+    # leg는 `--controller-manager-timeout 120`이라 최대 120초를 잡고 있을 수 있어,
+    # leg의 controller_manager가 늦게 뜨는 실행에서는 wheel의 spawner
+    # (joint_state_broadcaster / platform_velocity_controller)가 락을 못 얻고 죽는다.
+    # 그러면 /wheel/joint_states가 없어 robot_state_publisher가 TF를 못 내고
+    # wheel/base_link 자체가 사라진다 — 실행마다 되기도 하고 안 되기도 한 원인.
+    # 두 로봇은 서로 다른 controller_manager를 쓰므로 락을 공유할 이유가 없다.
+    # leg 쪽만 락 디렉터리를 분리해 경쟁을 없앤다.
     controller_loader = Node(
         package="controller_manager",
         executable="spawner",
@@ -258,7 +297,24 @@ def generate_launch_description():
             "joint_group_effort_controller",
             "--controller-manager-timeout", "120",
             "--switch-timeout", "120",
+            # 서비스 호출 자체의 제한 시간. 기본 10초로는 부족하다.
+            # controller_manager를 "찾는" 시간(--controller-manager-timeout)과 별개로,
+            # load_controller 요청에 응답이 오기까지의 시간이다. Go2는 관절이 12개라
+            # gz_ros_control이 하드웨어를 초기화하는 동안 CM이 서비스 콜백을 못 돌린다.
+            # 실측: 10초를 넘겨
+            #   [FATAL] Failed loading controller joint_states_controller
+            # 로 spawner가 죽고, 그러면 leg에 컨트롤러가 없어 CHAMP 명령이 관절까지
+            # 못 간다(= /leg/cmd_vel을 넣어도 로봇이 0.000 m 움직인다).
+            # 10회 중 1회 재현됐다.
+            # 60초도 부족했다. 실측 로그를 보면 controller_manager가 요청을
+            # 처리하긴 했는데(=Loading controller ... 이후 "already loaded"),
+            # spawner가 그 직전에 60.0초로 포기해 FATAL로 죽었다.
+            # 즉 실패가 아니라 "응답이 늦게 온" 것이므로 넉넉히 기다리면 된다.
+            "--service-call-timeout", "180",
         ],
+        additional_env={
+            "ROS_HOME": os.path.join(os.path.expanduser("~"), ".ros", "agconav_leg"),
+        },
     )
     
     # leg 스택은 CHAMP가 프레임 이름을 하드코딩(base_link 등)해서 frame_prefix를 못 쓴다.
@@ -268,6 +324,10 @@ def generate_launch_description():
     leg_stack = GroupAction([
         SetRemap('/tf', '/leg/tf'),
         SetRemap('/tf_static', '/leg/tf_static'),
+        # 모듈 B 구성요소 4: CHAMP의 원본 odometry는 /leg/odom 이어야 한다.
+        # 기본값(전역 /odom)이면 wheel과 이름이 겹치고 EKF의 odom0 입력이 비어
+        # map -> leg/odom TF가 발행되지 않는다.
+        SetRemap('/odom', '/leg/odom'),
 
         # Gazebo and robot nodes first
         robot_state_publisher_node,
@@ -285,8 +345,11 @@ def generate_launch_description():
         # TF publishers for frame connections
         base_footprint_to_base_link_tf_node,
 
-        # Controller loader — 시뮬레이션이 unpaused이므로 바로 활성화.
-        controller_loader,
+        # Controller loader — 하드웨어 초기화가 끝날 즈음에 시작한다.
+        # 스폰 직후에 바로 부르면 gz_ros_control이 관절 12개를 올리는 동안
+        # controller_manager가 서비스 콜백을 못 돌려서 요청이 60초씩 대기한다.
+        # 늦게 부르면 그 대기가 통째로 사라진다.
+        TimerAction(period=25.0, actions=[controller_loader]),
 
         # Visualization (only if rviz flag is set)
         rviz2,

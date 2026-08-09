@@ -3,7 +3,7 @@
 wheel·leg 동일 구조. 네임스페이스(PushRosNamespace)로 분리하고,
 같은 config(ekf_node.yaml, navsat_transform_node.yaml)를 공유한다.
 
-[TF 발행]  map ↔ X/odom  → /{ns}/tf 에 발행 (tf_prefix_relay가 전역 /tf로 중계)
+[TF 발행]  map → X/odom  → 전역 /tf 에 직접 발행 (프레임 이름이 이미 X/* 접두어)
 [Topic]    /{ns}/odom (nav_msgs/Odometry) — EKF 필터 출력
 
 사용법 (agconav_sim.launch.py에서 include):
@@ -31,9 +31,14 @@ def _launch_setup(context, *args, **kwargs):
     ekf_config = os.path.join(pkg_dir, 'config', 'ekf_node.yaml')
     navsat_config = os.path.join(pkg_dir, 'config', 'navsat_transform_node.yaml')
 
-    # 사설 TF 토픽 — tf_prefix_relay가 여기서 구독해 전역 /tf로 중계
-    tf_topic = f'/{ns}/tf'
-    tf_static_topic = f'/{ns}/tf_static'
+    # 모듈 B는 접두어 붙은 프레임(X/odom, X/base_link)으로 동작하므로 전역 /tf를
+    # 직접 읽고 쓴다. 사설 /{ns}/tf로 격리하면 두 가지가 깨진다.
+    #   1) 사설 트리에는 CHAMP/clearpath의 접두어 없는 프레임(odom, base_link)만
+    #      있어 EKF가 X/odom -> X/base_link 조회에 실패한다.
+    #   2) EKF가 발행한 map -> X/odom을 tf_prefix_relay가 다시 접두어를 붙여
+    #      X/X/odom으로 만든다(relay는 접두어 없는 트리를 전제로 한다).
+    tf_topic = '/tf'
+    tf_static_topic = '/tf_static'
 
     # ── EKF Node ──────────────────────────────────────────────────
     # world_frame=map → map→odom TF 발행 (README §3.1).
@@ -74,8 +79,10 @@ def _launch_setup(context, *args, **kwargs):
             },
         ],
         remappings=[
-            # gps/fix → gps/fix (/{ns}/gps/fix = 계약 토픽 /X/gps/fix)
-            ('gps/fix', 'gps/fix'),
+            # gps/fix → gps (계약 토픽 /X/gps, topics.md 센서 표 기준).
+            # 모듈 B 문서에는 /X/gps/fix로 적혀 있으나 센서 표가 기준이다.
+            # 이름이 어긋나면 발행자가 없어 navsat이 fix를 영영 못 받는다.
+            ('gps/fix', 'gps'),
             # output odometry/gps → gps/odom (Gap #2)
             ('odometry/gps', 'gps/odom'),
         ],
@@ -101,7 +108,7 @@ def _launch_setup(context, *args, **kwargs):
 
     # ── GroupAction: 네임스페이스 + 사설 TF ────────────────────────
     # PushRosNamespace: 상대 토픽을 /{ns}/... 으로 해결
-    # SetRemap: /tf → /{ns}/tf 로 격리 (TF 소유권 — README §3.1)
+    # SetRemap: 절대 /tf 유지 (프레임이 이미 접두어를 가져 격리 불필요)
     localization_group = GroupAction([
         PushRosNamespace(ns),
         SetRemap(src='/tf', dst=tf_topic),
