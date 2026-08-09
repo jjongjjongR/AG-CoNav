@@ -33,6 +33,7 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
 
 
 def generate_launch_description():
@@ -53,6 +54,9 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "headless", default_value="false",
             description="Gazebo GUI 없이 서버만 실행(-s). 장시간 자동 검증용."),
+        DeclareLaunchArgument(
+            "rviz", default_value="false",
+            description="RViz2를 통합 설정(rviz/agconav.rviz)으로 함께 띄운다."),
         DeclareLaunchArgument(
             "use_nav2", default_value="true",
             description="Nav2 실행(기본 켬). 모듈 C의 navigation_status가 Nav2의 "
@@ -77,6 +81,20 @@ def generate_launch_description():
             "use_nav2": use_nav2,
             "headless": LaunchConfiguration("headless"),
         }.items(),
+    )
+
+    # ── RViz2 (통합 시각화) ───────────────────────────────────────────
+    # 로봇 3종의 점군·TF, 모듈 F의 주행 가능 맵, 모듈 C의 지면 제거 결과,
+    # Nav2 코스트맵·경로를 한 창에서 본다. 프레임은 전부 접두어 붙은 이름이라
+    # Go2 원본 설정(unitree_go2_sim/rviz)은 맞지 않는다.
+    rviz = Node(
+        package="rviz2",
+        executable="rviz2",
+        name="rviz2",
+        output="screen",
+        arguments=["-d", os.path.join(bringup_share, "rviz", "agconav.rviz")],
+        parameters=[{"use_sim_time": use_sim_time}],
+        condition=IfCondition(LaunchConfiguration("rviz")),
     )
 
     # ── 모듈 A: 드론 지도 생성 ────────────────────────────────────────
@@ -121,6 +139,7 @@ def generate_launch_description():
     return LaunchDescription(
         declares + [
             simulation,
+            rviz,
             module_a,
             module_d,
             module_e,

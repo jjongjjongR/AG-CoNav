@@ -1,0 +1,292 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /TF1
+      Splitter Ratio: 0.5
+    Tree Height: 700
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Name: root
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+    Frame Rate: 20
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      # 모듈 A·F의 지도가 783 x 731 m라 기본 격자(10 m x 40칸 = 400 m)로는
+      # 지도가 격자 밖으로 삐져나온다. 격자는 눈금일 뿐이라 기능과 무관하지만
+      # 크기를 맞춰두면 스케일 감을 잡기 쉽다.
+      Cell Size: 50
+      Plane Cell Count: 20
+      Color: 90; 90; 90
+      Reference Frame: map
+
+    # TF는 프레임이 100개가 넘어 전부 켜면 화면이 안 보인다.
+    # 로봇별 base_link와 map만 남긴다.
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Marker Scale: 3
+      Show Names: true
+      Show Axes: true
+      Show Arrows: false
+      Filter (blacklist): ""
+      Filter (whitelist): "map, drone/base_link, wheel/base_link, leg/base_link"
+      Frame Timeout: 15
+
+    # ── 로봇 모델 ────────────────────────────────────────────────
+    - Class: rviz_default_plugins/RobotModel
+      Name: wheel 모델
+      Enabled: true
+      Description Source: Topic
+      Description Topic:
+        Value: /wheel/robot_description
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Alpha: 1
+
+    - Class: rviz_default_plugins/RobotModel
+      Name: leg 모델
+      Enabled: true
+      Description Source: Topic
+      Description Topic:
+        Value: /robot_description
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Alpha: 1
+
+
+    # ── 모듈 A·D·E 산출물 (grid_map_msgs/GridMap) ────────────────
+    # 이 타입은 RViz 기본 플러그인으로 못 본다. grid_map_rviz_plugin 필요:
+    #   sudo apt install ros-jazzy-grid-map-rviz-plugin
+    # 셋 다 래치(transient_local)로 1회만 오므로 Durability를 맞춰야 한다.
+    - Class: grid_map_rviz_plugin/GridMap
+      Name: 모듈A 드론 2.5D 지도
+      Enabled: true
+      Topic:
+        Value: /drone/elevation_map
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Show Grid Lines: false
+      Height Layer: elevation
+      Color Layer: elevation
+      Color Transformer: ColorLayer
+      Use Rainbow: true
+      Alpha: 1
+
+    - Class: grid_map_rviz_plugin/GridMap
+      Name: 모듈D wheel 지상지도
+      Enabled: false
+      Topic:
+        Value: /wheel/elevation_map
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Show Grid Lines: false
+      Height Layer: elevation
+      Color Layer: elevation
+      Color Transformer: ColorLayer
+      Use Rainbow: true
+
+    - Class: grid_map_rviz_plugin/GridMap
+      Name: 모듈D leg 지상지도
+      Enabled: false
+      Topic:
+        Value: /leg/elevation_map
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Show Grid Lines: false
+      Height Layer: elevation
+      Color Layer: elevation
+      Color Transformer: ColorLayer
+      Use Rainbow: true
+
+    - Class: grid_map_rviz_plugin/GridMap
+      Name: 모듈E 병합 지도
+      Enabled: false
+      Topic:
+        Value: /merged/elevation_map
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Show Grid Lines: false
+      Height Layer: elevation
+      Color Layer: elevation
+      Color Transformer: ColorLayer
+      Use Rainbow: true
+
+    # ── 모듈 F 주행 가능 맵 ──────────────────────────────────────
+    # 래치(transient_local)로 1회만 오므로 Durability를 맞춰야 보인다.
+    - Class: rviz_default_plugins/Map
+      Name: wheel 주행가능맵
+      Enabled: true
+      Topic:
+        Value: /wheel/nav_map
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Color Scheme: map
+      Alpha: 0.7
+      Draw Behind: true
+
+    - Class: rviz_default_plugins/Map
+      Name: leg 주행가능맵
+      Enabled: false
+      Topic:
+        Value: /leg/nav_map
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Color Scheme: map
+      Alpha: 0.7
+      Draw Behind: true
+
+    # ── 원본 라이다 점군 ─────────────────────────────────────────
+    # 센서 토픽은 BEST_EFFORT다. Reliable로 두면 아무것도 안 보인다.
+    - Class: rviz_default_plugins/PointCloud2
+      Name: drone 점군
+      Enabled: true
+      Topic:
+        Value: /drone/points
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+      Size (m): 0.3
+      Style: Points
+      Color Transformer: AxisColor
+      Axis: Z
+      Decay Time: 0
+
+    - Class: rviz_default_plugins/PointCloud2
+      Name: wheel 점군
+      Enabled: true
+      Topic:
+        Value: /wheel/points
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+      Size (m): 0.05
+      Style: Points
+      Color Transformer: FlatColor
+      Color: 0; 200; 255
+      Decay Time: 0
+
+    - Class: rviz_default_plugins/PointCloud2
+      Name: leg 점군
+      Enabled: true
+      Topic:
+        Value: /leg/points
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+      Size (m): 0.05
+      Style: Points
+      Color Transformer: FlatColor
+      Color: 255; 170; 0
+      Decay Time: 0
+
+    # ── 모듈 C 지면 제거 결과 ────────────────────────────────────
+    - Class: rviz_default_plugins/PointCloud2
+      Name: wheel 장애물(지면제거)
+      Enabled: true
+      Topic:
+        Value: /wheel/points_filtered
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+      Size (m): 0.12
+      Style: Boxes
+      Color Transformer: FlatColor
+      Color: 255; 0; 0
+      Decay Time: 0
+
+    - Class: rviz_default_plugins/PointCloud2
+      Name: leg 장애물(지면제거)
+      Enabled: true
+      Topic:
+        Value: /leg/points_filtered
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+      Size (m): 0.12
+      Style: Boxes
+      Color Transformer: FlatColor
+      Color: 255; 0; 255
+      Decay Time: 0
+
+    # ── Nav2 ─────────────────────────────────────────────────────
+    - Class: rviz_default_plugins/Map
+      Name: wheel 지역 코스트맵
+      Enabled: true
+      Topic:
+        Value: /wheel/local_costmap/costmap
+        Depth: 1
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Color Scheme: costmap
+      Alpha: 0.6
+
+    - Class: rviz_default_plugins/Path
+      Name: wheel 경로
+      Enabled: true
+      Topic:
+        Value: /wheel/plan
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+      Color: 0; 255; 0
+      Line Style: Lines
+
+    - Class: rviz_default_plugins/Path
+      Name: leg 경로
+      Enabled: true
+      Topic:
+        Value: /leg/plan
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+      Color: 255; 255; 0
+      Line Style: Lines
+
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 128; 128; 0
+    # 목표는 로봇별 네임스페이스로 보내야 한다. 기본 도구는 /goal_pose로
+    # 보내므로 wheel용으로 리맵해 둔다. leg에 보내려면 Tool Properties에서
+    # Topic을 /leg/goal_pose로 바꾼다.
+    - Class: rviz_default_plugins/SetGoal
+      Topic:
+        Value: /wheel/goal_pose
+        Depth: 1
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Distance: 60
+      Focal Point:
+        X: -159
+        Y: 149
+        Z: 6
+      Pitch: 0.6
+      Yaw: 0.8
+      Target Frame: map
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 1000
+  Width: 1700
