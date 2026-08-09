@@ -158,7 +158,12 @@ def main():
     ap.add_argument('--timeout', type=float, default=3600.0,
                     help='전체 제한 시간(초). 드론 경로비행만 약 34분이다.')
     ap.add_argument('--goal-forward', type=float, default=2.0)
+    ap.add_argument('--skip-drone', action='store_true',
+                    help='모듈 A(드론 경로비행 74분)를 건너뛰고 모듈 F부터 본다. '
+                         '저장해 둔 nav_map을 대신 발행할 때 쓴다.')
     args = ap.parse_args()
+
+    stages = STAGES[1:] if args.skip_drone else STAGES
 
     rclpy.init()
     node = E2EChecker()
@@ -169,7 +174,7 @@ def main():
     while time.monotonic() < deadline:
         rclpy.spin_once(node, timeout_sec=0.2)
 
-        for name, topics in STAGES:
+        for name, topics in stages:
             if name in reported:
                 continue
             if all(node.has(t) for t in topics):
@@ -180,13 +185,13 @@ def main():
         for r in ROBOTS:
             node.drive_module_c(r, args.goal_forward)
 
-        if len(reported) == len(STAGES):
+        if len(reported) == len(stages):
             break
 
     print()
     print('=' * 72)
     ok = True
-    for name, topics in STAGES:
+    for name, topics in stages:
         done = all(node.has(t) for t in topics)
         ok &= done
         print(f'  {"OK  " if done else "FAIL"} | {name}')
