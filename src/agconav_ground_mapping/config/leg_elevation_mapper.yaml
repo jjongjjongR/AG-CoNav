@@ -13,3 +13,12 @@
     frame_id: map
     data_timeout_sec: 2.0
     check_period_sec: 1.0
+    # 칼만필터 측정 노이즈(R) 파라미터. leg는 Go2 OS1-32를 장착하는데,
+    # 팀이 아직 이 LiDAR의 실측 정확도 스펙을 확정하지 않아 두 값 모두
+    # placeholder다 (measurement_noise_base: 2cm 표준편차 가정 시
+    # 0.02**2 = 0.0004 m^2). 데이터시트/실측 확인 후 wheel과 다른 값으로
+    # 갱신 필요.
+    measurement_noise_base: 0.0004
+    distance_noise_coefficient: 0.01
+    incidence_cos_floor: 0.17
+    innovation_gate_threshold: 9.0
