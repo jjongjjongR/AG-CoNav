@@ -82,15 +82,17 @@ class GroundElevationMapper(Node):
         # 여전히 유용하다는 판단(사용자 결정).
         self.declare_parameter('data_timeout_sec', 2.0)
         self.declare_parameter('check_period_sec', 1.0)
-        # 칼만필터 측정 노이즈(R) 파라미터 -- wheel(A300 lidar3d_0)과 leg(Go2
-        # OS1-32)는 서로 다른 LiDAR 기종이라 실측 정확도 스펙이 다르므로, 이
-        # 값들은 로봇별 yaml(wheel/leg_elevation_mapper.yaml)에서 독립적으로
-        # 채운다. 아래 기본값은 팀이 아직 두 LiDAR의 데이터시트 정확도 스펙을
-        # 확정하지 않아 넣은 placeholder다 (measurement_noise_base: 2cm
-        # 표준편차 가정 시 0.02**2 = 0.0004 m^2, distance_noise_coefficient:
-        # 거리에 따른 오차 증가율 실측 필요) -- 실측 후 재조정 필요.
-        self.declare_parameter('measurement_noise_base', 0.0004)
-        self.declare_parameter('distance_noise_coefficient', 0.01)
+        # 칼만필터 거리 기반 측정 노이즈(R) 파라미터 -- wheel(A300 lidar3d_0)과
+        # leg(Go2 OS1-32) 모두 데이터시트상 동일한 구간별 정밀도(1시그마) 스펙을
+        # 가진다는 게 확인되어, 계수 기반 근사식 대신 실측 구간표를 그대로 쓴다
+        # (measurement_noise_max_distances[i]까지의 거리에는
+        # measurement_noise_sigmas[i]가 적용되는 구간별 조회 방식 -- 자세한
+        # 계산은 _measurement_noise 참고). 그래도 wheel/leg가 서로 다른 LiDAR
+        # 기종인 건 변함없으므로 로봇별 yaml에서 각각 독립적으로 채운다.
+        self.declare_parameter(
+            'measurement_noise_max_distances', [1.0, 20.0, 50.0, 100.0])
+        self.declare_parameter(
+            'measurement_noise_sigmas', [0.007, 0.010, 0.020, 0.050])
         # cos(80°) ≈ 0.17 -- grazing angle(입사각이 90°에 가까워질 때) 근처에서
         # R_point가 1/cos_theta**2로 발산하는 것을 막는 하한.
         self.declare_parameter('incidence_cos_floor', 0.17)
@@ -108,10 +110,22 @@ class GroundElevationMapper(Node):
         self._frame_id = self.get_parameter('frame_id').value
         self._data_timeout = Duration(
             seconds=self.get_parameter('data_timeout_sec').value)
-        self._measurement_noise_base = float(
-            self.get_parameter('measurement_noise_base').value)
-        self._distance_noise_coefficient = float(
-            self.get_parameter('distance_noise_coefficient').value)
+        self._measurement_noise_max_distances = np.array(
+            self.get_parameter('measurement_noise_max_distances').value, dtype=np.float64)
+        self._measurement_noise_sigmas = np.array(
+            self.get_parameter('measurement_noise_sigmas').value, dtype=np.float64)
+        # 운영 중 조용히 잘못된 구간표로 계산하느니 시작 시점에 바로 죽는 게
+        # 낫다 -- 두 배열 길이가 안 맞거나 max_distances가 정렬돼 있지 않으면
+        # np.searchsorted(_measurement_noise 참고)의 결과가 의미 없어진다.
+        if len(self._measurement_noise_max_distances) != len(self._measurement_noise_sigmas):
+            raise ValueError(
+                'measurement_noise_max_distances and measurement_noise_sigmas must have '
+                f'the same length, got {len(self._measurement_noise_max_distances)} and '
+                f'{len(self._measurement_noise_sigmas)}')
+        if np.any(np.diff(self._measurement_noise_max_distances) <= 0):
+            raise ValueError(
+                'measurement_noise_max_distances must be strictly increasing, got '
+                f'{self._measurement_noise_max_distances.tolist()}')
         self._incidence_cos_floor = float(self.get_parameter('incidence_cos_floor').value)
         self._innovation_gate_threshold = float(
             self.get_parameter('innovation_gate_threshold').value)
@@ -297,10 +311,17 @@ class GroundElevationMapper(Node):
         cos_theta = np.where(np.isnan(cos_theta), 1.0, cos_theta)
         cos_theta = np.clip(cos_theta, self._incidence_cos_floor, 1.0)
 
-        r_point = (
-            self._measurement_noise_base
-            * (1.0 + self._distance_noise_coefficient * distance ** 2)
-            / cos_theta ** 2)
+        # 거리 기반 R: 계수 근사식이 아니라 데이터시트 실측 구간별 정밀도(1시그마)
+        # 조회. np.searchsorted(..., side='left')로 distance가 속하는 구간을
+        # 찾고, np.clip으로 마지막 구간 밖(> max_distances[-1])도 마지막 구간의
+        # 시그마로 클램프한다 -- 이 프로젝트가 쓰는 OS1-32는 최대 사거리가
+        # 90~170m라 100m(마지막 구간 상한)를 넘는 관측이 실제로 들어올 수 있다.
+        idx = np.searchsorted(self._measurement_noise_max_distances, distance, side='left')
+        idx = np.clip(idx, 0, len(self._measurement_noise_sigmas) - 1)
+        sigma_distance = self._measurement_noise_sigmas[idx]
+        r_distance = sigma_distance ** 2
+
+        r_point = r_distance / cos_theta ** 2
         return r_point / counts
 
     def _kalman_update_cells(self, rows, cols, batch_mean, r_eff):

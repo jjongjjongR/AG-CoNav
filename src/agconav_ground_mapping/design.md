@@ -304,13 +304,13 @@ map
 | `frame_id` | 발행할 GridMap의 frame_id | `map` |
 | `data_timeout_sec` | 수신 감시 타임아웃 | `2.0` |
 | `check_period_sec` | 수신 감시 체크 주기 | `1.0` |
-| `measurement_noise_base` | 칼만필터 측정 노이즈(R) 기본값 (R0) | wheel/leg 각각 `0.0004` (2cm 표준편차 가정 placeholder — 실측 필요, 아래 참고) |
-| `distance_noise_coefficient` | 거리에 따른 R 증가 계수 (k) | wheel/leg 각각 `0.01` (placeholder — 실측 필요) |
+| `measurement_noise_max_distances` | 거리 기반 R 구간표의 구간 상한(m), 오름차순 | wheel/leg 각각 `[1.0, 20.0, 50.0, 100.0]` (데이터시트 확인됨, 아래 참고) |
+| `measurement_noise_sigmas` | 각 구간에 대응하는 1시그마 표준편차(m) | wheel/leg 각각 `[0.007, 0.010, 0.020, 0.050]` (데이터시트 확인됨, 아래 참고) |
 | `incidence_cos_floor` | 입사각 cos 하한 (grazing angle에서 R 발산 방지) | `0.17` (cos 80°) |
 | `innovation_gate_threshold` | 이노베이션 게이팅 임계값 (카이제곱, 자유도 1, ~3-시그마) | `9.0` |
 | `use_sim_time` | Gazebo 시간 사용 | `true` |
 
-> `measurement_noise_base`/`distance_noise_coefficient`는 wheel(A300 `lidar3d_0`)과 leg(Go2 OS1-32)가 서로 다른 LiDAR 기종이라 실측 정확도 스펙도 다를 수 있어, `wheel_elevation_mapper.yaml`/`leg_elevation_mapper.yaml`에 로봇별로 독립적으로 채운다. 이 문서 작성 시점에는 팀이 두 LiDAR의 데이터시트/실측 정확도 스펙을 아직 확정하지 않아 두 값 모두 placeholder다 — 재확인 필요.
+> `measurement_noise_max_distances`/`measurement_noise_sigmas`는 wheel(A300 `lidar3d_0`)과 leg(Go2 OS1-32)가 서로 다른 LiDAR 기종이지만, 데이터시트 확인 결과 두 로봇 모두 동일한 구간별 정밀도(1시그마) 스펙을 가진다 (0.3-1m: ±0.7cm, 1-20m: ±1cm, 20-50m: ±2cm, >50m: ±5cm) — placeholder가 아니라 실측 확인된 값이며, 로봇별 yaml에 독립적으로 채워 둔다(값 자체는 현재 동일). 거리 보정은 계수 기반 근사식이 아니라 `np.searchsorted`로 이 구간표를 조회하는 방식이다 (변경 이력 참고).
 
 ### 7-5. 지도 저장(`ground_elevation_map_saver`) → 지도 병합 모듈, 검증 담당자
 
@@ -387,3 +387,5 @@ ground_elevation_mapping.launch.py
 > `_grow_to_fit`이 새로 확장되는 격자 영역을 패딩할 때 기존 `np.pad` 기본값(0)이 아니라 `np.nan`으로 채우도록 바꿨다 — `self._elevation`/`self._variance`로 바뀐 뒤에는 분산 0이 "완벽하게 확신한다"는 의미가 되어, 패딩된 새 셀의 칼만 게인이 `K = P/(P+R) = 0`으로 영구히 고정되는 치명적 버그가 되기 때문이다.
 >
 > `elevation_map`(`/wheel(leg)/elevation_map`)에 `elevation_variance` 레이어가 새로 추가됐다 — `elevation`과 동일한 축 뒤집기 + column-major 패킹 방식을 재사용했고, `basic_layers`에는 `elevation`만 남겼다(분산은 관측 여부 판단 기준이 아니라 부가 정보). 이는 `grid_map_msgs/GridMap`의 실제 데이터가 바뀌는 인터페이스 변경이라 CONTRIBUTING 2조에 따라 이 문서와 README를 함께 갱신했다 — 이 변경은 모듈 E(`agconav_map_fusion`)가 wheel/leg 중 더 확신 있는(분산이 작은) 쪽을 선택하는 데 쓰인다.
+
+> **거리 기반 측정노이즈(R)를 계수 근사식에서 실측 데이터시트 구간표로 교체**: 위 항목에서 도입한 `measurement_noise_base`/`distance_noise_coefficient` 기반 `R_point = R0 * (1 + k*distance**2) / cos_theta**2` 근사식은 두 값 다 팀이 확정하지 못한 placeholder였다. 이후 wheel(A300 `lidar3d_0`)과 leg(Go2 OS1-32) 모두 데이터시트를 확인한 결과 동일한 구간별 정밀도(1시그마) 스펙(0.3-1m: ±0.7cm, 1-20m: ±1cm, 20-50m: ±2cm, >50m: ±5cm)이 확인되어, 근사식 대신 이 실측 스펙을 그대로 반영할 수 있는 구간별 조회(piecewise lookup) 방식으로 바꿨다. `measurement_noise_base`/`distance_noise_coefficient` 파라미터를 제거하고 `measurement_noise_max_distances`(구간 상한, m)/`measurement_noise_sigmas`(구간별 1시그마, m) 배열 파라미터로 교체했다 — `np.searchsorted`로 거리가 속하는 구간을 찾고 `np.clip`으로 인덱스를 마지막 구간 안으로 클램프한다(OS1-32 최대 사거리가 90~170m라 마지막 구간 상한인 100m를 넘는 관측이 실제로 들어올 수 있음). 노드 시작 시 두 배열의 길이가 같은지, `measurement_noise_max_distances`가 엄격히 오름차순인지 검증하고, 어긋나면 조용히 잘못된 구간표로 계산하는 대신 즉시 예외를 발생시켜 죽는다. 입사각 보정(`cos_theta`)과 이노베이션 게이팅, GridMap 레이어 구성은 이번 변경과 무관하게 그대로 유지된다.
