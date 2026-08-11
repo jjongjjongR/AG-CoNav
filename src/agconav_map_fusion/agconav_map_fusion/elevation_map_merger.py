@@ -13,19 +13,27 @@ itself (published only after map_merge_collector's validation, including
 grid-alignment, has passed).
 
 On trigger, it computes the union output grid (design.md 6-3 / 9-4), merges
-the 3 elevation layers into it (6-4 / 9-5: wheel > leg > drone priority,
-valid values never overwritten by NaN), publishes /merged/elevation_map
-once, and reports merge_status=True. If a map is still missing when the
-trigger fires -- an ordering edge case worth handling explicitly, since 2
-independent subscriptions on 2 different topics carry no cross-topic
-ordering guarantee -- it aborts via merge_error + merge_status=False instead
-of crashing.
+the 3 elevation layers into it, publishes /merged/elevation_map once, and
+reports merge_status=True. If a map is still missing when the trigger fires
+-- an ordering edge case worth handling explicitly, since 2 independent
+subscriptions on 2 different topics carry no cross-topic ordering guarantee
+-- it aborts via merge_error + merge_status=False instead of crashing.
+
+Cell selection (design.md 6-4 / 9-5, updated): drone is always the lowest-
+priority fallback -- a drone value survives only in cells neither wheel nor
+leg ever observed. Where wheel and leg overlap, the cell goes to whichever
+one's `elevation_variance` (agconav_ground_mapping's per-cell Kalman filter
+uncertainty) is lower, i.e. the more confident observation, not a fixed
+wheel-over-leg priority. Ties (equal variance) default to wheel, for the
+same reason the old fixed order put wheel highest. Valid values are still
+never overwritten by NaN.
 """
 
 import os
 
 from agconav_map_fusion.grid_math import (
-    build_merged_grid_map_message, build_output_grid, extract_elevation, MERGE_ORDER, ROBOTS,
+    build_merged_grid_map_message, build_output_grid, extract_elevation,
+    extract_elevation_variance, MERGE_ORDER, place_in_output_grid, ROBOTS,
 )
 from grid_map_msgs.msg import GridMap
 import numpy as np
@@ -187,28 +195,72 @@ class ElevationMapMerger(Node):
 
         design.md 6-4: "유효값을 NaN으로 덮지 않음" -- only cells where
         grid_map itself has a real value are written; everything else in
-        output is left untouched. Called in MERGE_ORDER (drone, leg, wheel)
-        so later calls take priority, per design.md's wheel > leg > drone
-        rule.
+        output is left untouched. Only ever called for drone (MERGE_ORDER),
+        as the lowest-priority fallback placed before wheel/leg's
+        variance-based selection (_merge_elevation) overwrites it.
         """
         elevation, origin_x, origin_y = extract_elevation(grid_map)
-        n_rows, n_cols = elevation.shape
-        row_offset = round((origin_x - output_grid.origin_x) / output_grid.resolution)
-        col_offset = round((origin_y - output_grid.origin_y) / output_grid.resolution)
-        region = output[row_offset:row_offset + n_rows, col_offset:col_offset + n_cols]
-        valid = ~np.isnan(elevation)
-        region[valid] = elevation[valid]
+        region_elevation = place_in_output_grid(elevation, origin_x, origin_y, output_grid)
+        valid = ~np.isnan(region_elevation)
+        output[valid] = region_elevation[valid]
+
+    def _merge_ground_elevation(self, output_grid):
+        """Combine wheel/leg into one output_grid-shaped array (design.md 6-4 / 9-5).
+
+        Variance-based cell selection, vectorized over the whole output
+        grid -- no per-cell Python loop. Where only one of wheel/leg has a
+        valid value, that value wins outright. Where both do, the lower
+        `elevation_variance` (agconav_ground_mapping's Kalman filter
+        uncertainty) wins; a tie defaults to wheel, matching the old fixed
+        order's wheel-highest priority, so cell selection stays deterministic
+        even in the near-impossible case of exactly equal variances.
+        """
+        wheel_elevation, wheel_x, wheel_y = extract_elevation(self._maps['wheel'])
+        leg_elevation, leg_x, leg_y = extract_elevation(self._maps['leg'])
+        wheel_variance = extract_elevation_variance(self._maps['wheel'])
+        leg_variance = extract_elevation_variance(self._maps['leg'])
+
+        wheel_elevation = place_in_output_grid(wheel_elevation, wheel_x, wheel_y, output_grid)
+        leg_elevation = place_in_output_grid(leg_elevation, leg_x, leg_y, output_grid)
+        shape = (output_grid.n_rows, output_grid.n_cols)
+        wheel_variance = (
+            place_in_output_grid(wheel_variance, wheel_x, wheel_y, output_grid)
+            if wheel_variance is not None else np.full(shape, np.nan, dtype=np.float32))
+        leg_variance = (
+            place_in_output_grid(leg_variance, leg_x, leg_y, output_grid)
+            if leg_variance is not None else np.full(shape, np.nan, dtype=np.float32))
+
+        wheel_valid = ~np.isnan(wheel_elevation)
+        leg_valid = ~np.isnan(leg_elevation)
+        both_valid = wheel_valid & leg_valid
+        # <= (not <): ties go to wheel, so this is well-defined even where
+        # variance is unavailable/equal on both sides.
+        with np.errstate(invalid='ignore'):
+            wheel_wins = both_valid & (wheel_variance <= leg_variance)
+        leg_wins = both_valid & ~wheel_wins
+
+        ground = np.full(shape, np.nan, dtype=np.float32)
+        ground[wheel_valid & ~leg_valid] = wheel_elevation[wheel_valid & ~leg_valid]
+        ground[leg_valid & ~wheel_valid] = leg_elevation[leg_valid & ~wheel_valid]
+        ground[wheel_wins] = wheel_elevation[wheel_wins]
+        ground[leg_wins] = leg_elevation[leg_wins]
+        return ground
 
     def _merge_elevation(self, output_grid):
         """Build the merged elevation array (design.md 6-4 / 9-5).
 
-        Starts all-NaN so cells no robot ever observed stay NaN, then places
-        drone, leg, wheel in that fixed order so the higher-priority valid
-        values always win -- never dict/set iteration order.
+        Drone is placed first as the lowest-priority fallback (MERGE_ORDER),
+        then overwritten wherever the wheel/leg variance-based merge
+        (_merge_ground_elevation) produced a valid value -- so a cell only
+        keeps its drone value when neither wheel nor leg ever observed it.
         """
         output = np.full((output_grid.n_rows, output_grid.n_cols), np.nan, dtype=np.float32)
         for robot in MERGE_ORDER:
             self._place_into_output(output, output_grid, self._maps[robot])
+
+        ground = self._merge_ground_elevation(output_grid)
+        valid = ~np.isnan(ground)
+        output[valid] = ground[valid]
         return output
 
 
