@@ -5,9 +5,13 @@ design.md 4-1 / 6-2 / 6-3 / 7-1 / 7-2: this node is launched once per
 robot (wheel/leg), each in its own namespace, running the exact same code.
 It subscribes to the raw sensor cloud directly, looks up the sensor-to-map
 TF at the cloud's own stamp, transforms it into the map frame, and bins the
-result into a resolution x resolution grid, keeping a running-average height
-per cell. Unlike the earlier 4-node design, this absorbs what used to be two
-separate nodes (`ground_pointcloud_collector` for receipt monitoring,
+result into a resolution x resolution grid, fusing each cell's height with
+a per-cell scalar Kalman filter (see `_kalman_update_cells`) rather than a
+plain running average -- this also yields a per-cell variance estimate,
+published as the `elevation_variance` layer for module E to use when
+choosing between overlapping wheel/leg observations. Unlike the earlier
+4-node design, this absorbs what used to be two separate nodes
+(`ground_pointcloud_collector` for receipt monitoring,
 `ground_lidar_tf_transformer` for the TF lookup/transform) -- splitting the
 TF transform into its own node meant re-publishing a full PointCloud2 (10Hz
 x 32ch x 1024pts) purely to hand it to this node, for no benefit since
@@ -19,9 +23,10 @@ longer published on a 1Hz timer. It is published exactly once, when
 keeps running regardless, but only that one final snapshot goes out.
 
 The grid is implemented directly with numpy rather than the grid_map C++/
-Python bindings: this node only ever needs one layer (`elevation`), plain
-running-average accumulation, and dynamic growth -- none of which benefit
-from grid_map's iterator/interpolation machinery. Pulling in the grid_map
+Python bindings: this node only ever needs two layers (`elevation`,
+`elevation_variance`), per-cell Kalman filtering, and dynamic growth --
+none of which benefit from grid_map's iterator/interpolation machinery.
+Pulling in the grid_map
 library just to wrap a single Eigen matrix would add a large native
 dependency for no functional gain, and numpy already gives fast vectorized
 binning (`np.bincount`) and resizing (`np.pad`). We do still have to emit a
@@ -77,6 +82,22 @@ class GroundElevationMapper(Node):
         # 여전히 유용하다는 판단(사용자 결정).
         self.declare_parameter('data_timeout_sec', 2.0)
         self.declare_parameter('check_period_sec', 1.0)
+        # 칼만필터 측정 노이즈(R) 파라미터 -- wheel(A300 lidar3d_0)과 leg(Go2
+        # OS1-32)는 서로 다른 LiDAR 기종이라 실측 정확도 스펙이 다르므로, 이
+        # 값들은 로봇별 yaml(wheel/leg_elevation_mapper.yaml)에서 독립적으로
+        # 채운다. 아래 기본값은 팀이 아직 두 LiDAR의 데이터시트 정확도 스펙을
+        # 확정하지 않아 넣은 placeholder다 (measurement_noise_base: 2cm
+        # 표준편차 가정 시 0.02**2 = 0.0004 m^2, distance_noise_coefficient:
+        # 거리에 따른 오차 증가율 실측 필요) -- 실측 후 재조정 필요.
+        self.declare_parameter('measurement_noise_base', 0.0004)
+        self.declare_parameter('distance_noise_coefficient', 0.01)
+        # cos(80°) ≈ 0.17 -- grazing angle(입사각이 90°에 가까워질 때) 근처에서
+        # R_point가 1/cos_theta**2로 발산하는 것을 막는 하한.
+        self.declare_parameter('incidence_cos_floor', 0.17)
+        # 카이제곱분포 자유도 1, 유의수준 약 0.27%(대략 3-시그마)에 해당하는
+        # 표준 게이팅 임계값 (Bar-Shalom, "Estimation with Applications to
+        # Tracking and Navigation"의 고전적 추적이론에서 흔히 쓰이는 값).
+        self.declare_parameter('innovation_gate_threshold', 9.0)
 
         points_topic = self.get_parameter('points_topic').value
         elevation_map_topic = self.get_parameter('elevation_map_topic').value
@@ -87,6 +108,13 @@ class GroundElevationMapper(Node):
         self._frame_id = self.get_parameter('frame_id').value
         self._data_timeout = Duration(
             seconds=self.get_parameter('data_timeout_sec').value)
+        self._measurement_noise_base = float(
+            self.get_parameter('measurement_noise_base').value)
+        self._distance_noise_coefficient = float(
+            self.get_parameter('distance_noise_coefficient').value)
+        self._incidence_cos_floor = float(self.get_parameter('incidence_cos_floor').value)
+        self._innovation_gate_threshold = float(
+            self.get_parameter('innovation_gate_threshold').value)
 
         self._tf_buffer = Buffer()
         self._tf_listener = TransformListener(self._tf_buffer, self)
@@ -96,8 +124,16 @@ class GroundElevationMapper(Node):
         # min-y corner of the observed area; row grows with +x, col grows
         # with +y. None until the first point arrives -- shape and origin
         # both grow on demand (README 3.3: dynamic extent, not fixed size).
-        self._sum = None
-        self._count = None
+        # self._elevation (x) is the per-cell best height estimate, and
+        # self._variance (P) its uncertainty -- together the state of an
+        # independent per-cell scalar Kalman filter (design.md 6-2/7-3,
+        # see _kalman_update_cells). Unobserved cells are NaN, never 0 --
+        # 0 would silently claim "observed, height 0m", and (critically for
+        # the variance array) a padded 0 variance would mean "perfectly
+        # certain", making the Kalman gain K = P/(P+R) permanently 0 for
+        # that cell (see _grow_to_fit).
+        self._elevation = None
+        self._variance = None
         self._origin_x = 0.0
         self._origin_y = 0.0
         self._last_stamp = None
@@ -163,9 +199,10 @@ class GroundElevationMapper(Node):
         cloud_map = do_transform_cloud(msg, transform)
         cloud_map.header.stamp = msg.header.stamp
         cloud_map.header.frame_id = self._target_frame
-        self._accumulate(cloud_map)
+        sensor_origin = transform.transform.translation
+        self._accumulate(cloud_map, (sensor_origin.x, sensor_origin.y, sensor_origin.z))
 
-    def _accumulate(self, msg):
+    def _accumulate(self, msg, sensor_origin):
         points = read_points_numpy(msg, field_names=('x', 'y', 'z'), skip_nans=True)
         if points.shape[0] == 0:
             return
@@ -175,17 +212,139 @@ class GroundElevationMapper(Node):
         col_idx = np.floor((ys - self._origin_y) / self._resolution).astype(np.int64)
         row_idx, col_idx = self._grow_to_fit(row_idx, col_idx)
 
-        # design.md 3/4-1: bin points into cells and accumulate ("누적") a
-        # running average height per cell, vectorized via bincount.
-        n_rows, n_cols = self._sum.shape
+        # design.md 3/4-1: bin points into per-cell sums via bincount, one
+        # batch (this callback's scan) at a time -- the Kalman update itself
+        # (2-2: batch unit, not point-by-point) happens once per cell below,
+        # not once per point.
+        n_rows, n_cols = self._elevation.shape
         cell_count = n_rows * n_cols
         flat_idx = row_idx * n_cols + col_idx
-        self._sum += np.bincount(
+        batch_count = np.bincount(flat_idx, minlength=cell_count).reshape(n_rows, n_cols)
+        batch_sum_x = np.bincount(
+            flat_idx, weights=xs, minlength=cell_count).reshape(n_rows, n_cols)
+        batch_sum_y = np.bincount(
+            flat_idx, weights=ys, minlength=cell_count).reshape(n_rows, n_cols)
+        batch_sum_z = np.bincount(
             flat_idx, weights=zs, minlength=cell_count).reshape(n_rows, n_cols)
-        self._count += np.bincount(
-            flat_idx, minlength=cell_count).reshape(n_rows, n_cols)
+
+        # np.nonzero gives explicit (row, col) index arrays rather than a
+        # boolean mask, so every array built from them below via fancy
+        # indexing is its own independent copy -- no risk of the aliasing/
+        # view bugs a chain of boolean masks on the same base array can
+        # cause.
+        touched_rows, touched_cols = np.nonzero(batch_count)
+        if touched_rows.size == 0:
+            return
+
+        counts = batch_count[touched_rows, touched_cols]
+        batch_mean_x = batch_sum_x[touched_rows, touched_cols] / counts
+        batch_mean_y = batch_sum_y[touched_rows, touched_cols] / counts
+        batch_mean_z = batch_sum_z[touched_rows, touched_cols] / counts
+
+        r_eff = self._measurement_noise(
+            touched_rows, touched_cols, batch_mean_x, batch_mean_y, batch_mean_z,
+            counts, sensor_origin)
+        self._kalman_update_cells(touched_rows, touched_cols, batch_mean_z, r_eff)
 
         self._last_stamp = msg.header.stamp
+
+    def _measurement_noise(
+            self, rows, cols, mean_x, mean_y, mean_z, counts, sensor_origin):
+        """Return R_eff (design.md 2-2) for each of the given touched cells.
+
+        R_point combines distance, incidence angle, and point density; R_eff
+        divides it by how many of this batch's points landed in that cell.
+        """
+        sx, sy, sz = sensor_origin
+        distance = np.sqrt((mean_x - sx) ** 2 + (mean_y - sy) ** 2 + (mean_z - sz) ** 2)
+
+        # design.md 2-3: approximate each cell's surface normal from the
+        # *previously accumulated* self._elevation via np.gradient -- no
+        # per-point neighbor search or point-cloud library, just the
+        # already-binned height grid. Computed before this batch's own
+        # Kalman update below, so it reflects prior scans only.
+        if self._elevation.shape[0] < 2 or self._elevation.shape[1] < 2:
+            # np.gradient raises (not NaN) when an axis is too short to
+            # differentiate along -- a real possibility early on, e.g. the
+            # very first scan's points all landing in a single row/column
+            # of cells. Treat it the same as a gradient full of NaN: no
+            # neighbor info yet, fall back to cos_theta=1.0 below.
+            dzdx = np.full_like(self._elevation, np.nan)
+            dzdy = np.full_like(self._elevation, np.nan)
+        else:
+            with np.errstate(invalid='ignore'):
+                dzdx, dzdy = np.gradient(self._elevation, self._resolution)
+        normal_norm = np.sqrt(dzdx ** 2 + dzdy ** 2 + 1.0)
+        normal_x = -dzdx / normal_norm
+        normal_y = -dzdy / normal_norm
+        normal_z = 1.0 / normal_norm
+
+        ray_x, ray_y, ray_z = mean_x - sx, mean_y - sy, mean_z - sz
+        ray_norm = np.sqrt(ray_x ** 2 + ray_y ** 2 + ray_z ** 2)
+        with np.errstate(invalid='ignore'):
+            cos_theta = np.abs(
+                (ray_x / ray_norm) * normal_x[rows, cols]
+                + (ray_y / ray_norm) * normal_y[rows, cols]
+                + (ray_z / ray_norm) * normal_z[rows, cols])
+        # No neighbor info to derive a normal from -- either this cell has
+        # never been observed before (self._elevation is NaN there) or its
+        # neighbors don't give np.gradient enough to work with (result is
+        # NaN). Fall back to "hit straight-on" (cos_theta=1.0), the most
+        # conservative assumption (smallest possible R_point contribution
+        # from incidence). In practice this makes incidence correction a
+        # no-op through the whole cold-start phase of the map, since almost
+        # every cell is being seen for the first time.
+        cos_theta = np.where(np.isnan(cos_theta), 1.0, cos_theta)
+        cos_theta = np.clip(cos_theta, self._incidence_cos_floor, 1.0)
+
+        r_point = (
+            self._measurement_noise_base
+            * (1.0 + self._distance_noise_coefficient * distance ** 2)
+            / cos_theta ** 2)
+        return r_point / counts
+
+    def _kalman_update_cells(self, rows, cols, batch_mean, r_eff):
+        """Fuse this batch's per-cell mean height into self._elevation/_variance.
+
+        Standard (linear) Kalman filter, not EKF/UKF -- no approximation is
+        needed since there is no state transition (Q=0 below) and the
+        observation model is already exactly linear (z = x + noise). Process
+        noise Q is fixed at 0 rather than exposed as a parameter: the terrain
+        is assumed static for the duration of one robot's mapping run, so
+        there is nothing for a predict step to model between scans.
+        """
+        x_prev = self._elevation[rows, cols]
+        p_prev = self._variance[rows, cols]
+
+        # A cell with P still NaN has never been observed before -- initialize
+        # it directly from this batch, with no gating (there is no prior
+        # estimate yet to gate against).
+        is_new = np.isnan(p_prev)
+        new_rows, new_cols = rows[is_new], cols[is_new]
+        self._elevation[new_rows, new_cols] = batch_mean[is_new]
+        self._variance[new_rows, new_cols] = r_eff[is_new]
+
+        is_existing = ~is_new
+        ex_rows, ex_cols = rows[is_existing], cols[is_existing]
+        x, p, r, z = (
+            x_prev[is_existing], p_prev[is_existing],
+            r_eff[is_existing], batch_mean[is_existing])
+
+        # Innovation gating (design.md 2-2): reject outlier batches on cells
+        # that already have an estimate, rather than letting a stray point
+        # corrupt the filter. Threshold 9.0 -- chi-squared, 1 degree of
+        # freedom, ~3-sigma equivalent, the standard gate from classical
+        # tracking theory (Bar-Shalom).
+        innovation = z - x
+        innovation_covariance = p + r
+        passed_gate = (innovation ** 2 / innovation_covariance) <= self._innovation_gate_threshold
+
+        upd_rows, upd_cols = ex_rows[passed_gate], ex_cols[passed_gate]
+        gain = p[passed_gate] / innovation_covariance[passed_gate]
+        self._elevation[upd_rows, upd_cols] = x[passed_gate] + gain * innovation[passed_gate]
+        self._variance[upd_rows, upd_cols] = (1.0 - gain) * p[passed_gate]
+        # Cells that failed the gate are left untouched -- x, P both keep
+        # their prior values, and this batch's reading for them is dropped.
 
     def _grow_to_fit(self, row_idx, col_idx):
         """Pad the grid so row_idx/col_idx fit, remapped into the new array.
@@ -193,16 +352,20 @@ class GroundElevationMapper(Node):
         README 3.3: the map only grows to cover what has actually been
         observed, it is never pre-sized.
         """
-        if self._sum is None:
+        if self._elevation is None:
             min_row, max_row = int(row_idx.min()), int(row_idx.max())
             min_col, max_col = int(col_idx.min()), int(col_idx.max())
-            self._sum = np.zeros((max_row - min_row + 1, max_col - min_col + 1))
-            self._count = np.zeros_like(self._sum)
+            shape = (max_row - min_row + 1, max_col - min_col + 1)
+            # NaN, not 0 -- see the note on self._elevation/_variance in
+            # __init__ for why a 0-filled variance array is a critical bug
+            # here (permanently rejects the Kalman gain on every new cell).
+            self._elevation = np.full(shape, np.nan)
+            self._variance = np.full(shape, np.nan)
             self._origin_x += min_row * self._resolution
             self._origin_y += min_col * self._resolution
             return row_idx - min_row, col_idx - min_col
 
-        n_rows, n_cols = self._sum.shape
+        n_rows, n_cols = self._elevation.shape
         pad_before_row = max(0, -int(row_idx.min()))
         pad_after_row = max(0, int(row_idx.max()) - (n_rows - 1))
         pad_before_col = max(0, -int(col_idx.min()))
@@ -210,8 +373,10 @@ class GroundElevationMapper(Node):
 
         if pad_before_row or pad_after_row or pad_before_col or pad_after_col:
             pad_width = ((pad_before_row, pad_after_row), (pad_before_col, pad_after_col))
-            self._sum = np.pad(self._sum, pad_width)
-            self._count = np.pad(self._count, pad_width)
+            # constant_values=np.nan (not the np.pad default of 0) -- same
+            # reasoning as the fresh-array case above.
+            self._elevation = np.pad(self._elevation, pad_width, constant_values=np.nan)
+            self._variance = np.pad(self._variance, pad_width, constant_values=np.nan)
             self._origin_x -= pad_before_row * self._resolution
             self._origin_y -= pad_before_col * self._resolution
             row_idx = row_idx + pad_before_row
@@ -225,7 +390,7 @@ class GroundElevationMapper(Node):
         # (or a late-joining latched redelivery) must not republish.
         if not msg.data or self._published:
             return
-        if self._sum is None:
+        if self._elevation is None:
             self.get_logger().warn(
                 'navigation_status reported complete but no points were '
                 'accumulated yet, nothing to publish.')
@@ -244,12 +409,13 @@ class GroundElevationMapper(Node):
                 '(topic may be stalled).')
 
     def _build_grid_map_message(self):
-        n_rows, n_cols = self._sum.shape
-        # README 3.3: unobserved cells stay NaN. count == 0 makes this a
-        # 0/0 division, which numpy already turns into NaN; the warning is
-        # expected and suppressed rather than worked around.
-        with np.errstate(invalid='ignore'):
-            elevation = (self._sum / self._count).astype(np.float32)
+        n_rows, n_cols = self._elevation.shape
+        # README 3.3: unobserved cells stay NaN -- self._elevation/_variance
+        # already carry NaN for every never-observed cell (see __init__ /
+        # _grow_to_fit), so no extra division-by-count step is needed here
+        # the way the old running-average version required.
+        elevation = self._elevation.astype(np.float32)
+        variance = self._variance.astype(np.float32)
 
         length_x = n_rows * self._resolution
         length_y = n_cols * self._resolution
@@ -267,13 +433,11 @@ class GroundElevationMapper(Node):
         # 순서이고, 최내곽 차원은 stride == size 여야 한다. Eigen 열 우선 저장
         # 기준으로 바깥 차원이 열(column_index), 안쪽 차원이 행(row_index)이므로
         # dim[0].size = 열 개수, dim[1].size = dim[1].stride = 행 개수다.
-        gm_matrix = elevation[::-1, ::-1]
-        elevation_layer = Float32MultiArray()
-        elevation_layer.layout.dim = [
-            MultiArrayDimension(label='column_index', size=n_cols, stride=n_rows * n_cols),
-            MultiArrayDimension(label='row_index', size=n_rows, stride=n_rows),
-        ]
-        elevation_layer.data = gm_matrix.flatten(order='F').tolist()
+        elevation_layer = self._pack_layer(elevation, n_rows, n_cols)
+        # 'elevation_variance' packed with the exact same axis-flip +
+        # column-major convention as 'elevation' above -- module E's
+        # extract_elevation_variance (grid_math.py) relies on this matching.
+        variance_layer = self._pack_layer(variance, n_rows, n_cols)
         # ---------------------------------------------------------------------
 
         info = GridMapInfo()
@@ -290,12 +454,33 @@ class GroundElevationMapper(Node):
         grid_map.header.stamp = self._last_stamp
         grid_map.header.frame_id = self._frame_id
         grid_map.info = info
-        grid_map.layers = ['elevation']
+        grid_map.layers = ['elevation', 'elevation_variance']
+        # basic_layers only ever holds 'elevation': it is the layer grid_map
+        # consumers use to decide whether a cell counts as "observed" at
+        # all -- variance is auxiliary uncertainty info about an already-
+        # observed cell, not a second observed/unobserved criterion.
         grid_map.basic_layers = ['elevation']
-        grid_map.data = [elevation_layer]
+        grid_map.data = [elevation_layer, variance_layer]
         grid_map.outer_start_index = 0
         grid_map.inner_start_index = 0
         return grid_map
+
+    @staticmethod
+    def _pack_layer(matrix, n_rows, n_cols):
+        """Pack one layer's (n_rows, n_cols) float32 array into the wire format.
+
+        See the comment block above (grid_map's axis-flip + column-major
+        convention) -- shared here so 'elevation' and 'elevation_variance'
+        can't drift into different packings by accident.
+        """
+        gm_matrix = matrix[::-1, ::-1]
+        layer = Float32MultiArray()
+        layer.layout.dim = [
+            MultiArrayDimension(label='column_index', size=n_cols, stride=n_rows * n_cols),
+            MultiArrayDimension(label='row_index', size=n_rows, stride=n_rows),
+        ]
+        layer.data = gm_matrix.flatten(order='F').tolist()
+        return layer
 
 
 def main(args=None):
