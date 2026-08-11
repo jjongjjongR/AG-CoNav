@@ -449,7 +449,10 @@ class GroundElevationMapper(Node):
         # axes are flipped before packing. Data is flattened column-major
         # (Eigen's default storage order), matching
         # matrixEigenCopyToMultiArrayMessage in grid_map_ros.
-        # 축 뒤집기와 column-major 평탄화는 실환경(Jazzy)에서 검증 완료.
+        # 축 뒤집기와 column-major 평탄화는 아직 실환경에서 검증되지 않았다 --
+        # 이 프로젝트는 ROS2/RViz2가 없는 샌드박스에서 작업 중이라 런타임
+        # 검증 자체가 불가능했다. 실제 Jazzy 환경에서 grid_map_rviz_plugin으로
+        # 셀 방향(orientation)이 올바른지 재확인 필요.
         # dim 크기는 std_msgs/MultiArrayLayout 규약을 따른다: 차원은 바깥->안
         # 순서이고, 최내곽 차원은 stride == size 여야 한다. Eigen 열 우선 저장
         # 기준으로 바깥 차원이 열(column_index), 안쪽 차원이 행(row_index)이므로
