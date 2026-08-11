@@ -182,7 +182,7 @@ export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 | `/X/imu` | `sensor_msgs/Imu` | 브리지 → 위치추정(EKF) | best_effort |
 | `/drone/cmd_pose` | `geometry_msgs/PoseStamped` | 드론 경로 재생 → 드론 | reliable |
 | `/wheel/cmd_vel`·`/leg/cmd_vel` | `geometry_msgs/Twist` | Nav2 → 로봇 | reliable |
-| `/X/elevation_map` | `grid_map_msgs/GridMap` (layer `elevation`) | 지도화 → 병합 | reliable, transient_local |
+| `/X/elevation_map` | `grid_map_msgs/GridMap` (layer `elevation`, wheel·leg는 `elevation_variance`도 포함) | 지도화 → 병합 | reliable, transient_local |
 | `/wheel/nav_map`·`/leg/nav_map` | `nav_msgs/OccupancyGrid` | F(주행성 분석) → C(Nav2) | reliable, transient_local |
 | `/merged_map` | `grid_map_msgs/GridMap` | 병합 → RViz·저장 | reliable, transient_local |
 | `/clock` | `rosgraph_msgs/Clock` | Gazebo → all | best_effort |

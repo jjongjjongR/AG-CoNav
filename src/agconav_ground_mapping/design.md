@@ -59,8 +59,10 @@
   - 데이터 수신 여부 확인 (헬스체크)
   - 측정 시각의 TF 조회 (LiDAR → Base Link → Map, 10Hz)
   - 모든 측정점을 Map 좌표계로 변환
-  - 변환된 점을 XY 격자로 배치하고 셀별 높이를 계산해 누적 (러닝 애버리지, 2.5D 지도 생성)
-  - `navigation_status`(True) 수신 시 그 시점까지 누적된 지도를 Elevation Map으로 1회만 발행
+  - 변환된 점을 XY 격자로 배치하고, 셀별 독립 스칼라 칼만필터로 높이(x)와 분산(P)을 갱신 (배치=이번 콜백의 스캔 단위, 러닝 애버리지에서 변경 — 2.5D 지도 생성)
+  - 측정 노이즈(R)는 거리·입사각·점밀도를 결합해 콜백마다 셀별로 계산 (입사각은 이전까지 누적된 높이 격자의 기울기로 근사)
+  - 이미 값이 있는 셀에 한해 이노베이션 게이팅으로 이상치(튄 점) 스캔을 걸러냄
+  - `navigation_status`(True) 수신 시 그 시점까지 누적된 지도(`elevation`, `elevation_variance`)를 Elevation Map으로 1회만 발행
 
 > 이전에는 이 책임이 3개 노드(`ground_pointcloud_collector`: PointCloud 수집 + 수신 감시, `ground_lidar_tf_transformer`: 좌표 변환, `ground_elevation_mapper`: 격자 누적 + 1Hz 주기 발행)로 나뉘어 있었다. `ground_pointcloud_collector`는 점군을 저장·감시만 하고 재발행하지 않아서 `ground_lidar_tf_transformer`가 같은 원본 토픽을 별도로 다시 구독해야 했고, `ground_lidar_tf_transformer`를 독립 노드로 유지하는 것은 10Hz × 32ch × 1024점 규모의 PointCloud2를 변환 후 재발행하는 오버헤드만 추가할 뿐 그 출력을 소비하는 곳이 `ground_elevation_mapper` 하나뿐이라 이점이 없었다. 그래서 세 노드를 `ground_elevation_mapper` 하나로 합쳤다.
 >
@@ -164,6 +166,7 @@
 | 데이터 의미 | 로봇별 점군을 map 좌표에 누적한 2.5D 높이 지도 |
 | 타입 | `grid_map_msgs/msg/GridMap` |
 | 필수 레이어 | `elevation` |
+| 부가 레이어 | `elevation_variance` — 셀별 칼만필터 불확실성(P). `basic_layers`에는 포함하지 않음(관측 여부 판단 기준이 아니라 부가 정보) |
 | 발행 시점 | `navigation_status`(True) 수신 시 그 시점까지 누적된 지도를 1회만 (구 1Hz 주기 발행에서 변경, 7-3 참고) |
 
 ### 6-5. 외부 내비게이션 모듈(이동 완료 상태) → 지도 생성 책임
@@ -258,6 +261,7 @@ map
 | frame_id | `map` |
 | stamp | 지도가 마지막으로 갱신된 시뮬레이션 시각 |
 | 필수 레이어 | `elevation` |
+| 부가 레이어 | `elevation_variance` (셀별 칼만필터 분산 P, `basic_layers`에는 미포함) |
 | 높이 단위 | m |
 | 해상도 | 기본 0.10m/cell |
 | 지도 범위 | 각 로봇의 실제 관측 영역 기준 (관측 영역만 동적으로 확장하는 방식) |
@@ -300,7 +304,13 @@ map
 | `frame_id` | 발행할 GridMap의 frame_id | `map` |
 | `data_timeout_sec` | 수신 감시 타임아웃 | `2.0` |
 | `check_period_sec` | 수신 감시 체크 주기 | `1.0` |
+| `measurement_noise_base` | 칼만필터 측정 노이즈(R) 기본값 (R0) | wheel/leg 각각 `0.0004` (2cm 표준편차 가정 placeholder — 실측 필요, 아래 참고) |
+| `distance_noise_coefficient` | 거리에 따른 R 증가 계수 (k) | wheel/leg 각각 `0.01` (placeholder — 실측 필요) |
+| `incidence_cos_floor` | 입사각 cos 하한 (grazing angle에서 R 발산 방지) | `0.17` (cos 80°) |
+| `innovation_gate_threshold` | 이노베이션 게이팅 임계값 (카이제곱, 자유도 1, ~3-시그마) | `9.0` |
 | `use_sim_time` | Gazebo 시간 사용 | `true` |
+
+> `measurement_noise_base`/`distance_noise_coefficient`는 wheel(A300 `lidar3d_0`)과 leg(Go2 OS1-32)가 서로 다른 LiDAR 기종이라 실측 정확도 스펙도 다를 수 있어, `wheel_elevation_mapper.yaml`/`leg_elevation_mapper.yaml`에 로봇별로 독립적으로 채운다. 이 문서 작성 시점에는 팀이 두 LiDAR의 데이터시트/실측 정확도 스펙을 아직 확정하지 않아 두 값 모두 placeholder다 — 재확인 필요.
 
 ### 7-5. 지도 저장(`ground_elevation_map_saver`) → 지도 병합 모듈, 검증 담당자
 
@@ -365,3 +375,15 @@ ground_elevation_mapping.launch.py
 - TF 조회 실패 시 반드시 해당 점군을 건너뛰고 경고 로그만 남길 것 (노드가 죽으면 안 됨).
 - `wheel_bridge.yaml`/`leg_bridge.yaml`(`agconav_gz_bridge`)이 아직 저장소에 구현되어 있지 않아, `/wheel/points`·`/leg/points`의 실제 `header.frame_id`와 TF 발행 방식(전역 `/tf` vs 사설 `/wheel(leg)/tf`)을 이 문서 작성 시점에는 실측하지 못했다. `target_source_frame` 파라미터(4-1, 7-1, 7-2)와 기본 `TransformListener` 선택은 그 불확실성 위에서 내린 잠정 결정이며, 브릿지 구현 후 `ros2 topic echo`/`tf2_echo`로 재검증이 필요하다.
 - drone(X3)은 이 패키지(`agconav_ground_mapping`)의 범위 밖이다 — 지상 로봇(wheel/leg)만 다룬다.
+
+---
+
+## 변경 이력
+
+> **셀별 칼만필터 도입, `elevation_variance` 레이어 추가 (인터페이스 변경)**: `ground_elevation_mapper`의 셀별 높이 누적 방식을 러닝 애버리지(`self._sum`/`self._count`)에서 셀당 독립 스칼라 칼만필터(`self._elevation`/`self._variance`)로 바꿨다. 상태는 셀당 높이 하나, 셀 간 상관관계는 없다고 가정(완전 독립), 갱신은 점 단위가 아니라 콜백(스캔) 배치 단위로 1회 수행한다. 측정 노이즈 R은 거리 제곱 + 입사각(`1/cos_theta**2`, `incidence_cos_floor`로 하한) + 점밀도(`n_points`로 나눔)를 결합해 계산하며, 입사각은 별도 이웃탐색/포인트클라우드 라이브러리 없이 이전까지 누적된 `self._elevation`의 `np.gradient`로 근사한다 — 이웃 정보가 없는 콜드스타트 구간(처음 보는 셀, gradient가 NaN인 셀)은 수직 입사(`cos_theta=1.0`)로 보수적으로 폴백한다. 프로세스 노이즈 Q는 정적 지형 가정 하에 0으로 고정(파라미터로 노출하지 않음). 이미 값이 있는 셀에는 이노베이션 게이팅(`y**2/S > innovation_gate_threshold`, 기본 9.0 — 카이제곱분포 자유도 1, 약 3-시그마에 해당하는 고전적 추적이론의 표준값)을 적용해 이상치 스캔을 걸러낸다. EKF/UKF가 아니라 표준(선형) 칼만필터인 이유는 상태 전이가 없고(Q=0) 관측식이 완전히 선형(z = x + noise)이라 근사가 필요 없기 때문이다.
+>
+> 새 파라미터 `measurement_noise_base`, `distance_noise_coefficient`, `incidence_cos_floor`, `innovation_gate_threshold`가 추가됐다 (7절 참고). 앞의 두 값은 wheel(A300 `lidar3d_0`)/leg(Go2 OS1-32)가 서로 다른 LiDAR 기종이라 로봇별 yaml에 독립적으로 채웠으며, 팀이 아직 실측 정확도 스펙을 확정하지 않은 placeholder다.
+>
+> `_grow_to_fit`이 새로 확장되는 격자 영역을 패딩할 때 기존 `np.pad` 기본값(0)이 아니라 `np.nan`으로 채우도록 바꿨다 — `self._elevation`/`self._variance`로 바뀐 뒤에는 분산 0이 "완벽하게 확신한다"는 의미가 되어, 패딩된 새 셀의 칼만 게인이 `K = P/(P+R) = 0`으로 영구히 고정되는 치명적 버그가 되기 때문이다.
+>
+> `elevation_map`(`/wheel(leg)/elevation_map`)에 `elevation_variance` 레이어가 새로 추가됐다 — `elevation`과 동일한 축 뒤집기 + column-major 패킹 방식을 재사용했고, `basic_layers`에는 `elevation`만 남겼다(분산은 관측 여부 판단 기준이 아니라 부가 정보). 이는 `grid_map_msgs/GridMap`의 실제 데이터가 바뀌는 인터페이스 변경이라 CONTRIBUTING 2조에 따라 이 문서와 README를 함께 갱신했다 — 이 변경은 모듈 E(`agconav_map_fusion`)가 wheel/leg 중 더 확신 있는(분산이 작은) 쪽을 선택하는 데 쓰인다.
