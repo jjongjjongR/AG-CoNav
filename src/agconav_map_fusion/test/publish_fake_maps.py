@@ -25,6 +25,17 @@ elevation_map_merger's own build_merged_grid_map_message (axis flip,
 column-major flatten) -- reimplemented independently here per
 CONTRIBUTING 5, not imported.
 
+wheel and leg's elevation_map also carries a second layer,
+`elevation_variance`, with independent random per-cell values -- mirroring
+what agconav_ground_mapping's ground_elevation_mapper now actually
+publishes (its per-cell Kalman filter's uncertainty), so
+elevation_map_merger's variance-based wheel/leg cell selection
+(design.md 6-4) has something real to compare. drone's map intentionally
+has no `elevation_variance` layer, matching production -- module A is out
+of this change's scope, and elevation_map_merger must not crash or treat
+drone specially when the layer is simply absent (grid_math.py's
+extract_elevation_variance returns None for it instead).
+
 The node keeps spinning after publishing so its transient_local history
 stays available to nodes started later; stop it with Ctrl+C once the merge
 has been observed.
@@ -42,15 +53,24 @@ ROBOTS = ('drone', 'wheel', 'leg')
 # map_merge_collector's merge trigger only ever waits on wheel/leg -- see
 # map_merge_collector.py's module docstring for why drone is excluded.
 STATUS_ROBOTS = ('wheel', 'leg')
-# Distinct per-robot base elevation so the merged output's wheel > leg >
-# drone priority (design.md 6-4) is easy to eyeball in the result.
+# Robots that publish an `elevation_variance` layer -- drone doesn't (see
+# module docstring), so it's excluded here, mirroring production.
+VARIANCE_ROBOTS = ('wheel', 'leg')
+# Distinct per-robot base elevation so which of wheel/leg's values won the
+# variance-based selection (design.md 6-4), and drone's fallback, are easy
+# to eyeball in the merged result.
 BASE_ELEVATION = {'drone': 10.0, 'wheel': 20.0, 'leg': 30.0}
 NAN_FRACTION = 0.2
+# Per-cell variance sampled uniformly from this range for wheel/leg,
+# independently -- wide enough that both "wheel wins" and "leg wins" cells
+# show up in a single run.
+VARIANCE_RANGE = (0.01, 1.0)
 
 GRID_SIZE = 5
 RESOLUTION = 0.10
 FRAME_ID = 'map'
 ELEVATION_LAYER = 'elevation'
+ELEVATION_VARIANCE_LAYER = 'elevation_variance'
 STATUS_DELAY_SEC = 3.0
 
 
@@ -62,26 +82,47 @@ def _build_fake_elevation(base_elevation, rng):
     return elevation
 
 
-def _build_grid_map_message(elevation, stamp):
-    """Pack `elevation` into a grid_map_msgs/GridMap, centered on the origin.
+def _build_fake_variance(rng):
+    """Return a GRID_SIZE x GRID_SIZE float32 array of per-cell variance."""
+    return rng.uniform(*VARIANCE_RANGE, size=(GRID_SIZE, GRID_SIZE)).astype(np.float32)
+
+
+def _pack_layer(matrix, n_rows, n_cols):
+    """Pack one layer's (n_rows, n_cols) float32 array into the wire format.
 
     Mirrors grid_math.build_merged_grid_map_message's packing (axis flip +
     column-major flatten) so the message round-trips through
-    grid_math.extract_elevation exactly as a real elevation_map would.
+    grid_math.extract_elevation/extract_elevation_variance exactly as a real
+    elevation_map would.
+    """
+    gm_matrix = matrix[::-1, ::-1]
+    layer = Float32MultiArray()
+    # std_msgs/MultiArrayLayout: dim[0]=열(column_index), dim[1]=행(row_index),
+    # 최내곽은 stride == size.
+    layer.layout.dim = [
+        MultiArrayDimension(label='column_index', size=n_cols, stride=n_rows * n_cols),
+        MultiArrayDimension(label='row_index', size=n_rows, stride=n_rows),
+    ]
+    layer.data = gm_matrix.flatten(order='F').tolist()
+    return layer
+
+
+def _build_grid_map_message(elevation, stamp, variance=None):
+    """Pack `elevation` (and optionally `variance`) into a GridMap, centered on the origin.
+
+    `variance`, when given, is packed as a second `elevation_variance` layer
+    -- omitted for drone (see module docstring), matching what
+    ground_elevation_mapper actually publishes for wheel/leg.
     """
     n_rows, n_cols = elevation.shape
     length_x = n_rows * RESOLUTION
     length_y = n_cols * RESOLUTION
 
-    gm_matrix = elevation[::-1, ::-1]
-    elevation_layer = Float32MultiArray()
-    # std_msgs/MultiArrayLayout: dim[0]=열(column_index), dim[1]=행(row_index),
-    # 최내곽은 stride == size.
-    elevation_layer.layout.dim = [
-        MultiArrayDimension(label='column_index', size=n_cols, stride=n_rows * n_cols),
-        MultiArrayDimension(label='row_index', size=n_rows, stride=n_rows),
-    ]
-    elevation_layer.data = gm_matrix.flatten(order='F').tolist()
+    layers = [ELEVATION_LAYER]
+    data = [_pack_layer(elevation, n_rows, n_cols)]
+    if variance is not None:
+        layers.append(ELEVATION_VARIANCE_LAYER)
+        data.append(_pack_layer(variance, n_rows, n_cols))
 
     info = GridMapInfo()
     info.resolution = RESOLUTION
@@ -97,9 +138,9 @@ def _build_grid_map_message(elevation, stamp):
     grid_map.header.stamp = stamp
     grid_map.header.frame_id = FRAME_ID
     grid_map.info = info
-    grid_map.layers = [ELEVATION_LAYER]
+    grid_map.layers = layers
     grid_map.basic_layers = [ELEVATION_LAYER]
-    grid_map.data = [elevation_layer]
+    grid_map.data = data
     grid_map.outer_start_index = 0
     grid_map.inner_start_index = 0
     return grid_map
@@ -143,11 +184,15 @@ class FakeMapPublisher(Node):
         stamp = self.get_clock().now().to_msg()
         for robot in ROBOTS:
             elevation = _build_fake_elevation(BASE_ELEVATION[robot], rng)
-            grid_map = _build_grid_map_message(elevation, stamp)
+            variance = _build_fake_variance(rng) if robot in VARIANCE_ROBOTS else None
+            grid_map = _build_grid_map_message(elevation, stamp, variance)
             self._map_pubs[robot].publish(grid_map)
+            layer_desc = (
+                f'{len(grid_map.layers)} layers {grid_map.layers}' if variance is not None
+                else f'{len(grid_map.layers)} layer {grid_map.layers}')
             self.get_logger().info(
                 f'{robot}: published fake {GRID_SIZE}x{GRID_SIZE} elevation_map '
-                f'(base={BASE_ELEVATION[robot]}, resolution={RESOLUTION})')
+                f'(base={BASE_ELEVATION[robot]}, resolution={RESOLUTION}, {layer_desc})')
         self.get_logger().info(
             f'all 3 fake elevation maps published -- status will follow in '
             f'{STATUS_DELAY_SEC:.0f}s.')
