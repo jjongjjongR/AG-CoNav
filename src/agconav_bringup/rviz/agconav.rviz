@@ -85,7 +85,7 @@ Visualization Manager:
 
     - Class: grid_map_rviz_plugin/GridMap
       Name: 모듈D wheel 지상지도
-      Enabled: false
+      Enabled: true
       Topic:
         Value: /wheel/elevation_map
         Depth: 1
@@ -99,7 +99,7 @@ Visualization Manager:
 
     - Class: grid_map_rviz_plugin/GridMap
       Name: 모듈D leg 지상지도
-      Enabled: false
+      Enabled: true
       Topic:
         Value: /leg/elevation_map
         Depth: 1
@@ -113,7 +113,7 @@ Visualization Manager:
 
     - Class: grid_map_rviz_plugin/GridMap
       Name: 모듈E 병합 지도
-      Enabled: false
+      Enabled: true
       Topic:
         Value: /merged/elevation_map
         Depth: 1
@@ -127,9 +127,18 @@ Visualization Manager:
 
     # ── 모듈 F 주행 가능 맵 ──────────────────────────────────────
     # 래치(transient_local)로 1회만 오므로 Durability를 맞춰야 보인다.
+    #
+    # !! 기본 꺼둠 — 켜면 RViz가 죽는다 !!
+    # 이 지도는 7398 x 6741 = 4,990만 셀이고, RViz의 Map 표시는 이걸
+    # 텍스처 한 장으로 만들려다 그대로 종료된다(실측, 매번 재현).
+    #   [rviz2]: Trying to create a map of size 7398 x 6741 using 1 swatches
+    #   (여기서 프로세스 사라짐)
+    # 주행 가능 맵을 꼭 봐야 하면 해상도를 낮춰서 별도 토픽으로 내보내
+    # 그걸 보는 쪽이 안전하다. 지도 크기 자체는 모듈 A·E·F에 걸친
+    # 설계 사안이다(개발일지 §6-3).
     - Class: rviz_default_plugins/Map
-      Name: wheel 주행가능맵
-      Enabled: true
+      Name: wheel 주행가능맵 (켜면 RViz 죽음)
+      Enabled: false
       Topic:
         Value: /wheel/nav_map
         Depth: 1
@@ -140,7 +149,7 @@ Visualization Manager:
       Draw Behind: true
 
     - Class: rviz_default_plugins/Map
-      Name: leg 주행가능맵
+      Name: leg 주행가능맵 (켜면 RViz 죽음)
       Enabled: false
       Topic:
         Value: /leg/nav_map

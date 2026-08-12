@@ -1,0 +1,28 @@
+{
+  /*** Global Configuration ***/
+  "global": {
+    "config_path": "",
+    "config_ros": "config_ros.json",
+    "config_logging": "config_logging.json",
+    "config_viewer": "config_viewer.json",
+    "config_sensors": "config_sensors.json",
+    "config_preprocess": "config_preprocess.json",
+
+    // GLIM 기본 구성(LiDAR-IMU 융합). exp_velocity 는 멀티콥터 속도 제어로 실제
+    // 비행한 데이터라 IMU가 운동을 반영한다(gyro 최대 0.96 rad/s = 55 deg/s).
+    //
+    // 반면 SetEntityPose 순간이동으로 만든 bag(exp_teleport 등)의 IMU는 전 비행
+    // 구간 gyro 최대 0.0013 rad/s 로, 180도 선회를 두 번 하는 경로인데도 회전을
+    // 감지하지 못한다. 그 데이터에는 이 구성을 쓸 수 없고 아래 LiDAR 단독 조합이
+    // 필요하다 (CT 오도메트리는 IMU 없이 추정하므로 기본 sub_mapping /
+    // global_mapping 이 "odom frames are not estimated in the IMU frame" 으로
+    // 거부한다 — passthrough / pose_graph 로 함께 내려야 한다):
+    //
+    //   "config_odometry":       "config_odometry_ct.json",
+    //   "config_sub_mapping":    "config_sub_mapping_passthrough.json",
+    //   "config_global_mapping": "config_global_mapping_pose_graph.json"
+    "config_odometry": "config_odometry_gpu.json",
+    "config_sub_mapping": "config_sub_mapping_gpu.json",
+    "config_global_mapping": "config_global_mapping_gpu.json"
+  }
+}

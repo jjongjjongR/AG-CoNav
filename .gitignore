@@ -25,6 +25,10 @@ rosbag*/
 experiments/results/
 experiments/media/
 maps/
+# 실험 산출물 — 재생성 가능하고 용량이 커서(bag 11 GB, 지도 수백 MB) 커밋하지 않는다.
+# 만드는 법은 src/agconav_test_worlds/README.md 와 RESULTS.md 에 적혀 있다.
+bags/
+maps_*/
 
 # 대용량 에셋 (필요시 Git LFS)
 *.stl
@@ -32,6 +36,11 @@ maps/
 *.obj
 # Seongdong_gu world가 참조하는 건물 메시는 없으면 world 로드 자체가 실패하므로 예외.
 !src/agconav_worlds/worlds/Seongdong_gu/mesh/buildings.dae
+# 잘라낸 테스트 world도 같은 이유로 예외(각 48 KB).
+!src/agconav_test_worlds/worlds/*/mesh/buildings.dae
+# agconav_drone_dynamic 의 model.sdf 는 메시를 Fuel URL 로만 참조한다.
+# 로컬 meshes/ 는 복사만 되어 있고 아무도 안 쓰는 93 MB이므로 통째로 제외.
+src/agconav_test_worlds/models/*/meshes/
 
 # vcstool로 별도 관리하는 외부 패키지 (deps.repos 참조)
 src/unitree_go2_ros2_jazzy/
@@ -43,14 +52,15 @@ src/unitree_go2_ros2_jazzy/
 *.swp
 
 # 개인 개발일지 (커밋 안 함)
-jongheon_dev.md
 jongheon_dev_sim.md
-발표_jongheon.md
-jongheon_dev_0802.md
-module_F.md
 jongheon_dev_f_module.md
+module_F.md
+report_jongheon_integration.md
 
 *.world.bak
 *.world.bak2
 *.world.bak*
 *.launch.py.bak
+
+# world 생성기가 남기는 진단용 임시 world
+_probe*.world

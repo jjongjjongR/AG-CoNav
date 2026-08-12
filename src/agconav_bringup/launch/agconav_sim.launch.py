@@ -15,7 +15,7 @@ from launch.actions import (
 )
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch.conditions import IfCondition, UnlessCondition
 from launch.actions import SetEnvironmentVariable
 
@@ -39,12 +39,19 @@ def generate_launch_description():
     clearpath_gz_share = get_package_share_directory("clearpath_gz")
     nav2_bringup_share = get_package_share_directory("nav2_bringup")
 
-    # 실행할 공용 Gazebo 월드 (성동구 실지형 heightmap)
-    world_path = os.path.join(
+    # 실행할 공용 Gazebo 월드 (성동구 실지형 heightmap).
+    # world_file 인자로 다른 월드를 지정할 수 있다 — 테스트용으로 잘라낸 축소
+    # 월드(agconav_test_worlds)에서 전체 스택을 돌릴 때 쓴다. 빈 값이면 기본값.
+    # <world name>은 그대로 "Seongdong_gu"를 유지해야 clearpath spawn의
+    # world:=Seongdong_gu 인자와 set_pose 서비스 경로가 그대로 맞는다.
+    default_world_path = os.path.join(
         agconav_worlds_share,
         "worlds",
         "Seongdong_gu",
         "Seongdong_gu.world",
+    )
+    world_path = PythonExpression(
+        ["'", LaunchConfiguration("world_file"), "' or '", default_world_path, "'"]
     )
 
     # 각 하위 launch 파일 경로
@@ -73,6 +80,18 @@ def generate_launch_description():
         "sensor_bridge.launch.py",
     )
 
+    declare_world_file = DeclareLaunchArgument(
+        "world_file",
+        default_value="",
+        description="띄울 .world 절대경로. 비우면 agconav_worlds의 Seongdong_gu.",
+    )
+    declare_model_path = DeclareLaunchArgument(
+        "model_path",
+        default_value="",
+        description="GZ_SIM_RESOURCE_PATH 앞에 덧붙일 모델 폴더. world_file이 "
+        "기본 월드에 없는 model://을 참조할 때 필요하다 "
+        "(예: 방식 4 월드의 agconav_drone_dynamic).",
+    )
     declare_use_sim_time = DeclareLaunchArgument(
         "use_sim_time",
         default_value="true",
@@ -168,9 +187,18 @@ def generate_launch_description():
     _existing_gz_resource_path = os.environ.get("GZ_SIM_RESOURCE_PATH", "")
     if _existing_gz_resource_path:
         _gz_models_dirs.append(_existing_gz_resource_path)
+    # world_file로 다른 월드를 띄울 때, 그 월드가 참조하는 모델이 위 두 경로에
+    # 없을 수 있다. 예: 방식 4(velocity)용 Seongdong_gu_100x100_dynamic 은
+    # model://agconav_drone_dynamic 을 참조하는데 그건 agconav_test_worlds/models
+    # 에 있다. 경로에 없으면 Gazebo가 월드 로드 자체를 실패하고
+    #   [Err] Error Code 14 ... Unable to find uri[model://agconav_drone_dynamic]
+    # 가 뜬 뒤, 월드가 안 떠서 wait_for_world가 죽고 모듈 A~F가 전부 연쇄로 죽는다.
+    # world_file은 LaunchConfiguration이라 여기서 경로를 유추할 수 없으므로
+    # 부르는 쪽이 model_path로 알려준다.
     set_gz_resource_path = SetEnvironmentVariable(
         name="GZ_SIM_RESOURCE_PATH",
-        value=os.pathsep.join(_gz_models_dirs),
+        value=[LaunchConfiguration("model_path"), os.pathsep,
+               os.pathsep.join(_gz_models_dirs)],
     )
 
     # headless:=true 면 gz 서버만 띄우고 GUI는 생략한다(-s).
@@ -203,19 +231,13 @@ def generate_launch_description():
         ],
     )
 
-    # clearpath(wheel)는 PushRosNamespace("wheel")를 사용하므로 자체 /wheel/clock을 기다립니다.
-    wheel_clock_bridge = Node(
-        package="ros_gz_bridge",
-        executable="parameter_bridge",
-        name="wheel_clock_bridge",
-        output="screen",
-        arguments=[
-            "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
-        ],
-        remappings=[
-            ("/clock", "/wheel/clock"),
-        ],
-    )
+    # (제거됨) wheel_clock_bridge — /clock을 /wheel/clock으로 한 번 더 중계하던 노드.
+    # ROS 2에서 use_sim_time은 네임스페이스와 무관하게 항상 절대경로 /clock을
+    # 구독한다. PushRosNamespace("wheel") 아래 있어도 마찬가지다. 실측: 실행 중인
+    # 스택에서 /wheel/clock의 구독자는 0개였다(/clock은 23개 이상).
+    # 그런데 Gazebo의 /clock은 초당 881건 발행된다. 아무도 안 듣는 토픽에 초당
+    # 881건을 직렬화해 내보내느라 CPU 약 11%를 쓰고 있었다. 6코어 머신에서
+    # 전체가 976%/1200%로 포화된 상황이라 그냥 버리는 몫이 아니었다.
 
     # X3의 Gazebo Twist 명령을 ROS2 /drone/cmd_vel로 연결한다.
     drone_cmd_vel_bridge = Node(
@@ -306,6 +328,39 @@ def generate_launch_description():
     # 내부 생성 체인이 끝난 뒤 A300 spawn이 실행된다.
     # Module B의 EKF 노드가 /wheel/tf에서 odom->base_link를 수신할 수 있도록,
     # 그리고 tf_prefix_relay가 작동할 수 있도록 전체 휠 스택의 TF를 격리한다.
+    # clearpath가 띄우는 wheel spawner는 `--controller-manager-timeout 60`이 박혀
+    # 있고(/opt/ros의 clearpath_control 런치라 우리가 못 고친다), 전체 스택을 같이
+    # 띄우면 wheel.controller_manager가 60초 안에 못 뜬다. 실측(방식 4 종단):
+    #   [wheel.controller_manager] Waiting for data on 'robot_description' topic
+    #   [wheel.spawner_joint_state_broadcaster] FATAL: Could not contact service
+    #     /wheel/controller_manager/list_controllers   -> 두 spawner 모두 사망
+    # 그러면 /wheel/joint_states가 없어 robot_state_publisher가
+    # wheel/odom -> wheel/base_link 를 못 내고, 이어서 wheel EKF가
+    #   Could not obtain transform from wheel/odom->wheel/base_link
+    # 로 map -> wheel/odom 을 영영 발행하지 못한다. 즉 모듈 B가 통째로 실패하고
+    # 모듈 C·D·E까지 멈춘다.
+    #
+    # 그래서 넉넉한 제한 시간으로 한 번 더 붙인다. clearpath 쪽이 먼저 성공하면
+    # 이쪽은 "already loaded"로 조용히 끝나므로 중복 부작용이 없다.
+    # ROS_HOME을 따로 주는 이유는 spawner들이 공유하는 락 파일 때문이다 —
+    # 같은 락을 쓰면 이 재시도가 leg spawner를 굶긴다.
+    wheel_controller_retry = Node(
+        package="controller_manager",
+        executable="spawner",
+        output="screen",
+        arguments=[
+            "joint_state_broadcaster",
+            "platform_velocity_controller",
+            "--controller-manager", "/wheel/controller_manager",
+            "--controller-manager-timeout", "300",
+            "--switch-timeout", "300",
+            "--service-call-timeout", "180",
+        ],
+        additional_env={
+            "ROS_HOME": os.path.join(os.path.expanduser("~"), ".ros", "agconav_wheel_retry"),
+        },
+    )
+
     spawn_wheel = GroupAction([
         SetRemap('/tf', '/wheel/tf'),
         SetRemap('/tf_static', '/wheel/tf_static'),
@@ -526,7 +581,6 @@ def generate_launch_description():
         #   로봇(odom·joint) -> 센서 브리지(GPS·IMU) -> 위치추정(TF) -> Nav2
         return [
             clock_bridge,
-            wheel_clock_bridge,
             drone_cmd_vel_bridge,
             drone_tf_bridge,
             *drone_sensor_tf,
@@ -542,6 +596,8 @@ def generate_launch_description():
             # 뜨므로, 그 구간에 다른 스택이 CPU를 뺏지 않게 하는 것이 핵심이다.
             spawn_wheel,
             TimerAction(period=15.0, actions=[spawn_leg]),
+            # clearpath spawner가 60초에 죽고 난 뒤 우리 쪽이 이어받는다.
+            TimerAction(period=25.0, actions=[wheel_controller_retry]),
             TimerAction(period=30.0, actions=[
                 sensor_bridge,
                 localization_wheel,
@@ -556,6 +612,8 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            declare_world_file,
+            declare_model_path,
             declare_use_sim_time,
             declare_clearpath_setup_path,
             declare_use_localization,

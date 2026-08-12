@@ -32,7 +32,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 
 
@@ -51,6 +51,41 @@ def generate_launch_description():
 
     declares = [
         DeclareLaunchArgument("use_sim_time", default_value="true"),
+        # 축소 테스트 월드에서 전체 스택(A~F)을 돌릴 때 쓴다. 비우면 기본 월드.
+        # <world name>은 "Seongdong_gu"를 유지해야 clearpath spawn과 set_pose
+        # 서비스 경로가 그대로 맞는다.
+        DeclareLaunchArgument("world_file", default_value="",
+                              description="띄울 .world 절대경로 (비우면 기본 월드)"),
+        DeclareLaunchArgument("drone_path_file", default_value="",
+                              description="드론 경로 YAML (비우면 전체 월드용 기본 경로)"),
+        # flight:=velocity 로 방식 4 월드를 띄울 때는 반드시 함께 줘야 한다.
+        #   model_path:=$PWD/src/agconav_test_worlds/models
+        # 없으면 Gazebo가 model://agconav_drone_dynamic 을 못 찾아 월드 로드가
+        # 실패하고, 월드가 없으니 모듈 A~F가 전부 연쇄로 죽는다.
+        DeclareLaunchArgument("model_path", default_value="",
+                              description="GZ_SIM_RESOURCE_PATH에 덧붙일 모델 폴더"),
+        # 드론을 어떻게 움직일지. 모듈 A~F 코드는 어느 쪽이든 동일하게 돈다.
+        #
+        # 측정 결과 velocity가 확실히 낫다(RESULTS.md 5·9절, 같은 경로·같은 모듈):
+        #                     teleport   velocity
+        #   측정 커버리지        78.7%      98.9%
+        #   높이 오차 sigma    0.1175 m   0.0839 m
+        #   단차 중앙값        0.1287 m   0.0790 m
+        #   wheel 주행가능       13.8%      41.8%
+        #   leg 주행가능         41.9%      76.5%
+        #
+        # 이유는 시야 기하다. 순간이동은 고도 84.00~84.01 m에 자세가 항상 수평이라
+        # 늘 같은 연직 시선만 쓰는 반면, 실제 비행은 기울고 오르내리며 근거리
+        # 반사를 더 얻는다(84 m 미만 반사 38.7% -> 53.2%). 오차는 센서 거리에
+        # 비례하므로 그만큼 정확해진다.
+        #
+        # velocity는 중력이 켜진 드론 모델과 천장 없는 스폰이 필요해서
+        # worlds/Seongdong_gu_100x100_dynamic 을 world_file로 줘야 한다.
+        # 승인된 Seongdong_gu_100x100 은 드론 스폰 위에 건물 mesh 천장(4.8949 m)이
+        # 있어 velocity로 띄우면 드론이 4.7299 m에서 눌린다.
+        DeclareLaunchArgument(
+            "flight", default_value="teleport", choices=["teleport", "velocity"],
+            description="teleport=SetEntityPose 순간이동, velocity=실제 추력 비행"),
         DeclareLaunchArgument(
             "headless", default_value="false",
             description="Gazebo GUI 없이 서버만 실행(-s). 장시간 자동 검증용."),
@@ -80,6 +115,17 @@ def generate_launch_description():
             "use_sim_time": use_sim_time,
             "use_nav2": use_nav2,
             "headless": LaunchConfiguration("headless"),
+            # 축소 테스트 월드에서 전체 스택을 돌릴 때 쓴다. 빈 값이면 기본 월드.
+            "world_file": LaunchConfiguration("world_file"),
+            "model_path": LaunchConfiguration("model_path"),
+            "wheel_x": LaunchConfiguration("wheel_x"),
+            "wheel_y": LaunchConfiguration("wheel_y"),
+            "wheel_z": LaunchConfiguration("wheel_z"),
+            "wheel_yaw": LaunchConfiguration("wheel_yaw"),
+            "leg_x": LaunchConfiguration("leg_x"),
+            "leg_y": LaunchConfiguration("leg_y"),
+            "leg_z": LaunchConfiguration("leg_z"),
+            "leg_yaw": LaunchConfiguration("leg_yaw"),
         }.items(),
     )
 
@@ -105,8 +151,49 @@ def generate_launch_description():
         launch_arguments={
             "use_sim_time": use_sim_time,
             "launch_gazebo": "false",
+            # agconav_sim.launch.py의 drone_tf_bridge가 월드 OdometryPublisher의
+            # /model/X3/pose를 /tf로 이미 내보낸다. 여기서 drone_path_player까지
+            # 같은 map->drone/base_link를 발행하면 한 관계에 발행자가 둘이 되어
+            # README 3.1을 깬다. 실측: 같은 타임스탬프에 값이 둘 들어오고 차이가
+            # 평균 0.785 m, 최대 0.800 m(= 8 m/s ÷ 10 Hz, 한 프레임 이동량).
+            # 명령 pose와 실제 도착 pose가 섞여 모듈 A의 TF 조회가 흔들린다.
+            "publish_tf": "false",
+            "path_file": LaunchConfiguration("drone_path_file"),
+            # teleport일 때만 drone_path_player/drone_pose_controller가 뜬다.
+            "flight": LaunchConfiguration("flight"),
         }.items(),
         condition=IfCondition(enable_drone),
+    )
+
+    # ── 방식 4: 실제 추력 비행 (flight:=velocity) ──────────────────────
+    is_velocity = IfCondition(
+        PythonExpression(["'", LaunchConfiguration("flight"), "' == 'velocity'"]))
+
+    # MulticopterVelocityControl은 enableSubTopic으로 True를 먼저 받아야 twist를
+    # 받아들인다. /drone/cmd_vel 브리지는 agconav_sim에 이미 있지만 enable은 없어서
+    # 이걸 안 띄우면 twist를 아무리 보내도 로터가 돌지 않는다.
+    drone_enable_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="drone_enable_bridge",
+        output="screen",
+        arguments=["/X3/enable@std_msgs/msg/Bool]gz.msgs.Boolean"],
+        remappings=[("/X3/enable", "/drone/enable")],
+        condition=is_velocity,
+    )
+
+    # 경로는 teleport와 같은 파일을 쓴다(같은 고도·속도·줄 간격). 다른 것은
+    # "어떻게 그 선을 따라가느냐"뿐이다.
+    velocity_follower = Node(
+        package="agconav_test_worlds",
+        executable="velocity_path_follower.py",
+        name="velocity_path_follower",
+        output="screen",
+        parameters=[{
+            "path_file": LaunchConfiguration("drone_path_file"),
+            "use_sim_time": use_sim_time,
+        }],
+        condition=is_velocity,
     )
 
     # ── 모듈 C: 지면 분할 + 이동 완료 신호 ────────────────────────────
@@ -141,8 +228,11 @@ def generate_launch_description():
             simulation,
             rviz,
             module_a,
+            drone_enable_bridge,
+            velocity_follower,
             module_d,
             module_e,
             module_f,
         ]
     )
+

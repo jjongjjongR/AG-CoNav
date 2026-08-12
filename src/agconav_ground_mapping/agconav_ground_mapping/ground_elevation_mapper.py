@@ -77,6 +77,12 @@ class GroundElevationMapper(Node):
         # 여전히 유용하다는 판단(사용자 결정).
         self.declare_parameter('data_timeout_sec', 2.0)
         self.declare_parameter('check_period_sec', 1.0)
+        # 점군 측정 시각의 TF가 아직 안 왔을 때 이만큼 기다린다. 로봇마다 TF가
+        # 도착하는 지연이 다르다 - 실측(테스트 월드 전체 스택): wheel은 중앙값
+        # 0.005초로 사실상 정시라 드롭 13건뿐이었지만, leg는 중앙값 0.133초
+        # 최대 0.256초 뒤처져서 점군 1354개를 통째로 버렸다. 0.3초면 leg 최대
+        # 지연까지 덮는다. 0으로 두면 기다리지 않고 바로 버린다(원래 동작).
+        self.declare_parameter('tf_timeout_sec', 0.3)
 
         points_topic = self.get_parameter('points_topic').value
         elevation_map_topic = self.get_parameter('elevation_map_topic').value
@@ -89,7 +95,13 @@ class GroundElevationMapper(Node):
             seconds=self.get_parameter('data_timeout_sec').value)
 
         self._tf_buffer = Buffer()
-        self._tf_listener = TransformListener(self._tf_buffer, self)
+        # spin_thread=True — TF 수신을 이 노드의 실행기가 아니라 리스너 전용
+        # 스레드에서 돌린다. 이게 없으면 _points_callback 안에서 transform을
+        # 기다리는 순간 TF 메시지를 받을 주체가 사라져 영원히 안 오는 것을
+        # 기다리게 되고(자기 교착), 그래서 원래 코드는 아예 대기를 못 했다.
+        self._tf_listener = TransformListener(self._tf_buffer, self, spin_thread=True)
+        self._tf_timeout = Duration(
+            seconds=float(self.get_parameter('tf_timeout_sec').value))
 
         # Grid state, in OUR OWN convention (not grid_map's wire convention,
         # see _build_grid_map_message): (row, col) = (0, 0) is the min-x/
@@ -147,10 +159,12 @@ class GroundElevationMapper(Node):
         source_frame = self._target_source_frame or msg.header.frame_id
         try:
             # design.md 7-2: look up the TF at the cloud's own measurement
-            # stamp. No wait timeout: if it isn't available yet, drop this
-            # cloud rather than blocking the single-threaded executor.
+            # stamp. 아직 안 왔으면 tf_timeout_sec 만큼만 기다린다 - TF 리스너가
+            # 전용 스레드에서 도니(위 spin_thread=True) 여기서 기다려도 TF는
+            # 계속 들어온다. 그 안에 안 오면 그때 버린다.
             transform = self._tf_buffer.lookup_transform(
-                self._target_frame, source_frame, Time.from_msg(msg.header.stamp))
+                self._target_frame, source_frame, Time.from_msg(msg.header.stamp),
+                timeout=self._tf_timeout)
         except TransformException as ex:
             self.get_logger().warn(
                 f'TF lookup failed for "{source_frame}" -> '

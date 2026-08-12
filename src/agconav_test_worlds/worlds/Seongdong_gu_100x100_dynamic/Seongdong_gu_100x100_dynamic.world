@@ -1,0 +1,523 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<sdf version="1.9">
+    <world name="Seongdong_gu">
+
+        <!-- Plugin for simulating physics -->
+        <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics">
+        </plugin>
+
+        <!-- Plugin for handling user commands -->
+        <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands">
+        </plugin>
+
+        <!-- Plugin for broadcasting scene updates -->
+        <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster">
+        </plugin>
+
+        <!-- Plugin for handling sensors like the LIDAR -->
+        <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+            <render_engine>ogre2</render_engine>
+        </plugin>
+
+        <!-- Plugin for IMU -->
+        <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu">
+        </plugin>
+
+        <!-- plugin for GPS  -->
+        <plugin filename="gz-sim-navsat-system" name="gz::sim::systems::NavSat">
+        </plugin>
+
+        <light type="directional" name="sun">
+            <cast_shadows>true</cast_shadows>
+            <pose>0 -7000 7000 0 0 0</pose>
+            <diffuse>0.9 0.88 0.82 1</diffuse>
+            <!-- Zero specular prevents glint/reflection artifacts on terrain -->
+            <specular>0 0 0 1</specular>
+            <!-- gz-sim/OGRE2 bug: shadow map artifact appears when both X and Y are non-zero.
+                 Workaround: keep one horizontal component zero. Y-only = sun from north. -->
+            <direction>0.0 0.6 -0.6</direction>
+        </light>
+
+        <scene>
+            <!-- Ambient fills in shadows — simulates sky/bounce light -->
+            <ambient>0.45 0.48 0.55 1</ambient>
+            <grid>false</grid>
+            <origin_visual>false</origin_visual>
+            <!-- Procedural sky with atmosphere scattering and clouds -->
+            <sky>
+                <time>10</time>
+                <sunrise>6</sunrise>
+                <sunset>20</sunset>
+                <clouds>
+                    <speed>12</speed>
+                </clouds>
+            </sky>
+        </scene>
+
+        <!-- Polymath standard physics simulation engine config,
+        ODE does not behave correctly with heightmaps, we'll use bullet instead -->
+        <!--        <physics type='ode'>-->
+        <!--            <max_step_size>0.005</max_step_size>-->
+        <!--            <real_time_factor>1</real_time_factor>-->
+        <!--            <real_time_update_rate>200</real_time_update_rate>-->
+        <!--        </physics>-->
+        <physics name="2ms" type="ignored">
+            <!-- 기본값(1 ms)에서 2 ms로 늘렸다. 승인된 Seongdong_gu_100x100 월드는
+                 손대지 않았고, 방식 4(velocity)용인 이 사본에만 적용한다.
+
+                 이유: gz는 물리 스텝마다 /clock을 발행한다. 1 ms면 초당 1000건이고
+                 실측 881 Hz였는데, 그걸 ROS로 넘기는 parameter_bridge 하나가
+                 CPU 코어를 통째로 썼다(순간 99%). use_sim_time을 쓰는 노드가
+                 100개가 넘어서 초당 8.8만 건의 전달이 일어나기 때문이다.
+                 6코어 머신에서 전체 CPU가 976%/1200%로 포화됐고, 실시간계수가
+                 0.4까지 떨어지면서 컨트롤러 스포너가 제한 시간을 넘겨 죽고
+                 TF가 멈추는 등 2차 피해가 이어졌다.
+
+                 2 ms가 안전한 근거: 로터 시간상수가 상승 0.0125초 / 하강 0.025초라
+                 2 ms면 가장 빠른 동특성도 6배 이상 촘촘히 샘플링한다.
+                 heightmap 충돌은 아래 bullet 검출기가 담당하며 스텝 크기와 무관하다. -->
+            <max_step_size>0.002</max_step_size>
+            <dart>
+                <!-- Heightmaps behave better with the bullet collision detector -->
+                <collision_detector>bullet</collision_detector>
+            </dart>
+        </physics>
+        <gravity>0 0 -9.8066</gravity>
+
+        <gui fullscreen="0">
+            <!-- 3D scene — camera_pose: 80m above launch point, north (yaw=π/2), 30° nose down (pitch=π/6) -->
+            <plugin filename="MinimalScene" name="3D View">
+                <gz-gui>
+                    <title>3D View</title>
+                    <property type="bool" key="showTitleBar">false</property>
+                    <property type="string" key="state">docked</property>
+                </gz-gui>
+                <engine>ogre2</engine>
+                <scene>scene</scene>
+                <ambient_light>0.4 0.4 0.4</ambient_light>
+                <background_color>0.8 0.8 0.8</background_color>
+                <!-- 로봇 3대(wheel -159.7,147.5 / drone -156.5,148.2 / leg -158.9,150.8)를
+                     한 화면에 담는 초기 시점. 원점 일대는 건물이 덮고 있어 개활지로 옮겼다.
+                     이 값과 X3 pose는 scripts/capture_poses.py 의 apply 옵션으로 갱신한다.
+                     지형 전체를 보려면 0 0 217.4 0 1.3963 1.5708 로 되돌린다. -->
+                <camera_pose>-78.60 -206.10 82.82 0 0.5611 0.7854</camera_pose>
+                <camera_clip>
+                    <near>0.1</near>
+                    <far>50000</far>
+                </camera_clip>
+            </plugin>
+            <plugin filename="EntityContextMenuPlugin" name="Entity context menu">
+                <gz-gui>
+                    <property key="state" type="string">floating</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="GzSceneManager" name="Scene Manager">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="InteractiveViewControl" name="Interactive view control">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="CameraTracking" name="Camera Tracking">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="MarkerManager" name="Marker manager">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="SelectEntities" name="Select Entities">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="Spawn" name="Spawn Entities">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="VisualizationCapabilities" name="Visualization Capabilities">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="width" type="double">5</property>
+                    <property key="height" type="double">5</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="WorldControl" name="World control">
+                <gz-gui>
+                    <title>World control</title>
+                    <property type="bool" key="showTitleBar">false</property>
+                    <property type="bool" key="resizable">false</property>
+                    <property type="double" key="height">72</property>
+                    <property type="double" key="z">1</property>
+                    <property type="string" key="state">floating</property>
+                    <anchors target="3D View">
+                        <line own="left" target="left"/>
+                        <line own="bottom" target="bottom"/>
+                    </anchors>
+                </gz-gui>
+                <play_pause>true</play_pause>
+                <step>true</step>
+                <start_paused>true</start_paused>
+                <use_event>true</use_event>
+            </plugin>
+            <plugin filename="WorldStats" name="World stats">
+                <gz-gui>
+                    <title>World stats</title>
+                    <property type="bool" key="showTitleBar">false</property>
+                    <property type="bool" key="resizable">false</property>
+                    <property type="double" key="height">110</property>
+                    <property type="double" key="width">290</property>
+                    <property type="double" key="z">1</property>
+                    <property type="string" key="state">floating</property>
+                    <anchors target="3D View">
+                        <line own="right" target="right"/>
+                        <line own="bottom" target="bottom"/>
+                    </anchors>
+                </gz-gui>
+                <sim_time>true</sim_time>
+                <real_time>true</real_time>
+                <real_time_factor>true</real_time_factor>
+                <iterations>true</iterations>
+            </plugin>
+            <plugin filename="Shapes" name="Shapes">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="x" type="double">0</property>
+                    <property key="y" type="double">0</property>
+                    <property key="width" type="double">250</property>
+                    <property key="height" type="double">50</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                    <property key="cardBackground" type="string">#666666</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="Lights" name="Lights">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="x" type="double">250</property>
+                    <property key="y" type="double">0</property>
+                    <property key="width" type="double">150</property>
+                    <property key="height" type="double">50</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                    <property key="cardBackground" type="string">#666666</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="TransformControl" name="Transform control">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="x" type="double">0</property>
+                    <property key="y" type="double">50</property>
+                    <property key="width" type="double">250</property>
+                    <property key="height" type="double">50</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                    <property key="cardBackground" type="string">#777777</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="Screenshot" name="Screenshot">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="x" type="double">250</property>
+                    <property key="y" type="double">50</property>
+                    <property key="width" type="double">50</property>
+                    <property key="height" type="double">50</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                    <property key="cardBackground" type="string">#777777</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="CopyPaste" name="CopyPaste">
+                <gz-gui>
+                    <property key="resizable" type="bool">false</property>
+                    <property key="x" type="double">300</property>
+                    <property key="y" type="double">50</property>
+                    <property key="width" type="double">100</property>
+                    <property key="height" type="double">50</property>
+                    <property key="state" type="string">floating</property>
+                    <property key="showTitleBar" type="bool">false</property>
+                    <property key="cardBackground" type="string">#777777</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="ComponentInspector" name="Component inspector">
+                <gz-gui>
+                    <property type="bool" key="showTitleBar">false</property>
+                    <property type="string" key="state">docked</property>
+                </gz-gui>
+            </plugin>
+            <plugin filename="EntityTree" name="Entity tree">
+                <gz-gui>
+                    <property type="bool" key="showTitleBar">false</property>
+                    <property type="string" key="state">docked</property>
+                </gz-gui>
+            </plugin>
+        </gui>
+
+        <spherical_coordinates>
+            <surface_model>EARTH_WGS84</surface_model>
+            <latitude_deg>37.54233814881853</latitude_deg>
+            <longitude_deg>127.06050643805561</longitude_deg>
+            <elevation>15.400000000001455</elevation>
+        </spherical_coordinates>
+
+        <!-- OGRE2 ignores both model and link <pose> for heightmap visuals;
+             visual position is controlled by <heightmap><pos> (world frame).
+             DART ignores <heightmap><pos> for collision; collision position
+             is controlled by <collision><pose> (standard SDF pose chain). -->
+        <model name="Seongdong_gu">
+            <static>true</static>
+            <pose>0 0 0 0 0 0</pose>
+
+            <link name="ground">
+                <collision name="collision">
+                    <pose>11.4000 -116.1000 1.202132 0 0 0</pose>
+                    <geometry>
+                        <heightmap>
+                            <uri>mesh/height_map.png</uri>
+                            <size>100.0000 100.0000 5.249597</size>
+                            <!-- DART ignores <pos> for collision heightmaps; positioning
+                                 is handled by <collision><pose> above instead -->
+                            <pos>0 0 0</pos>
+                        </heightmap>
+                    </geometry>
+                </collision>
+                <visual name="ground_visual">
+                    <geometry>
+                        <heightmap>
+                            <use_terrain_paging>false</use_terrain_paging>
+                            <texture>
+                                <diffuse>mesh/aerial.png</diffuse>
+                                <normal>mesh/normal_map.png</normal>
+                                <size>100.0000</size>
+                            </texture>
+                            <uri>mesh/height_map.png</uri>
+                            <size>100.0000 100.0000 5.249597</size>
+                            <!-- OGRE2 ignores model/link <pose> for heightmaps; <pos> is world frame -->
+                            <pos>11.4000 -116.1000 1.202132</pos>
+                            <!-- sampling: mesh vertices per heightmap pixel (SDF 1.8+ default = 1).
+                                 Tested with 16-bit heightmaps at sampling 1, 4, 8: no visual or
+                                 physics difference observed — OGRE2 interpolates extra vertices but
+                                 the result is indistinguishable at SRTM source resolution. Higher
+                                 values only increase vertex buffer memory (cost scales as sampling²).
+                                 sdformat PR #459 changed default from 2->1: "no good reason to
+                                 subsample by default". Explicitly set to 1 to match intent. -->
+                            <sampling>1</sampling>
+                        </heightmap>
+                    </geometry>
+                </visual>
+            </link>
+
+
+        <!-- ===================== -->
+        <!-- Buildings model -->
+        <!-- ===================== -->
+        <model name="Seongdong_gu_buildings">
+            <static>true</static>
+            <!-- XY shifts buildings from tile-center-origin (AEQD) to launch-point-origin (world).
+                 Z is 0 because building mesh Z values are already in world space (baked by GeoJSONToDAE). -->
+            <pose>11.39 1.61 0 0 0 0</pose>
+            <link name="buildings">
+                <visual name="buildings_visual">
+                    <geometry>
+                        <mesh>
+                            <uri>mesh/buildings.dae</uri>
+                            <scale>1 1 1</scale>
+                        </mesh>
+                    </geometry>
+                    <material>
+                        <!-- Light grey -->
+                        <ambient>0.75 0.75 0.75 1</ambient>
+                        <diffuse>0.85 0.85 0.85 1</diffuse>
+                        <specular>0.05 0.05 0.05 1</specular>
+                        <emissive>0 0 0 1</emissive>
+                    </material>
+                </visual>
+                <collision name="buildings_collision">
+                    <geometry>
+                        <mesh>
+                            <uri>mesh/buildings.dae</uri>
+                            <scale>1 1 1</scale>
+                        </mesh>
+                    </geometry>
+                </collision>
+            </link>
+        </model>
+
+
+
+        </model>
+
+        <include>
+      <name>oak_tree_21</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri>
+      <pose>-33.379700 -66.175300 1.795860 0.000000 -0.000000 0.000000</pose>
+      <scale>6.0 6.0 6.0</scale>
+    </include>
+    <!-- 드론(모듈 A). agconav_integrated.sdf에서 그대로 이식.
+         wheel(-5, 0) / leg(5, 0) 사이에 배치되어 지상 로봇 2대와
+         함께 초기 GUI 시점에 들어온다. -->
+    <include>
+      <uri>
+        model://agconav_drone_dynamic
+      </uri>
+      <name>X3</name>
+      <pose>-31.6000 -159.1000 3.1806 0 0 0</pose>
+      <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_0_joint</jointName>
+        <linkName>X3/rotor_0</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>3.6816e-04</motorConstant>
+        <momentConstant>0.016</momentConstant>
+        <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+        <actuator_number>0</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/0</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_1_joint</jointName>
+        <linkName>X3/rotor_1</linkName>
+        <turningDirection>ccw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>3.6816e-04</motorConstant>
+        <momentConstant>0.016</momentConstant>
+        <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+        <actuator_number>1</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/1</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_2_joint</jointName>
+        <linkName>X3/rotor_2</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>3.6816e-04</motorConstant>
+        <momentConstant>0.016</momentConstant>
+        <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+        <actuator_number>2</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/2</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+        <robotNamespace>X3</robotNamespace>
+        <jointName>X3/rotor_3_joint</jointName>
+        <linkName>X3/rotor_3</linkName>
+        <turningDirection>cw</turningDirection>
+        <timeConstantUp>0.0125</timeConstantUp>
+        <timeConstantDown>0.025</timeConstantDown>
+        <maxRotVelocity>800.0</maxRotVelocity>
+        <motorConstant>3.6816e-04</motorConstant>
+        <momentConstant>0.016</momentConstant>
+        <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+        <actuator_number>3</actuator_number>
+        <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+        <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+        <motorSpeedPubTopic>motor_speed/3</motorSpeedPubTopic>
+        <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+        <motorType>velocity</motorType>
+      </plugin>
+      <plugin filename="gz-sim-multicopter-control-system" name="gz::sim::systems::MulticopterVelocityControl">
+        <robotNamespace>X3</robotNamespace>
+        <commandSubTopic>gazebo/command/twist</commandSubTopic>
+        <enableSubTopic>enable</enableSubTopic>
+        <comLinkName>X3/base_link</comLinkName>
+        <velocityGain>2.7 2.7 2.7</velocityGain>
+        <!-- gz의 Lee 컨트롤러는 게인을 관성으로 나눠 정규화한다. 이 기체는 표준 X3
+           대비 관성이 87배(ixx 3.02 vs 0.0347)라 원본 게인으로는 실효 게인이
+           87배 약해져 자세를 못 잡는다. 관성비로 올린다. -->
+          <attitudeGain>174.0 261.0 13.05</attitudeGain>
+        <angularRateGain>34.8 45.2 15.66</angularRateGain>
+        <maximumLinearAcceleration>2 2 2</maximumLinearAcceleration>
+
+        <rotorConfiguration>
+          <rotor>
+            <jointName>X3/rotor_0_joint</jointName>
+            <forceConstant>3.6816e-04</forceConstant>
+            <momentConstant>0.016</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_1_joint</jointName>
+            <forceConstant>3.6816e-04</forceConstant>
+            <momentConstant>0.016</momentConstant>
+            <direction>1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_2_joint</jointName>
+            <forceConstant>3.6816e-04</forceConstant>
+            <momentConstant>0.016</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+          <rotor>
+            <jointName>X3/rotor_3_joint</jointName>
+            <forceConstant>3.6816e-04</forceConstant>
+            <momentConstant>0.016</momentConstant>
+            <direction>-1</direction>
+          </rotor>
+        </rotorConfiguration>
+      </plugin>
+      <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+        <dimensions>3</dimensions>
+        <!-- 드론 TF: 센서 메시지의 frame_id가 drone/* 이므로 TF도 같은 이름으로
+             내보내야 모듈 A가 점군을 map으로 변환할 수 있다. 기본값(X3/odom ->
+             X3/base_footprint)은 센서 프레임과 이름이 맞지 않아 TF가 끊긴다. -->
+        <odom_frame>map</odom_frame>
+        <robot_base_frame>drone/base_link</robot_base_frame>
+      </plugin>
+    </include>
+
+    </world>
+</sdf>

@@ -5,6 +5,15 @@ drone_pose_controller:
     # -p world_name:=... 로 명시적으로 지정해야 한다.
     entity_name: "X3"
     allowed_frame: "map"
-    service_timeout_sec: 1.0
+    # Gazebo의 SetEntityPose 서비스 응답을 기다리는 시간.
+    # 1.0초로는 부족했다. 실측(테스트 월드 전체 스택, 6코어에서 CPU 976%/1200%
+    # 포화): "pose 변경 실패 (3/3): 서비스 응답 시간 초과"가 나면서 명령을 버렸고,
+    # 그 뒤로 드론이 영구히 멈췄다 - 6초 동안 0.4 mm 이동. 설계 경로 600 m 중
+    # 55 m만 가고 x=16.61에서 정지했는데, drone_path_player는 자기 타이머로만
+    # 돌기 때문에 그것과 무관하게 "경로 재생 종료"를 선언했고 모듈 A는 그
+    # 반쪽짜리 지도를 그대로 저장했다.
+    # 부하가 걸린 상태에서도 여유가 있도록 5초로 올린다. 정상 상태에서는 응답이
+    # 수 ms 안에 오므로 이 값이 커져도 느려지지 않는다 - 실패할 때만 더 기다린다.
+    service_timeout_sec: 5.0
     max_retries: 3
     use_sim_time: true

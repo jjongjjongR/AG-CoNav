@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>agconav_test_worlds</name>
+  <version>0.0.1</version>
+
+  <description>
+    Cropped, small-footprint Gazebo worlds carved out of the full AG-CoNav
+    worlds. Used for bag recording and SLAM experiments (e.g. GLIM) where
+    loading the entire Seongdong-gu terrain is unnecessarily slow.
+  </description>
+
+  <maintainer email="whdgjs1012@gmail.com">jjongjjongR</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>agconav_worlds</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

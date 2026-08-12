@@ -82,6 +82,10 @@ class DroneElevationMapper(Node):
         self.declare_parameter('frame_id', 'map')
         self.declare_parameter('data_timeout_sec', 2.0)
         self.declare_parameter('check_period_sec', 1.0)
+        # 이 거리(센서 기준 m)보다 가까운 반사는 기체 자기 반사로 보고 버린다.
+        # 0으로 두면 끈다. 스캔 고도 84 m에서 실제 지형까지는 최소 75 m라
+        # 2.5 m는 실제 반사를 하나도 건드리지 않는다.
+        self.declare_parameter('min_range_m', 2.5)
 
         points_topic = self.get_parameter('points_topic').value
         elevation_map_topic = self.get_parameter('elevation_map_topic').value
@@ -90,6 +94,7 @@ class DroneElevationMapper(Node):
         self._target_source_frame = self.get_parameter('target_source_frame').value
         self._resolution = float(self.get_parameter('resolution').value)
         self._frame_id = self.get_parameter('frame_id').value
+        self._min_range = float(self.get_parameter('min_range_m').value)
         self._data_timeout = Duration(
             seconds=self.get_parameter('data_timeout_sec').value)
 
@@ -191,6 +196,19 @@ class DroneElevationMapper(Node):
         points = points[np.isfinite(points).all(axis=1)]
         if points.shape[0] == 0:
             return
+
+        # 기체 자기 반사 제거. 라이다가 드론 자신의 팔/로터를 때린 반사는 센서
+        # 좌표계에서 거리 1 m 남짓으로 들어오는데, 변환하고 나면 지면이 아니라
+        # 드론 고도(84 m)에 찍힌다. 실측: 한 스캔 4061점 중 1.0~2.0 m가 2점,
+        # 나머지 4059점은 전부 5 m 이상(드론 84 m 상공 -> 실제 지형까지 최소
+        # 75 m)이었다. 이 2점/스캔이 비행 내내 쌓여 저장된 지도에서 80 m대
+        # 셀 220개가 됐고, RViz 색상 눈금이 1~84 m로 늘어나 지면이 전부 한 색으로
+        # 뭉갰다. 더 중요한 건 모듈 F가 그 셀 주변까지 급경사=주행불가로 본다는 점.
+        if self._min_range > 0.0:
+            ranges = np.linalg.norm(points, axis=1)
+            points = points[ranges >= self._min_range]
+            if points.shape[0] == 0:
+                return
 
         points = transform_points(points, transform)
         xs, ys, zs = points[:, 0], points[:, 1], points[:, 2]

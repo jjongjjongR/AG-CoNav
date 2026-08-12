@@ -28,7 +28,8 @@ from launch.actions import (
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import (LaunchConfiguration, PathJoinSubstitution,
+                                  PythonExpression)
 from launch_ros.actions import Node
 
 
@@ -57,6 +58,37 @@ def generate_launch_description():
         "use_sim_time",
         default_value="true",
         description="Use Gazebo simulation time",
+    )
+    declare_path_file = DeclareLaunchArgument(
+        "path_file",
+        default_value="",
+        description="드론 경로 YAML 절대경로. 비우면 agconav_drone/config/path.yaml.",
+    )
+    declare_publish_tf = DeclareLaunchArgument(
+        "publish_tf",
+        default_value="true",
+        description="drone_path_player가 map->drone/base_link TF를 발행할지. "
+        "월드의 OdometryPublisher를 /tf로 브리지하는 launch(agconav_sim)와 "
+        "함께 뜰 때는 false로 꺼야 한 관계에 발행자가 하나가 된다 (README 3.1).",
+    )
+    # 비행 방식. 모듈 A(지도 생성)는 어느 쪽이든 동일하게 돌고, 드론을 "어떻게
+    # 움직이느냐"만 다르다.
+    #   teleport - drone_path_player + drone_pose_controller. SetEntityPose로
+    #              매 프레임 위치를 직접 꽂는다. 물리엔진이 운동을 못 보므로
+    #              IMU가 죽고(실측 gyro 최대 0.0013 rad/s), 자세가 항상 수평이라
+    #              시야가 연직으로만 고정된다.
+    #   velocity - 실제 로터 추력으로 난다. 측정 결과 이쪽이 확실히 낫다:
+    #              커버리지 78.7 -> 98.9%, 높이 오차 sigma 0.1175 -> 0.0839 m,
+    #              wheel 주행가능 13.8 -> 41.8%, leg 41.9 -> 76.5%.
+    #              기체가 기울고 고도가 변하면서 근거리 반사 비율이 38.7 -> 53.2%로
+    #              늘어나는 것이 원인이다(오차는 센서 거리에 비례한다).
+    #              단, 중력이 켜진 드론 모델과 천장 없는 스폰 지점이 필요하므로
+    #              _dynamic 월드를 써야 한다.
+    declare_flight = DeclareLaunchArgument(
+        "flight",
+        default_value="teleport",
+        choices=["teleport", "velocity"],
+        description="드론 이동 방식. teleport=SetEntityPose, velocity=실제 추력 비행",
     )
     declare_launch_gazebo = DeclareLaunchArgument(
         "launch_gazebo",
@@ -115,8 +147,11 @@ def generate_launch_description():
     path_player_yaml = os.path.join(
         agconav_drone_share, "config", "drone_path_player.yaml"
     )
-    path_file = PathJoinSubstitution(
-        [agconav_drone_share, "config", "path.yaml"]
+    # 기본은 agconav_drone/config/path.yaml (전체 월드용). 축소 테스트 월드에서는
+    # 그 월드의 heightmap 범위로 다시 생성한 경로를 path_file 인자로 넘긴다.
+    path_file = PythonExpression(
+        ["'", LaunchConfiguration("path_file"), "' or '",
+         os.path.join(agconav_drone_share, "config", "path.yaml"), "'"]
     )
 
     drone_path_player = Node(
@@ -126,8 +161,13 @@ def generate_launch_description():
         output="screen",
         parameters=[
             path_player_yaml,
-            {"path_file": path_file, "use_sim_time": use_sim_time},
+            {"path_file": path_file, "use_sim_time": use_sim_time,
+             "publish_tf": LaunchConfiguration("publish_tf")},
         ],
+        # flight:=velocity 일 때는 velocity_path_follower가 대신 경로를 몬다.
+        # 둘을 같이 띄우면 순간이동 명령과 추력 명령이 서로 싸운다.
+        condition=IfCondition(
+            PythonExpression(["'", LaunchConfiguration("flight"), "' == 'teleport'"])),
     )
 
     pose_controller_yaml = os.path.join(
@@ -147,6 +187,8 @@ def generate_launch_description():
                 "use_sim_time": use_sim_time,
             },
         ],
+        condition=IfCondition(
+            PythonExpression(["'", LaunchConfiguration("flight"), "' == 'teleport'"])),
     )
 
     # agconav_description/models/agconav_drone/model.sdf의 os1_lidar_mount/
@@ -205,6 +247,9 @@ def generate_launch_description():
             declare_entity_name,
             declare_use_sim_time,
             declare_launch_gazebo,
+            declare_publish_tf,
+            declare_path_file,
+            declare_flight,
             set_gz_resource_path,
             gazebo,
             clock_bridge,

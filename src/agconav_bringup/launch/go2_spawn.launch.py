@@ -191,6 +191,17 @@ def generate_launch_description():
             {"odom_frame": "odom"},
             {"world_frame": "odom"},
             {"publish_tf": True},
+            # leg TF 지연의 실제 병목이 이 링크(leg/odom -> leg/base_footprint)다.
+            # 실측(표본 6,869건): 중앙값 116 ms, 99분위 160 ms, 최대 198 ms.
+            # 같은 시각 wheel은 10 ms인데, 둘은 map->X/odom(모듈 B EKF)을
+            # 공유한다. 즉 공유 링크가 아니라 CHAMP 체인
+            # (관절상태 -> state_estimation -> odom/raw -> 이 EKF)에서 쌓인 지연이다.
+            # 그래서 모듈 B쪽 offset을 올려도 leg는 안 고쳐진다 —
+            # tf2는 경로상 **모든** 링크가 조회 시각을 덮어야 하기 때문이다.
+            # 99분위를 덮는 0.15초를 준다. 대가는 회전 1 rad/s에서 8.6도,
+            # 2.5 m 점군 38 cm 밀림이라 작지 않다. 근본적으로는 이 체인의
+            # 지연 자체를 줄이는 쪽이 맞다(다음 과제).
+            {"transform_time_offset": 0.15},
             # 50 Hz면 주기(20 ms) 안에 못 끝내고
             #   "Failed to meet update rate! Took 0.064 seconds"
             # 를 간헐적으로 낸다(성동구 월드 + 라이다 3대라 머신이 포화 상태).
@@ -295,8 +306,16 @@ def generate_launch_description():
         arguments=[
             "joint_states_controller",
             "joint_group_effort_controller",
-            "--controller-manager-timeout", "120",
-            "--switch-timeout", "120",
+            # 120초로도 부족했다. 전체 스택(A~F) + Gazebo GUI + RViz를 같이 띄우면
+            # 시뮬 기동이 느려져 leg의 controller_manager가 더 늦게 뜬다. 실측
+            # (테스트 월드 전체 스택): spawner가 기다리기 시작한 뒤 약 192초 만에
+            # /controller_manager/list_controllers가 나타났는데, 그 전에 120초로
+            # 포기해 FATAL로 죽었다. 죽으면 leg에 컨트롤러가 없어 CHAMP 명령이
+            # 관절까지 못 가고, Nav2가 목표를 받아도 로봇이 0.000 m 움직인다.
+            # 위 ROS_HOME 분리 덕분에 이 대기가 wheel spawner의 락을 잡지 않으므로
+            # 넉넉히 줘도 wheel 쪽이 굶지 않는다.
+            "--controller-manager-timeout", "300",
+            "--switch-timeout", "300",
             # 서비스 호출 자체의 제한 시간. 기본 10초로는 부족하다.
             # controller_manager를 "찾는" 시간(--controller-manager-timeout)과 별개로,
             # load_controller 요청에 응답이 오기까지의 시간이다. Go2는 관절이 12개라

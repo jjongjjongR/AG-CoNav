@@ -103,7 +103,18 @@ planner_server:
       plugin: "nav2_navfn_planner::NavfnPlanner"
       tolerance: 0.5
       use_astar: false
-      allow_unknown: true
+      # false여야 모듈 F의 주행성 판정이 실제로 구속력을 갖는다.
+      #
+      # true였을 때의 문제: 모듈 F는 셀을 세 가지로 나눠 발행한다 —
+      # 통과 가능(0) / 불가(100) / 미지(-1, 드론이 못 본 곳). 실측상 미지가
+      # 46~73%를 차지하는데, allow_unknown:true면 NavfnPlanner가 그 미지 칸을
+      # 그냥 지나 경로를 만든다. 결과적으로 "주행성 지도를 받긴 받았지만
+      # 판정과 무관하게 길이 나오는" 상태가 된다.
+      #
+      # false로 두면 드론이 실제로 관측하고 "통과 가능"으로 판정한 칸으로만
+      # 경로를 낸다. 모듈 F가 실패하면 계획도 실패하므로, 파이프라인이
+      # 조용히 잘못된 결과를 내는 대신 그 자리에서 드러난다.
+      allow_unknown: false
 
 local_costmap:
   local_costmap:

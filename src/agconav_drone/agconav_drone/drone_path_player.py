@@ -93,6 +93,9 @@ class DronePathPlayer(Node):
         # DJI L1/L2 9 m/s 이하 권장, Anvil Labs DJI M300 5-10 m/s)을 참고해
         # 3.0 -> 8.0으로 조정. 최종 확정은 팀 논의 필요.
         self.declare_parameter("cruise_speed_mps", 8.0)
+        # map->drone/base_link 를 이 노드가 발행할지. 월드의 OdometryPublisher 를
+        # /tf 로 브리지하는 launch 와 함께 뜰 때는 false 로 꺼야 발행자가 하나가 된다.
+        self.declare_parameter("publish_tf", True)
 
         self.path_file = self.get_parameter("path_file").value
         self.frame_id = self.get_parameter("frame_id").value
@@ -100,6 +103,7 @@ class DronePathPlayer(Node):
         self.loop = self.get_parameter("loop").value
         self.interpolate = self.get_parameter("interpolate").value
         self.cruise_speed = self.get_parameter("cruise_speed_mps").value
+        self._publish_tf = self.get_parameter("publish_tf").value
 
         if not self.path_file:
             self.get_logger().error("path_file 파라미터가 비어 있습니다. 종료합니다.")
@@ -211,16 +215,29 @@ class DronePathPlayer(Node):
         msg.pose.orientation.w = float(wp["orientation"]["w"])
         self.pose_pub.publish(msg)
 
-        # README 3.1: 드론은 kinematic -> 이 노드가 map->drone/base_link TF 직접 발행
-        tf_msg = TransformStamped()
-        tf_msg.header.stamp = now
-        tf_msg.header.frame_id = self.frame_id
-        tf_msg.child_frame_id = "drone/base_link"
-        tf_msg.transform.translation.x = msg.pose.position.x
-        tf_msg.transform.translation.y = msg.pose.position.y
-        tf_msg.transform.translation.z = msg.pose.position.z
-        tf_msg.transform.rotation = msg.pose.orientation
-        self.tf_broadcaster.sendTransform(tf_msg)
+        # README 3.1: 드론은 kinematic -> 이 노드가 map->drone/base_link TF 직접 발행.
+        #
+        # 다만 agconav_sim.launch.py 도 월드의 OdometryPublisher 출력을
+        # (/model/X3/pose) /tf 로 브리지한다. agconav_all 은 두 launch 를 모두
+        # 포함하므로 같은 관계에 발행자가 둘이 되어 README 3.1 의 "한 관계에
+        # 발행자 하나"를 깬다. 실측: 같은 타임스탬프에 값이 둘 들어오고 그 차이가
+        # 평균 0.785 m, 최대 0.800 m(= 8 m/s ÷ 10 Hz, 정확히 한 프레임 이동량)였다.
+        # 여기서 내보내는 것은 "가라고 지시한" pose 이고 브리지 쪽은 "실제 도착한"
+        # pose 라, 한 프레임만큼 어긋난 두 값이 같은 tf2 버퍼에 섞인다. 모듈 A 가
+        # 조회할 때 둘 중 무엇이 걸리는지가 그때그때 달라져 지도에 0.8 m 오차가
+        # 섞여 들어간다.
+        #
+        # 브리지와 함께 띄울 때는 publish_tf:=false 로 이쪽을 끈다.
+        if self._publish_tf:
+            tf_msg = TransformStamped()
+            tf_msg.header.stamp = now
+            tf_msg.header.frame_id = self.frame_id
+            tf_msg.child_frame_id = "drone/base_link"
+            tf_msg.transform.translation.x = msg.pose.position.x
+            tf_msg.transform.translation.y = msg.pose.position.y
+            tf_msg.transform.translation.z = msg.pose.position.z
+            tf_msg.transform.rotation = msg.pose.orientation
+            self.tf_broadcaster.sendTransform(tf_msg)
 
 
 def main(args=None):
