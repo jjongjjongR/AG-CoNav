@@ -109,7 +109,13 @@ class GroundElevationMapSaver(Node):
         # final map ready", and triggers the save directly, no separate
         # completion topic or service call involved.
         self._latest_elevation_map = msg
-        self._save_elevation_map()
+        success, _ = self._save_elevation_map()
+        # design.md 4-2/6-7/7-5: success already publishes Bool(True) inside
+        # _save_elevation_map. On failure, publish Bool(False) here so
+        # downstream consumers (map_merge_collector) don't wait forever for a
+        # status that will never come.
+        if not success:
+            self._status_pub.publish(Bool(data=False))
 
     def _manual_save_callback(self, request, response):
         response.success, response.message = self._save_elevation_map()

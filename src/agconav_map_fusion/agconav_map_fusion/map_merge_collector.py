@@ -36,11 +36,16 @@ from agconav_map_fusion.grid_math import (
 )
 from grid_map_msgs.msg import GridMap
 import rclpy
+from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from std_msgs.msg import Bool, String
 
 STATUS_ROBOTS = ('wheel', 'leg')
+# ground_elevation_mapper의 수신 감시(check_period_sec)와 같은 개념의 내부
+# 폴링 주기 -- merge_wait_timeout_sec처럼 외부에 노출할 필요는 없는 값이라
+# 파라미터로 만들지 않고 상수로 둔다.
+_TIMEOUT_CHECK_PERIOD_SEC = 1.0
 
 
 class MapMergeCollector(Node):
@@ -70,10 +75,22 @@ class MapMergeCollector(Node):
         # aligned. (origin_i - output_origin) / resolution must round to
         # within this tolerance of a whole number.
         self.declare_parameter('grid_alignment_tolerance', 1e-6)
+        # design.md 6-1: wheel/leg 완료 상태를 기다리는 데 원래 타임아웃이
+        # 없었다 -- 한쪽이 저장 실패(Bool(False)) 또는 영영 미도착이면 이
+        # 노드가 무한 대기한다. 정확한 근거는 없는 placeholder다: 이
+        # 프로젝트의 로봇 이동 시나리오상 몇 초~몇십 초 걸릴 수 있어 너무
+        # 짧게 잡지 않았다. 실측/시나리오 기반 재조정 필요.
+        self.declare_parameter('merge_wait_timeout_sec', 30.0)
 
         self._maps = {robot: None for robot in ROBOTS}
         self._complete = {robot: False for robot in STATUS_ROBOTS}
         self._merge_triggered = False
+        # ground_elevation_mapper의 data_timeout_sec 패턴(파라미터화된
+        # 타임아웃 + create_timer 주기 체크)을 그대로 이식했다.
+        self._merge_wait_timeout = Duration(
+            seconds=self.get_parameter('merge_wait_timeout_sec').value)
+        self._wait_start = self.get_clock().now()
+        self._timeout_reported = False
 
         # design.md 9-1: elevation_map is reliable / transient_local / keep_last / depth 1.
         map_qos = QoSProfile(
@@ -140,21 +157,51 @@ class MapMergeCollector(Node):
             self._status_subs[robot] = self.create_subscription(
                 Bool, status_topic, make_status_callback(robot), status_qos)
 
+        self._timeout_timer = self.create_timer(
+            _TIMEOUT_CHECK_PERIOD_SEC, self._check_merge_timeout)
+
         self.get_logger().info(
             'Collecting elevation maps: '
             + ', '.join(
                 f'{robot}='
                 f'{self.get_parameter(f"{robot}_elevation_map_topic").value}'
                 for robot in ROBOTS)
-            + '; merge trigger on wheel+leg completion (drone not subscribed, see docstring).')
+            + '; merge trigger on wheel+leg completion (drone not subscribed, see docstring).'
+            + f' merge_wait_timeout_sec={self.get_parameter("merge_wait_timeout_sec").value}')
 
     def _map_callback(self, robot, msg):
         self._maps[robot] = msg
 
     def _status_callback(self, robot, msg):
-        self._complete[robot] = bool(msg.data)
+        new_value = bool(msg.data)
+        # design.md 6-1: 타임아웃은 "노드 시작 또는 마지막으로 완료 상태가
+        # 바뀐 시점"부터 잰다 -- 상태가 실제로 바뀔 때만 기준 시각을 리셋.
+        if self._complete[robot] != new_value:
+            self._wait_start = self.get_clock().now()
+        self._complete[robot] = new_value
         if msg.data:
             self._check_merge_ready()
+
+    def _check_merge_timeout(self):
+        # design.md 6-1: 병합이 이미 트리거됐다면(성공이든 검증 실패든, 1회성
+        # 시도가 이미 끝났다면) 더 이상 타임아웃을 감시할 이유가 없다. 타임아웃
+        # 자체를 이미 보고했다면 매 폴링마다 중복 발행하지 않도록 한 번만
+        # 보고한다.
+        if self._merge_triggered or self._timeout_reported:
+            return
+        elapsed = self.get_clock().now() - self._wait_start
+        if elapsed <= self._merge_wait_timeout:
+            return
+
+        self._timeout_reported = True
+        missing = [robot for robot in STATUS_ROBOTS if not self._complete[robot]]
+        error = (
+            f'merge_wait_timeout_sec={self._merge_wait_timeout.nanoseconds / 1e9:.1f}s '
+            f'elapsed without both wheel/leg elevation_map_status=True '
+            f'(still missing: {", ".join(missing)})')
+        self.get_logger().error(f'merge wait timed out, aborting: {error}')
+        self._merge_error_pub.publish(String(data=error))
+        self._merge_status_pub.publish(Bool(data=False))
 
     def _check_merge_ready(self):
         # design.md: the merge trigger fires exactly once, ever.

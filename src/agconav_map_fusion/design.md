@@ -149,6 +149,7 @@
   - **격자 정렬 확인(신규):** 세 지도의 원점이 계산된 출력 격자 원점을 기준으로 해상도 단위 정수 배만큼 떨어져 있는지 확인 — `(origin_i - output_origin) / resolution`이 정수에 가까운지(허용오차 `grid_alignment_tolerance`, 기본 `1e-6`) 검사. frame·해상도가 같아도 원점이 어긋나 있으면 셀 경계가 서로 안 맞을 수 있기 때문
   - 하나라도 조건 불충족 시 병합을 중단하고 `/merged/merge_error` + `/merged/merge_status=False` 발행, `/merged/merge_trigger`는 발행하지 않음
   - 모든 조건 통과 시 `/merged/merge_trigger=True`를 **1회** 발행하고 종료 (검증된 지도 자체를 직접 넘기지 않음 — 대신 `elevation_map_merger`가 같은 원본 지도 토픽을 독립적으로 구독해 갖고 있다가, 이 트리거를 신호로 병합을 시작한다. 7절 참고)
+  - **타임아웃 감시(신규):** wheel·leg 완료 상태를 기다리는 데 원래 상한이 없어, 모듈 D 쪽에서 한 로봇의 저장이 실패(`elevation_map_status=False`)하거나 상태 자체가 영영 도착하지 않으면 이 노드가 무한 대기했다. 노드 시작 시점(또는 wheel·leg 중 하나라도 완료 상태가 마지막으로 바뀐 시점)부터 시간을 재서, `merge_wait_timeout_sec`(기본 `30.0`초, placeholder — 아래 참고)을 넘도록 둘 다 완료되지 않았으면 검증 실패와 같은 경로로 `/merged/merge_error`(아직 안 온 로봇을 명시)와 `/merged/merge_status=False`를 발행한다. 이미 병합이 트리거된 이후(성공이든 검증 실패든 1회성 시도가 이미 끝났다면)에는 이 감시 자체를 더 이상 수행하지 않으며, 타임아웃을 이미 한 번 보고했다면 재보고하지 않는다 (`_timeout_reported` 플래그)
 
 ### 6-2. 지도 병합 책임 — `elevation_map_merger`
 
@@ -389,7 +390,7 @@
 | 조건 | 결정 |
 | --- | --- |
 | 타입 | `std_msgs/msg/Bool` (merge_status), `std_msgs/msg/String` (merge_error) |
-| 발행 시점 | `map_merge_collector`: 검증 실패 시 1회 (`merge_status=False` + `merge_error`). `elevation_map_merger`: 병합 성공 시 1회(`merge_status=True`), 또는 방어적 실패 시 1회(`merge_status=False` + `merge_error`) |
+| 발행 시점 | `map_merge_collector`: 검증 실패 시 1회, 또는 `merge_wait_timeout_sec` 초과 시 1회 (둘 다 `merge_status=False` + `merge_error`, 신규 — 변경 이력 참고). `elevation_map_merger`: 병합 성공 시 1회(`merge_status=True`), 또는 방어적 실패 시 1회(`merge_status=False` + `merge_error`) |
 | Reliability | reliable |
 | Durability | transient local |
 
@@ -490,3 +491,13 @@ elevation_map_merge.launch.py
 - 해상도 불일치, frame 불일치, **격자 정렬 불일치**(신규) 등 검증 실패 시 절대로 임의로 리샘플링하거나 강제로 병합을 진행하지 말고, 명확히 중단하고 오류를 발행할 것.
 - 중복 셀 처리는 파이썬 딕셔너리나 set 등 순서가 보장되지 않는 자료구조에 의존하지 말고, 결정적(deterministic) 순서로 처리할 것 (예: 드론 배열 먼저 덮어쓰기 → 그 위에 leg 유효값만 덮어쓰기 → 그 위에 wheel 유효값만 덮어쓰기, 벡터화 연산으로 처리).
 - 로봇별 원시 센서 계약(`/wheel/points`, `/leg/points`, `/drone/points` 토픽 이름, `lidar3d_0_sensor_link`/`os1_lidar` 등 사설·전역 TF 프레임 이름)은 모듈 D(지상 로봇 지도 생성)와 모듈 A(드론 지도 생성) 단계가 처리하는 원본 센서 계약이며, 모듈 E는 이미 `map` 좌표계로 변환·누적된 GridMap(`elevation_map` 3종)만 입력으로 받으므로 이 계약과 직접 관련이 없다 (2절 "범위 밖" 참고).
+
+---
+
+## 변경 이력
+
+> **`map_merge_collector`에 병합 대기 타임아웃 추가**: wheel·leg 완료 상태(`elevation_map_status`)를 기다리는 데 원래 상한이 없어, 모듈 D 쪽에서 한 로봇의 저장이 실패(`elevation_map_status=False`, 모듈 D 변경 이력 참고)하거나 상태 자체가 영영 도착하지 않으면 이 노드가 무한 대기에 빠지는 문제가 있었다. 모듈 D `ground_elevation_mapper`의 수신 감시 패턴(파라미터화된 타임아웃 + `create_timer` 주기 체크)을 그대로 이식했다: 노드 시작 시점 또는 wheel·leg 중 하나라도 완료 상태가 마지막으로 바뀐 시점(`_wait_start`)부터 시간을 재고, 1초 주기 타이머(`_check_merge_timeout`)로 경과 시간을 확인한다. `merge_wait_timeout_sec`(기본 `30.0`초)을 넘도록 wheel·leg 둘 다 완료되지 않았으면, 기존 검증 실패 처리 경로와 동일하게 `/merged/merge_error`(아직 안 온 로봇을 명시)와 `/merged/merge_status=False`를 발행한다.
+>
+> 이미 병합이 트리거된 이후(성공이든 검증 실패든 1회성 시도가 끝난 뒤)에는 `_merge_triggered` 플래그로 이 감시 자체를 건너뛰고, 타임아웃을 이미 한 번 보고했다면 `_timeout_reported` 플래그로 재보고(중복 발행)를 막는다.
+>
+> 새 파라미터 `merge_wait_timeout_sec`이 추가됐다 (6-1 참고). 정확한 근거는 없는 placeholder다 — 이 프로젝트의 로봇 이동 시나리오상 병합 대상 완료까지 몇 초~몇십 초 걸릴 수 있어 너무 짧게 잡지 않았을 뿐, 실측/시나리오 기반 재조정이 필요하다.

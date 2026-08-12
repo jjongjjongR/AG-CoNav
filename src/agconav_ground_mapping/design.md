@@ -82,7 +82,7 @@
   - 파일 형식으로 변환
   - 지정 경로에 저장
   - 저장 완료 여부 확인
-  - 저장이 실제로 성공한 직후 `elevation_map_status`를 True로 발행해 후속 모듈과 검증 담당자가 확인 가능하게 함 (저장 실패 시에는 발행하지 않음)
+  - 저장이 실제로 성공한 직후 `elevation_map_status`를 True로 발행해 후속 모듈과 검증 담당자가 확인 가능하게 함. (신규) 저장이 실패하면 같은 콜백 안에서 즉시 False로 발행해, 이 상태를 기다리는 후속 모듈(모듈 E `map_merge_collector`)이 실패를 알지 못한 채 무한 대기하지 않도록 함
 
 > `elevation_map`이 이동 완료 시 1회만 발행되는 이벤트 기반으로 바뀌면서, `ground_elevation_mapper`와 `ground_elevation_map_saver`가 `navigation_status`를 각자 독립적으로 구독하면 두 콜백의 실행 순서가 보장되지 않아 `ground_elevation_map_saver`가 아직 발행되지 않은 지도를 저장하려는 레이스 컨디션이 생길 수 있었다. 이는 예전에 저장(디스크 I/O)과 완료 상태 발행 사이에서 겪었던 레이스 컨디션과 근본적으로 같은 유형의 문제다 — 그때는 저장 노드가 저장 성공 후 직접 상태를 발행하도록 트리거를 단일화해 해결했는데(아래 참고), 이번에는 반대 방향으로 트리거를 단일화했다: 발행 쪽(`ground_elevation_mapper`)이 완료 신호를 받아야만 지도를 발행하고, 저장 쪽(`ground_elevation_map_saver`)은 그 발행 자체(`elevation_map` 수신)를 저장 트리거로 삼는다. 이렇게 하면 `ground_elevation_map_saver`가 `elevation_map`을 받는 시점에는 이동이 이미 완료된 상태임이 항상 보장된다.
 >
@@ -198,7 +198,7 @@
 | --- | --- |
 | 발행 책임 | 지도 저장(`ground_elevation_map_saver`) |
 | 수신 책임 | 지도 병합 모듈, 검증 담당자 |
-| 발행 시점 | 6-6의 저장이 실제로 성공한 직후, `elevation_map`을 받은 것과 같은 콜백 안에서 (저장 실패 시 발행하지 않음) |
+| 발행 시점 | `elevation_map`을 받은 것과 같은 콜백 안에서 -- 6-6의 저장이 성공하면 True, 실패하면 False (신규, 변경 이력 참고) |
 | 인터페이스 종류 | Topic |
 | 인터페이스 이름 | `/wheel/elevation_map_status`, `/leg/elevation_map_status` |
 | 데이터 의미 | 로봇별 지도 누적 및 저장 완료 여부 |
@@ -313,7 +313,7 @@ map
 | 조건 | 결정 |
 | --- | --- |
 | 타입 | `std_msgs/msg/Bool` |
-| 발행 시점 | `elevation_map` 수신 후 저장이 실제로 성공한 직후, 같은 콜백 안에서 (저장 실패 시 발행하지 않음) |
+| 발행 시점 | `elevation_map` 수신 후 같은 콜백 안에서 -- 저장 성공 시 True, 실패 시 False (신규, 변경 이력 참고) |
 | Reliability | reliable |
 | Durability | transient local |
 | History | keep last |
@@ -377,3 +377,5 @@ ground_elevation_mapping.launch.py
 > **이상치 점 2겹 방어 추가**: `ground_elevation_mapper`가 이미 `np.isfinite`로 무한대 좌표(gz gpu_lidar가 최대 사거리 밖 점에 채우는 값)를 걸렀지만, "유한하지만 물리적으로 말이 안 되게 먼" 점은 그대로 통과해 격자를 비정상적으로 키울 수 있었다. 이를 두 겹으로 방어했다: (1겹) `_accumulate`가 점을 map 좌표로 변환한 직후, 격자에 넣기 전에 TF의 `translation`(센서 원점)을 기준으로 유클리드 거리를 계산해 `max_sensor_range`를 넘는 점만 그 점 단위로 버린다(같은 배치의 나머지 점은 정상 처리, 로그는 경고 폭주를 피하기 위해 warn이 아닌 debug 레벨). (2겹) `_grow_to_fit`이 패딩/최초 생성을 실행하기 직전에 예상 총 셀 개수(`n_rows * n_cols`)를 계산해 `max_grid_cells`를 넘으면 실제 배열 확장을 실행하지 않고 error 로그를 남긴 뒤 `(None, None)`을 반환한다 — `self._sum`/`self._count`는 손대지 않은 채 보존되고, `_accumulate`는 이 신호를 받으면 이번 배치(bincount 누적 포함)만 조용히 버리고 리턴한다. 노드는 죽지 않고 이후 스캔을 계속 정상 처리한다.
 >
 > 새 파라미터 `max_sensor_range`(기본 `200.0` m), `max_grid_cells`(기본 `30,000,000`, `agconav_map_fusion/grid_math.py`의 동명 파라미터와 값 일치)가 추가됐다 (7절 참고). `max_sensor_range`는 wheel(A300 `lidar3d_0`)/leg(Go2 OS1-32) 모두 실측 사거리 스펙이 없어 잡은 placeholder다 — README의 OS1-32 실측 사거리(80% 반사 시 170m, 10% 반사 시 90m)를 참고해 그 상한보다 여유 있게 잡았을 뿐, 실측 후 재조정이 필요하다. 두 값 모두 `wheel_elevation_mapper.yaml`/`leg_elevation_mapper.yaml`에 명시적으로 채워 팀이 나중에 로봇별로 바꾸기 쉽게 했다.
+
+> **저장 실패 시에도 `elevation_map_status` 발행 (인터페이스 변경)**: `ground_elevation_map_saver`가 지금까지는 저장이 성공했을 때만 `elevation_map_status`를 발행하고, 실패하면 아무것도 발행하지 않았다. 이 상태를 구독하는 모듈 E의 `map_merge_collector`(wheel·leg 완료 상태가 모두 True가 될 때까지 대기)가 저장 실패를 알 방법이 없어 무한 대기에 빠질 수 있었다. 이제 `_elevation_map_callback`이 `_save_elevation_map()`의 성공 여부를 받아, 성공이면 기존처럼 `_save_elevation_map` 내부에서 `Bool(data=True)`를 발행하고, 실패하면 콜백에서 즉시 같은 토픽(`elevation_map_status`)에 `Bool(data=False)`를 발행한다. `map_merge_collector`의 `_status_callback`은 이미 `bool(msg.data)`를 그대로 받아들이는 구조라 False가 와도 `self._complete[robot]`이 `False`로 남을 뿐이라 코드 변경이 필요 없었다 (대신 무한 대기 자체는 아래 `map_merge_collector`의 `merge_wait_timeout_sec` 변경으로 방지한다). `grid_map_msgs/GridMap`처럼 메시지 스키마가 바뀐 것은 아니고 `std_msgs/Bool` 토픽이 이제 실제로 `False`를 발행할 수 있게 된 것이라 6-7/7-5의 "발행 시점"만 갱신했다.
