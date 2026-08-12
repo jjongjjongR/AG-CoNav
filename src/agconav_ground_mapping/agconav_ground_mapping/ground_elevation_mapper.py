@@ -77,6 +77,16 @@ class GroundElevationMapper(Node):
         # 여전히 유용하다는 판단(사용자 결정).
         self.declare_parameter('data_timeout_sec', 2.0)
         self.declare_parameter('check_period_sec', 1.0)
+        # 1겹 방어: 유한하지만 물리적으로 말이 안 되게 먼 점(np.isfinite로는
+        # 못 거름)을 센서 원점 기준 거리로 걸러낸다. wheel(A300 lidar3d_0)과
+        # leg(Go2 OS1-32) 둘 다 실측 사거리 스펙이 아직 없어 넉넉하게 잡은
+        # placeholder다. README 3.1의 OS1-32 스펙(80% 반사 시 170m, 10% 반사
+        # 시 90m)을 참고해 그 상한보다 여유 있게 잡았다 — 실측 후 재조정 필요.
+        self.declare_parameter('max_sensor_range', 200.0)
+        # 2겹 방어: 이상치 하나가 격자를 무한히 키우려 드는 것을 막는 최후
+        # 방어선. agconav_map_fusion/grid_math.py가 쓰는 동명 파라미터와 같은
+        # 기본값(30,000,000)으로 맞춰 프로젝트 전체에서 일관되게 유지한다.
+        self.declare_parameter('max_grid_cells', 30_000_000)
 
         points_topic = self.get_parameter('points_topic').value
         elevation_map_topic = self.get_parameter('elevation_map_topic').value
@@ -87,6 +97,8 @@ class GroundElevationMapper(Node):
         self._frame_id = self.get_parameter('frame_id').value
         self._data_timeout = Duration(
             seconds=self.get_parameter('data_timeout_sec').value)
+        self._max_sensor_range = float(self.get_parameter('max_sensor_range').value)
+        self._max_grid_cells = int(self.get_parameter('max_grid_cells').value)
 
         self._tf_buffer = Buffer()
         self._tf_listener = TransformListener(self._tf_buffer, self)
@@ -180,10 +192,32 @@ class GroundElevationMapper(Node):
             return
 
         points = transform_points(points, transform)
+
+        # 1겹 방어: np.isfinite로는 못 거르는, 유한하지만 물리적으로 말이 안
+        # 되게 먼 점을 센서 원점(TF의 translation) 기준 거리로 걸러낸다.
+        # transform.translation은 source_frame(센서) 원점의 target_frame(map)
+        # 좌표이므로, 이미 map으로 변환된 points와 바로 거리 비교가 된다.
+        sensor_origin = np.array(
+            [transform.translation.x, transform.translation.y, transform.translation.z])
+        in_range = np.linalg.norm(points - sensor_origin, axis=1) <= self._max_sensor_range
+        n_dropped = points.shape[0] - int(in_range.sum())
+        if n_dropped:
+            self.get_logger().debug(
+                f'dropping {n_dropped} point(s) beyond max_sensor_range='
+                f'{self._max_sensor_range}m')
+        points = points[in_range]
+        if points.shape[0] == 0:
+            return
+
         xs, ys, zs = points[:, 0], points[:, 1], points[:, 2]
         row_idx = np.floor((xs - self._origin_x) / self._resolution).astype(np.int64)
         col_idx = np.floor((ys - self._origin_y) / self._resolution).astype(np.int64)
         row_idx, col_idx = self._grow_to_fit(row_idx, col_idx)
+        if row_idx is None:
+            # 2겹 방어: 이 배치가 격자 크기 상한을 넘어 _grow_to_fit이 이미
+            # 버렸다 (에러 로그도 거기서 남겼다). self._sum/self._count는
+            # 그대로 보존된 상태이니 여기서도 조용히 이번 배치만 버린다.
+            return
 
         # design.md 3/4-1: bin points into cells and accumulate ("누적") a
         # running average height per cell, vectorized via bincount.
@@ -202,11 +236,24 @@ class GroundElevationMapper(Node):
 
         README 3.3: the map only grows to cover what has actually been
         observed, it is never pre-sized.
+
+        2겹 방어(1겹은 _accumulate의 거리 필터): 패딩/생성 직전에 예상 총
+        셀 개수가 max_grid_cells를 넘으면 실제 np.pad/배열 생성을 실행하지
+        않고 (None, None)을 반환한다 -- self._sum/self._count는 손대지
+        않은 채 그대로 보존되고, 이번 배치만 호출자가 버린다.
         """
         if self._sum is None:
             min_row, max_row = int(row_idx.min()), int(row_idx.max())
             min_col, max_col = int(col_idx.min()), int(col_idx.max())
-            self._sum = np.zeros((max_row - min_row + 1, max_col - min_col + 1))
+            n_rows = max_row - min_row + 1
+            n_cols = max_col - min_col + 1
+            total_cells = n_rows * n_cols
+            if total_cells > self._max_grid_cells:
+                self.get_logger().error(
+                    f'grid would grow to {total_cells} cells, exceeding '
+                    f'max_grid_cells={self._max_grid_cells}, dropping this batch')
+                return None, None
+            self._sum = np.zeros((n_rows, n_cols))
             self._count = np.zeros_like(self._sum)
             self._origin_x += min_row * self._resolution
             self._origin_y += min_col * self._resolution
@@ -219,6 +266,14 @@ class GroundElevationMapper(Node):
         pad_after_col = max(0, int(col_idx.max()) - (n_cols - 1))
 
         if pad_before_row or pad_after_row or pad_before_col or pad_after_col:
+            new_n_rows = n_rows + pad_before_row + pad_after_row
+            new_n_cols = n_cols + pad_before_col + pad_after_col
+            total_cells = new_n_rows * new_n_cols
+            if total_cells > self._max_grid_cells:
+                self.get_logger().error(
+                    f'grid would grow to {total_cells} cells, exceeding '
+                    f'max_grid_cells={self._max_grid_cells}, dropping this batch')
+                return None, None
             pad_width = ((pad_before_row, pad_after_row), (pad_before_col, pad_after_col))
             self._sum = np.pad(self._sum, pad_width)
             self._count = np.pad(self._count, pad_width)

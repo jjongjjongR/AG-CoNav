@@ -13,3 +13,8 @@
     frame_id: map
     data_timeout_sec: 2.0
     check_period_sec: 1.0
+    # placeholder -- A300 lidar3d_0의 실측 사거리 스펙 확정 전까지 넉넉하게
+    # 잡은 값. 실측 후 팀이 조정할 것 (ground_elevation_mapper.py 참고).
+    max_sensor_range: 200.0
+    # agconav_map_fusion/config의 동명 파라미터 기본값과 일치.
+    max_grid_cells: 30000000

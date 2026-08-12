@@ -59,7 +59,9 @@
   - 데이터 수신 여부 확인 (헬스체크)
   - 측정 시각의 TF 조회 (LiDAR → Base Link → Map, 10Hz)
   - 모든 측정점을 Map 좌표계로 변환
+  - (이상치 방어 1겹, 신규) 변환된 점 중 센서 원점(TF translation) 기준 거리가 `max_sensor_range`를 넘는 점만 개별적으로 버림 (같은 배치의 나머지 점은 정상 처리, `np.isfinite`로는 걸러지지 않는 "유한하지만 물리적으로 말이 안 되게 먼 점" 대응)
   - 변환된 점을 XY 격자로 배치하고 셀별 높이를 계산해 누적 (러닝 애버리지, 2.5D 지도 생성)
+  - (이상치 방어 2겹, 신규) 격자 확장(패딩/최초 생성) 직전에 예상 총 셀 개수가 `max_grid_cells`를 넘으면 실제 확장을 실행하지 않고 이번 배치 전체를 버림 (기존 누적 상태는 보존, 노드는 계속 생존)
   - `navigation_status`(True) 수신 시 그 시점까지 누적된 지도를 Elevation Map으로 1회만 발행
 
 > 이전에는 이 책임이 3개 노드(`ground_pointcloud_collector`: PointCloud 수집 + 수신 감시, `ground_lidar_tf_transformer`: 좌표 변환, `ground_elevation_mapper`: 격자 누적 + 1Hz 주기 발행)로 나뉘어 있었다. `ground_pointcloud_collector`는 점군을 저장·감시만 하고 재발행하지 않아서 `ground_lidar_tf_transformer`가 같은 원본 토픽을 별도로 다시 구독해야 했고, `ground_lidar_tf_transformer`를 독립 노드로 유지하는 것은 10Hz × 32ch × 1024점 규모의 PointCloud2를 변환 후 재발행하는 오버헤드만 추가할 뿐 그 출력을 소비하는 곳이 `ground_elevation_mapper` 하나뿐이라 이점이 없었다. 그래서 세 노드를 `ground_elevation_mapper` 하나로 합쳤다.
@@ -300,6 +302,8 @@ map
 | `frame_id` | 발행할 GridMap의 frame_id | `map` |
 | `data_timeout_sec` | 수신 감시 타임아웃 | `2.0` |
 | `check_period_sec` | 수신 감시 체크 주기 | `1.0` |
+| `max_sensor_range` | 이상치 방어 1겹: 센서 원점(TF translation) 기준 이 거리를 넘는 점은 버림 | `200.0` (m, placeholder — wheel A300 `lidar3d_0`/leg Go2 OS1-32 모두 실측 사거리 스펙 미확정. README: OS1-32는 반사율에 따라 90~170m) |
+| `max_grid_cells` | 이상치 방어 2겹: 격자가 이 셀 수를 넘게 확장되려 하면 확장을 실행하지 않고 그 배치를 버림 | `30000000` (agconav_map_fusion/grid_math.py의 동명 파라미터와 값 일치) |
 | `use_sim_time` | Gazebo 시간 사용 | `true` |
 
 ### 7-5. 지도 저장(`ground_elevation_map_saver`) → 지도 병합 모듈, 검증 담당자
@@ -365,3 +369,11 @@ ground_elevation_mapping.launch.py
 - TF 조회 실패 시 반드시 해당 점군을 건너뛰고 경고 로그만 남길 것 (노드가 죽으면 안 됨).
 - `wheel_bridge.yaml`/`leg_bridge.yaml`(`agconav_gz_bridge`)이 아직 저장소에 구현되어 있지 않아, `/wheel/points`·`/leg/points`의 실제 `header.frame_id`와 TF 발행 방식(전역 `/tf` vs 사설 `/wheel(leg)/tf`)을 이 문서 작성 시점에는 실측하지 못했다. `target_source_frame` 파라미터(4-1, 7-1, 7-2)와 기본 `TransformListener` 선택은 그 불확실성 위에서 내린 잠정 결정이며, 브릿지 구현 후 `ros2 topic echo`/`tf2_echo`로 재검증이 필요하다.
 - drone(X3)은 이 패키지(`agconav_ground_mapping`)의 범위 밖이다 — 지상 로봇(wheel/leg)만 다룬다.
+
+---
+
+## 변경 이력
+
+> **이상치 점 2겹 방어 추가**: `ground_elevation_mapper`가 이미 `np.isfinite`로 무한대 좌표(gz gpu_lidar가 최대 사거리 밖 점에 채우는 값)를 걸렀지만, "유한하지만 물리적으로 말이 안 되게 먼" 점은 그대로 통과해 격자를 비정상적으로 키울 수 있었다. 이를 두 겹으로 방어했다: (1겹) `_accumulate`가 점을 map 좌표로 변환한 직후, 격자에 넣기 전에 TF의 `translation`(센서 원점)을 기준으로 유클리드 거리를 계산해 `max_sensor_range`를 넘는 점만 그 점 단위로 버린다(같은 배치의 나머지 점은 정상 처리, 로그는 경고 폭주를 피하기 위해 warn이 아닌 debug 레벨). (2겹) `_grow_to_fit`이 패딩/최초 생성을 실행하기 직전에 예상 총 셀 개수(`n_rows * n_cols`)를 계산해 `max_grid_cells`를 넘으면 실제 배열 확장을 실행하지 않고 error 로그를 남긴 뒤 `(None, None)`을 반환한다 — `self._sum`/`self._count`는 손대지 않은 채 보존되고, `_accumulate`는 이 신호를 받으면 이번 배치(bincount 누적 포함)만 조용히 버리고 리턴한다. 노드는 죽지 않고 이후 스캔을 계속 정상 처리한다.
+>
+> 새 파라미터 `max_sensor_range`(기본 `200.0` m), `max_grid_cells`(기본 `30,000,000`, `agconav_map_fusion/grid_math.py`의 동명 파라미터와 값 일치)가 추가됐다 (7절 참고). `max_sensor_range`는 wheel(A300 `lidar3d_0`)/leg(Go2 OS1-32) 모두 실측 사거리 스펙이 없어 잡은 placeholder다 — README의 OS1-32 실측 사거리(80% 반사 시 170m, 10% 반사 시 90m)를 참고해 그 상한보다 여유 있게 잡았을 뿐, 실측 후 재조정이 필요하다. 두 값 모두 `wheel_elevation_mapper.yaml`/`leg_elevation_mapper.yaml`에 명시적으로 채워 팀이 나중에 로봇별로 바꾸기 쉽게 했다.
