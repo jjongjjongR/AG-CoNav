@@ -3,7 +3,7 @@ accumulates a 2.5D elevation grid, publishing the final map once the scan path
 is complete.
 
 Structure/누적 로직은 채현우님의 agconav_ground_mapping/ground_elevation_mapper.py를
-그대로 재사용한다 (TF 조회 방식, numpy 기반 running-average 누적, 동적 그리드 확장,
+그대로 재사용한다 (TF 조회 방식, numpy 기반 칼만필터 누적, 동적 그리드 확장,
 grid_map 메시지 수동 패킹, QoS 구성 전부 동일). 드론이라서 실제로 달라지는 부분만
 아래에 정리한다 - 그 외 로직은 스캔 방향/로봇 종류와 무관하게 map 프레임으로
 변환된 x,y,z만 다루므로 그대로 통한다.
@@ -43,6 +43,32 @@ grid_map 메시지 수동 패킹, QoS 구성 전부 동일). 드론이라서 실
    여러 패스에 걸쳐 누적되며 이를 어느 정도 메워주긴 하겠지만, 실측 없이
    확신할 수 없어 일단 0.10m 그대로 두고 실측하면서 튜닝하기로 함(아래
    __init__의 info 로그로 이 우려를 남긴다).
+
+7. 칼만필터 적용: ground_elevation_mapper(Module D)가 이미 적용한 것과 동일한
+   설계로, self._sum/self._count 러닝 애버리지를 셀별 독립 스칼라 칼만필터
+   (self._elevation/self._variance)로 교체했다. 측정 노이즈(R)는 거리(구간표
+   조회) + 입사각(np.gradient로 이전 self._elevation에서 근사) + 점밀도를
+   결합해 계산하며(`_measurement_noise` 참고), 프로세스 노이즈 Q는 정적 지형
+   가정 하에 0으로 고정, 이미 값이 있는 셀에는 이노베이션 게이팅을 적용한다
+   (`_kalman_update_cells` 참고). 거리 구간표(measurement_noise_max_distances/
+   measurement_noise_sigmas)는 leg_elevation_mapper.yaml과 완전히 동일한 값을
+   쓴다 - README가 명시하듯("센서는 OS1-32로 통일") 드론도 leg(Go2)와 똑같이
+   실제 Ouster OS1-32를 장착하므로, wheel/leg에 적용한 데이터시트 실측 구간별
+   정밀도(1시그마) 스펙이 드론에도 그대로 적용된다. 드론 전용으로 다시 추정한
+   placeholder가 아니다.
+
+   드론은 6번 항목의 84m 고도 특성 때문에, 지상 로봇보다 셀당 점 밀도가 훨씬
+   낮고 이웃 셀이 비어있는(NaN) 경우가 잦을 것으로 예상된다 - 즉 콜드스타트
+   초기화(첫 관측이라 게이팅 없이 바로 값을 넣는 경우) 비율과, 이웃 정보가
+   없어 `_measurement_noise`가 cos_theta=1.0으로 폴백하는 빈도가 Module D
+   (지상 로봇)보다 훨씬 높을 수 있다. 이는 고도 때문에 원래 그런 것이지
+   버그가 아니므로, 이 로직을 드론 상황에 맞춰 임의로 다르게 바꾸지 않고
+   Module D와 동일한 계산을 그대로 적용했다.
+
+   `elevation_variance` 레이어를 elevation과 함께 새로 발행하지만, 이 브랜치의
+   agconav_map_fusion 병합 로직은 아직 고정 우선순위(wheel > leg > 드론, 드론은
+   최하위 fallback -- README 132행)를 쓰고 있어 이 값을 소비하지 않는다.
+   agconav_map_fusion을 분산 비교 방식으로 바꾸는 것은 이번 작업 범위 밖이다.
 """
 
 from geometry_msgs.msg import Pose
@@ -82,6 +108,22 @@ class DroneElevationMapper(Node):
         self.declare_parameter('frame_id', 'map')
         self.declare_parameter('data_timeout_sec', 2.0)
         self.declare_parameter('check_period_sec', 1.0)
+        # 칼만필터 거리 기반 측정 노이즈(R) 파라미터 -- 드론은 leg(Go2)와 동일하게
+        # 실제 Ouster OS1-32를 장착하므로(README: "센서는 OS1-32로 통일 -- 3대
+        # 통일"), wheel/leg에 적용한 것과 완전히 동일한 데이터시트 구간별
+        # 정밀도(1시그마) 스펙을 그대로 쓴다 (top-of-file 7번 항목 참고) --
+        # 드론 전용으로 다시 추정한 placeholder가 아니다.
+        self.declare_parameter(
+            'measurement_noise_max_distances', [1.0, 20.0, 50.0, 100.0])
+        self.declare_parameter(
+            'measurement_noise_sigmas', [0.007, 0.010, 0.020, 0.050])
+        # cos(80°) ≈ 0.17 -- grazing angle(입사각이 90°에 가까워질 때) 근처에서
+        # R_point가 1/cos_theta**2로 발산하는 것을 막는 하한. Module D와 동일.
+        self.declare_parameter('incidence_cos_floor', 0.17)
+        # 카이제곱분포 자유도 1, 유의수준 약 0.27%(대략 3-시그마)에 해당하는
+        # 표준 게이팅 임계값 (Bar-Shalom, "Estimation with Applications to
+        # Tracking and Navigation"). Module D와 동일.
+        self.declare_parameter('innovation_gate_threshold', 9.0)
 
         points_topic = self.get_parameter('points_topic').value
         elevation_map_topic = self.get_parameter('elevation_map_topic').value
@@ -92,6 +134,25 @@ class DroneElevationMapper(Node):
         self._frame_id = self.get_parameter('frame_id').value
         self._data_timeout = Duration(
             seconds=self.get_parameter('data_timeout_sec').value)
+        self._measurement_noise_max_distances = np.array(
+            self.get_parameter('measurement_noise_max_distances').value, dtype=np.float64)
+        self._measurement_noise_sigmas = np.array(
+            self.get_parameter('measurement_noise_sigmas').value, dtype=np.float64)
+        # 운영 중 조용히 잘못된 구간표로 계산하느니 시작 시점에 바로 죽는 게
+        # 낫다 -- 두 배열 길이가 안 맞거나 max_distances가 정렬돼 있지 않으면
+        # np.searchsorted(_measurement_noise 참고)의 결과가 의미 없어진다.
+        if len(self._measurement_noise_max_distances) != len(self._measurement_noise_sigmas):
+            raise ValueError(
+                'measurement_noise_max_distances and measurement_noise_sigmas must have '
+                f'the same length, got {len(self._measurement_noise_max_distances)} and '
+                f'{len(self._measurement_noise_sigmas)}')
+        if np.any(np.diff(self._measurement_noise_max_distances) <= 0):
+            raise ValueError(
+                'measurement_noise_max_distances must be strictly increasing, got '
+                f'{self._measurement_noise_max_distances.tolist()}')
+        self._incidence_cos_floor = float(self.get_parameter('incidence_cos_floor').value)
+        self._innovation_gate_threshold = float(
+            self.get_parameter('innovation_gate_threshold').value)
 
         self._tf_buffer = Buffer()
         self._tf_listener = TransformListener(self._tf_buffer, self)
@@ -101,8 +162,14 @@ class DroneElevationMapper(Node):
         # min-y corner of the observed area; row grows with +x, col grows
         # with +y. None until the first point arrives -- shape and origin
         # both grow on demand (README 3.3: dynamic extent, not fixed size).
-        self._sum = None
-        self._count = None
+        # self._elevation (x)은 셀별 최선 추정 높이, self._variance (P)는 그
+        # 불확실성 -- 셀별 독립 스칼라 칼만필터의 상태다 (top-of-file 7번 항목,
+        # _kalman_update_cells 참고). 미관측 셀은 0이 아니라 항상 NaN이다 --
+        # 0으로 두면 "관측됐고 높이가 0m"으로 오인되고, (특히 variance 배열이)
+        # 0으로 패딩되면 "완벽하게 확신한다"는 뜻이 되어 그 셀의 칼만 게인
+        # K = P/(P+R)가 영구히 0으로 고정되는 버그가 된다 (_grow_to_fit 참고).
+        self._elevation = None
+        self._variance = None
         self._origin_x = 0.0
         self._origin_y = 0.0
         self._last_stamp = None
@@ -146,7 +213,8 @@ class DroneElevationMapper(Node):
         self.get_logger().info(
             '드론은 84m 상공에서 내려다보는 스캔이라 지상 로봇보다 셀당 점군 '
             '밀도가 훨씬 낮을 수 있음 - resolution=0.10m 기준으로 count==0인 '
-            '빈 셀(NaN)이 많이 남는지 실측 필요 (module design analysis 참고).')
+            '빈 셀(NaN)이 많이 남는지, 콜드스타트/cos_theta=1.0 폴백 비율이 '
+            '높은지 실측 필요 (top-of-file 7번 항목 참고).')
 
     def _points_callback(self, msg):
         self._last_received = self.get_clock().now()
@@ -198,16 +266,142 @@ class DroneElevationMapper(Node):
         col_idx = np.floor((ys - self._origin_y) / self._resolution).astype(np.int64)
         row_idx, col_idx = self._grow_to_fit(row_idx, col_idx)
 
-        # 셀별로 점을 비닝해서 running average height를 bincount로 벡터화 누적.
-        n_rows, n_cols = self._sum.shape
+        # Module D와 동일: 점을 셀별 합계(bincount)로 벡터화 비닝한 뒤, 칼만
+        # 갱신 자체는 점 단위가 아니라 이 콜백(스캔) 배치 단위로 셀당 한 번만
+        # 수행한다.
+        n_rows, n_cols = self._elevation.shape
         cell_count = n_rows * n_cols
         flat_idx = row_idx * n_cols + col_idx
-        self._sum += np.bincount(
+        batch_count = np.bincount(flat_idx, minlength=cell_count).reshape(n_rows, n_cols)
+        batch_sum_x = np.bincount(
+            flat_idx, weights=xs, minlength=cell_count).reshape(n_rows, n_cols)
+        batch_sum_y = np.bincount(
+            flat_idx, weights=ys, minlength=cell_count).reshape(n_rows, n_cols)
+        batch_sum_z = np.bincount(
             flat_idx, weights=zs, minlength=cell_count).reshape(n_rows, n_cols)
-        self._count += np.bincount(
-            flat_idx, minlength=cell_count).reshape(n_rows, n_cols)
+
+        # np.nonzero가 불리언 마스크가 아니라 명시적인 (row, col) 인덱스
+        # 배열을 주므로, 아래에서 이 인덱스로 팬시 인덱싱해 만드는 배열들은
+        # 전부 독립된 복사본이다 -- 같은 베이스 배열에 불리언 마스크를 연쇄
+        # 적용할 때 생길 수 있는 앨리어싱/뷰 버그 위험이 없다.
+        touched_rows, touched_cols = np.nonzero(batch_count)
+        if touched_rows.size == 0:
+            return
+
+        counts = batch_count[touched_rows, touched_cols]
+        batch_mean_x = batch_sum_x[touched_rows, touched_cols] / counts
+        batch_mean_y = batch_sum_y[touched_rows, touched_cols] / counts
+        batch_mean_z = batch_sum_z[touched_rows, touched_cols] / counts
+
+        sensor_origin = (transform.translation.x, transform.translation.y, transform.translation.z)
+        r_eff = self._measurement_noise(
+            touched_rows, touched_cols, batch_mean_x, batch_mean_y, batch_mean_z,
+            counts, sensor_origin)
+        self._kalman_update_cells(touched_rows, touched_cols, batch_mean_z, r_eff)
 
         self._last_stamp = msg.header.stamp
+
+    def _measurement_noise(
+            self, rows, cols, mean_x, mean_y, mean_z, counts, sensor_origin):
+        """Return R_eff for each of the given touched cells (top-of-file 7번 항목).
+
+        R_point combines distance, incidence angle, and point density; R_eff
+        divides it by how many of this batch's points landed in that cell.
+        Module D의 _measurement_noise와 동일한 설계.
+        """
+        sx, sy, sz = sensor_origin
+        distance = np.sqrt((mean_x - sx) ** 2 + (mean_y - sy) ** 2 + (mean_z - sz) ** 2)
+
+        # 각 셀의 표면 법선을 *이전까지 누적된* self._elevation에서
+        # np.gradient로 근사한다 -- 점 단위 이웃 탐색이나 별도 포인트클라우드
+        # 라이브러리 없이, 이미 비닝된 높이 격자만 사용한다. 이번 배치 자신의
+        # 칼만 갱신(아래) 전에 계산하므로 이전 스캔들의 값만 반영한다.
+        if self._elevation.shape[0] < 2 or self._elevation.shape[1] < 2:
+            # np.gradient는 미분할 축이 너무 짧으면(예: 첫 스캔의 점들이 전부
+            # 한 행/열에만 들어간 경우) NaN이 아니라 예외를 던진다. 이웃
+            # 정보가 아직 없는 것과 똑같이 취급해, 아래에서 cos_theta=1.0으로
+            # 폴백시킨다.
+            dzdx = np.full_like(self._elevation, np.nan)
+            dzdy = np.full_like(self._elevation, np.nan)
+        else:
+            with np.errstate(invalid='ignore'):
+                dzdx, dzdy = np.gradient(self._elevation, self._resolution)
+        normal_norm = np.sqrt(dzdx ** 2 + dzdy ** 2 + 1.0)
+        normal_x = -dzdx / normal_norm
+        normal_y = -dzdy / normal_norm
+        normal_z = 1.0 / normal_norm
+
+        ray_x, ray_y, ray_z = mean_x - sx, mean_y - sy, mean_z - sz
+        ray_norm = np.sqrt(ray_x ** 2 + ray_y ** 2 + ray_z ** 2)
+        with np.errstate(invalid='ignore'):
+            cos_theta = np.abs(
+                (ray_x / ray_norm) * normal_x[rows, cols]
+                + (ray_y / ray_norm) * normal_y[rows, cols]
+                + (ray_z / ray_norm) * normal_z[rows, cols])
+        # 이 셀에서 법선을 구할 이웃 정보가 없다 -- 처음 관측되는 셀
+        # (self._elevation이 아직 NaN)이거나, 이웃들이 np.gradient에 충분한
+        # 정보를 못 주는 경우(결과가 NaN)다. "수직으로 정면 입사"
+        # (cos_theta=1.0, 입사각 보정의 R_point 기여가 가장 작아지는 가장
+        # 보수적인 가정)로 폴백한다. 드론은 84m 고도 특성상(top-of-file 6/7번
+        # 항목) 지상 로봇보다 이 폴백이 훨씬 자주 발동할 것으로 예상되며,
+        # 이는 버그가 아니라 고도로 인한 정상적인 특성이다.
+        cos_theta = np.where(np.isnan(cos_theta), 1.0, cos_theta)
+        cos_theta = np.clip(cos_theta, self._incidence_cos_floor, 1.0)
+
+        # 거리 기반 R: 계수 근사식이 아니라 데이터시트 실측 구간별 정밀도(1시그마)
+        # 조회. np.searchsorted(..., side='left')로 distance가 속하는 구간을
+        # 찾고, np.clip으로 마지막 구간 밖(> max_distances[-1])도 마지막 구간의
+        # 시그마로 클램프한다 -- 이 프로젝트가 쓰는 OS1-32는 최대 사거리가
+        # 90~170m라 100m(마지막 구간 상한)를 넘는 관측이 실제로 들어올 수 있다
+        # (드론은 84m 고도 수직 스캔이라 특히 그렇다).
+        idx = np.searchsorted(self._measurement_noise_max_distances, distance, side='left')
+        idx = np.clip(idx, 0, len(self._measurement_noise_sigmas) - 1)
+        sigma_distance = self._measurement_noise_sigmas[idx]
+        r_distance = sigma_distance ** 2
+
+        r_point = r_distance / cos_theta ** 2
+        return r_point / counts
+
+    def _kalman_update_cells(self, rows, cols, batch_mean, r_eff):
+        """Fuse this batch's per-cell mean height into self._elevation/_variance.
+
+        Standard (linear) Kalman filter, not EKF/UKF -- no approximation is
+        needed since there is no state transition (Q=0 below) and the
+        observation model is already exactly linear (z = x + noise). Process
+        noise Q is fixed at 0 rather than exposed as a parameter: the terrain
+        is assumed static for the duration of the drone's scan path, so
+        there is nothing for a predict step to model between scans. Module D의
+        _kalman_update_cells와 동일한 설계 (top-of-file 7번 항목).
+        """
+        x_prev = self._elevation[rows, cols]
+        p_prev = self._variance[rows, cols]
+
+        # P가 아직 NaN인 셀은 한 번도 관측된 적이 없다 -- 이번 배치로 바로
+        # 초기화하고, 아직 비교할 기존 추정치가 없으니 게이팅하지 않는다.
+        is_new = np.isnan(p_prev)
+        new_rows, new_cols = rows[is_new], cols[is_new]
+        self._elevation[new_rows, new_cols] = batch_mean[is_new]
+        self._variance[new_rows, new_cols] = r_eff[is_new]
+
+        is_existing = ~is_new
+        ex_rows, ex_cols = rows[is_existing], cols[is_existing]
+        x, p, r, z = (
+            x_prev[is_existing], p_prev[is_existing],
+            r_eff[is_existing], batch_mean[is_existing])
+
+        # 이노베이션 게이팅: 이미 추정치가 있는 셀에서 이상치 배치가 필터를
+        # 오염시키지 않도록 거부한다. 임계값 9.0 -- 카이제곱분포 자유도 1,
+        # 약 3-시그마에 해당하는 고전적 추적이론의 표준 게이팅 값(Bar-Shalom).
+        innovation = z - x
+        innovation_covariance = p + r
+        passed_gate = (innovation ** 2 / innovation_covariance) <= self._innovation_gate_threshold
+
+        upd_rows, upd_cols = ex_rows[passed_gate], ex_cols[passed_gate]
+        gain = p[passed_gate] / innovation_covariance[passed_gate]
+        self._elevation[upd_rows, upd_cols] = x[passed_gate] + gain * innovation[passed_gate]
+        self._variance[upd_rows, upd_cols] = (1.0 - gain) * p[passed_gate]
+        # 게이트를 통과하지 못한 셀은 x, P 둘 다 이전 값을 그대로 유지하고,
+        # 이번 배치의 관측값은 버려진다.
 
     def _grow_to_fit(self, row_idx, col_idx):
         """Pad the grid so row_idx/col_idx fit, remapped into the new array.
@@ -215,16 +409,20 @@ class DroneElevationMapper(Node):
         README 3.3: the map only grows to cover what has actually been
         observed, it is never pre-sized.
         """
-        if self._sum is None:
+        if self._elevation is None:
             min_row, max_row = int(row_idx.min()), int(row_idx.max())
             min_col, max_col = int(col_idx.min()), int(col_idx.max())
-            self._sum = np.zeros((max_row - min_row + 1, max_col - min_col + 1))
-            self._count = np.zeros_like(self._sum)
+            shape = (max_row - min_row + 1, max_col - min_col + 1)
+            # 0이 아니라 NaN -- __init__의 self._elevation/_variance 주석 참고.
+            # variance 배열이 0으로 채워지면 그 셀의 칼만 게인이 영구히 0으로
+            # 고정되는 치명적인 버그가 된다.
+            self._elevation = np.full(shape, np.nan)
+            self._variance = np.full(shape, np.nan)
             self._origin_x += min_row * self._resolution
             self._origin_y += min_col * self._resolution
             return row_idx - min_row, col_idx - min_col
 
-        n_rows, n_cols = self._sum.shape
+        n_rows, n_cols = self._elevation.shape
         pad_before_row = max(0, -int(row_idx.min()))
         pad_after_row = max(0, int(row_idx.max()) - (n_rows - 1))
         pad_before_col = max(0, -int(col_idx.min()))
@@ -232,8 +430,10 @@ class DroneElevationMapper(Node):
 
         if pad_before_row or pad_after_row or pad_before_col or pad_after_col:
             pad_width = ((pad_before_row, pad_after_row), (pad_before_col, pad_after_col))
-            self._sum = np.pad(self._sum, pad_width)
-            self._count = np.pad(self._count, pad_width)
+            # constant_values=np.nan (np.pad 기본값인 0이 아님) -- 위와 동일한
+            # 이유.
+            self._elevation = np.pad(self._elevation, pad_width, constant_values=np.nan)
+            self._variance = np.pad(self._variance, pad_width, constant_values=np.nan)
             self._origin_x -= pad_before_row * self._resolution
             self._origin_y -= pad_before_col * self._resolution
             row_idx = row_idx + pad_before_row
@@ -248,7 +448,7 @@ class DroneElevationMapper(Node):
         # 때문에 중복 발행하지 않도록 self._published로 막는다.
         if not msg.data or self._published:
             return
-        if self._sum is None:
+        if self._elevation is None:
             self.get_logger().warn(
                 'path_status가 완료를 알렸지만 누적된 점이 없어 발행할 지도가 '
                 '없음.')
@@ -267,12 +467,12 @@ class DroneElevationMapper(Node):
                 '(topic may be stalled).')
 
     def _build_grid_map_message(self):
-        n_rows, n_cols = self._sum.shape
-        # README 3.3: unobserved cells stay NaN. count == 0 makes this a
-        # 0/0 division, which numpy already turns into NaN; the warning is
-        # expected and suppressed rather than worked around.
-        with np.errstate(invalid='ignore'):
-            elevation = (self._sum / self._count).astype(np.float32)
+        n_rows, n_cols = self._elevation.shape
+        # README 3.3: unobserved cells stay NaN -- self._elevation/_variance는
+        # 미관측 셀에 이미 NaN을 갖고 있으므로(__init__/_grow_to_fit 참고),
+        # 예전 running-average 버전처럼 별도로 count로 나눌 필요가 없다.
+        elevation = self._elevation.astype(np.float32)
+        variance = self._variance.astype(np.float32)
 
         length_x = n_rows * self._resolution
         length_y = n_cols * self._resolution
@@ -285,13 +485,16 @@ class DroneElevationMapper(Node):
         # axes are flipped before packing. Data is flattened column-major
         # (Eigen's default storage order), matching
         # matrixEigenCopyToMultiArrayMessage in grid_map_ros.
-        gm_matrix = elevation[::-1, ::-1]
-        elevation_layer = Float32MultiArray()
-        elevation_layer.layout.dim = [
-            MultiArrayDimension(label='column_index', size=n_cols, stride=n_rows * n_cols),
-            MultiArrayDimension(label='row_index', size=n_rows, stride=n_rows),
-        ]
-        elevation_layer.data = gm_matrix.flatten(order='F').tolist()
+        # elevation_variance도 elevation과 완전히 동일한 축 뒤집기 +
+        # column-major 패킹 규약(_pack_layer)을 재사용한다. 문서화된 규약대로
+        # 구현했을 뿐, 실제 RViz2/grid_map_rviz_plugin으로 셀 방향이 맞는지
+        # 시각적으로 확인한 적은 없다 -- 실환경 미검증.
+        # dim 크기는 std_msgs/MultiArrayLayout 규약을 따른다: 차원은 바깥->안
+        # 순서이고, 최내곽 차원은 stride == size 여야 한다. Eigen 열 우선 저장
+        # 기준으로 바깥 차원이 열(column_index), 안쪽 차원이 행(row_index)이므로
+        # dim[0].size = 열 개수, dim[1].size = dim[1].stride = 행 개수다.
+        elevation_layer = self._pack_layer(elevation, n_rows, n_cols)
+        variance_layer = self._pack_layer(variance, n_rows, n_cols)
         # ---------------------------------------------------------------------
 
         info = GridMapInfo()
@@ -308,12 +511,32 @@ class DroneElevationMapper(Node):
         grid_map.header.stamp = self._last_stamp
         grid_map.header.frame_id = self._frame_id
         grid_map.info = info
-        grid_map.layers = ['elevation']
+        grid_map.layers = ['elevation', 'elevation_variance']
+        # basic_layers에는 'elevation'만 남긴다 -- 분산은 이미 관측된 셀의
+        # 부가 불확실성 정보일 뿐, 관측 여부 판단 기준이 아니다. Module D와
+        # 동일 (top-of-file 7번 항목).
         grid_map.basic_layers = ['elevation']
-        grid_map.data = [elevation_layer]
+        grid_map.data = [elevation_layer, variance_layer]
         grid_map.outer_start_index = 0
         grid_map.inner_start_index = 0
         return grid_map
+
+    @staticmethod
+    def _pack_layer(matrix, n_rows, n_cols):
+        """Pack one layer's (n_rows, n_cols) float32 array into the wire format.
+
+        See the comment block above (grid_map's axis-flip + column-major
+        convention) -- shared here so 'elevation' and 'elevation_variance'
+        can't drift into different packings by accident.
+        """
+        gm_matrix = matrix[::-1, ::-1]
+        layer = Float32MultiArray()
+        layer.layout.dim = [
+            MultiArrayDimension(label='column_index', size=n_cols, stride=n_rows * n_cols),
+            MultiArrayDimension(label='row_index', size=n_rows, stride=n_rows),
+        ]
+        layer.data = gm_matrix.flatten(order='F').tolist()
+        return layer
 
 
 def main(args=None):
