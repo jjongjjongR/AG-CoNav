@@ -37,8 +37,22 @@
       - **주의(실수 기록)**: 최초 시도는 대기 명령 안에서 `nohup ... &`로 한 번 더 백그라운드에 내려버려, 바깥 스크립트(watcher를 띄우기만 하고 자신은 즉시 종료)가 몇 초 만에 끝나는 바람에 "완료" 오탐 알림을 받음(실제로는 launch 시작 후 1분도 안 된 시점, marker 없음). `nohup`/`disown` 없이 until-loop 자체를 run_in_background로 직접 돌리도록 수정 후 재시도함. 다음 세션은 이 패턴(run_in_background에 nohup을 이중으로 씌우지 말 것) 유의.
 - [x] 성능진단 리포트 작성 — `run_results/performance_diagnosis_20260814_213012.md`. 핵심: (1) merge_wait_timeout_sec=30s가 Nav2 기동시간(~115초)보다도 짧은 구조적 설정 문제, (2) 5.8GiB RAM에 66개+ 프로세스 동시 기동으로 시작 2분 만에 스왑 진입·load average 30~80 상시 유지, 이로 인해 wheel TF가 sim-time 108.88s에서 완전 정지, leg 포인트클라우드 간헐적 스톨, 그리고 제 모니터 스크립트의 ros2 topic echo 자체가 47분간 이미 발행된 latched 토픽을 못 읽는 관측 실패까지 발생.
 - [x] ground truth 비교 — **스킵** (merge_status가 True로 발행된 적 없어 지시사항에 따라 미수행, 진단 리포트 §7 참고)
-- [ ] git add/commit/push (run_results/만, 소스코드 미커밋 변경은 그대로 유지)
-- [ ] SUMMARY.md 최종 보고
+- [x] git add/commit/push — commit `89bdb46`, `origin/brian_test`로 push 완료. `run_results/`만 커밋함(소스코드 두 파일은 여전히 미커밋 상태로 working tree에 남아있음 — 의도적, 위 "판단" 섹션 참고).
+- [x] SUMMARY.md 최종 보고 — `run_results/SUMMARY.md`에 3차 실행 섹션 추가 완료.
+
+## 세션 종료 — 완료 상태
+이 세션의 모든 단계(0~6)가 정상적으로 끝까지 진행됨. 중간에 끊기지 않음.
+다음 세션이 이어서 할 것은 없음. 다만 아래 "미해결/후속 필요" 참고.
+
+## 미해결 / 후속 세션에서 고려할 사항
+- 소스코드 두 파일(`config/clearpath_a300/platform/launch/platform-service.launch.py`,
+  `src/agconav_bringup/launch/agconav_sim.launch.py`)이 여전히 미커밋 상태.
+  이번 세션 범위(소스 수정 금지)상 커밋하지 않았음 — 사용자가 검토 후
+  직접 커밋할지 결정 필요.
+- 성능진단에서 제안한 조치들(`merge_wait_timeout_sec` 상향, 동시 프로세스
+  수 축소/RAM 증설, wheel TF 정지 원인 특정)은 모두 미적용 상태.
+- ground truth 비교(4번)는 이번에도 수행 못함 — merge_status=True가
+  한 번도 안 나옴. 위 조치들을 적용한 재실행이 성공해야 비교 가능.
 
 ## 진행 중 체크인
 - [2026-08-14 19:06:57] 사용자 요청으로 1회 확인: launch(5376)/monitor(6262) 모두 생존, marker 없음 (진행 중). 특이사항: 가용메모리 147MiB, swap 1.98GiB 사용, load average 63.06/53.50/40.27로 매우 높음. `ruby`라는 이름의 프로세스가 CPU 50%·누적 16분 사용 중(정체 불명, 최종 진단 때 `/tmp/agconav_full_run.log`와 status_log의 top 기록을 대조해 이 프로세스의 정체와 AG-CoNav 관련 여부를 확인할 것). 이후 다시 백그라운드 대기로 복귀, 직접 반복 폴링하지 않음.
