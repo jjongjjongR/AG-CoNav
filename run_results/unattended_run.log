@@ -1,0 +1,212 @@
+===== Unattended full-system run log =====
+[2026-08-14 14:38:07] Start of unattended run. Repo root: /home/hyunwoo-chae/AG-CoNav
+[2026-08-14 14:38:07] Initial branch was test_main, working tree clean, no stash needed.
+Switched to branch 'brian_test'
+Your branch is up to date with 'origin/brian_test'.
+---
+brian_test
+[2026-08-14 14:38:10] checkout result above
+[2026-08-14 14:38:14] Running git pull origin brian_test
+From github.com:jjongjjongR/AG-CoNav
+ * branch            brian_test -> FETCH_HEAD
+Already up to date.
+[2026-08-14 14:38:16] git pull exit code: 0
+[2026-08-14 14:38:21] Starting colcon build --symlink-install
+[2026-08-14 14:38:30] colcon build finished with exit code: 0
+[2026-08-14 14:38:54] Launching: ros2 launch agconav_bringup agconav_all.launch.py headless:=true
+[2026-08-14 14:38:54] Launch PID: 21036
+[2026-08-14 14:39:14] WARNING observed in launch log: elevation_map_merger reports 'merged map already exists at maps/merged_elevation_map -- assuming a previous run already completed the merge ... ignoring merge_trigger'
+[2026-08-14 14:40:15] CRITICAL FINDING: read src/agconav_map_fusion/agconav_map_fusion/elevation_map_merger.py lines 63-83,148-152. On node init it checks if maps/merged_elevation_map already exists on disk; if so it sets self._merge_done=True immediately and _trigger_callback() returns early WITHOUT publishing merge_status or merge_error at all. maps/merged_elevation_map already exists on disk from a prior run dated Aug 6 13:23 (predates this task). Therefore THIS run's elevation_map_merger will almost certainly never publish /merged/merge_status or /merged/merge_error, regardless of whether wheel/leg/drone individually finish mapping successfully. Per task safety rules I must NOT delete this pre-existing directory (only outputs created by this run may be rm'd). Proceeding with full monitoring as instructed; expecting a 2h TIMEOUT outcome for the merge step specifically, while still recording wheel/leg/drone individual completion status which remains genuinely informative. This will be highlighted prominently in the final report.
+[2026-08-14 14:41:04] ROOT CAUSE FOUND: launch crashed within ~15s of start. Root exception (log line 140-171 of /tmp/agconav_full_run.log):
+  robot_state_publisher (wheel) invoked xacro on a HARDCODED path: /home/lee/projects/AG-CoNav/config/clearpath_a300/robot.urdf.xacro
+  -> FileNotFoundError: that path does not exist on this machine (repo root here is /home/hyunwoo-chae/AG-CoNav, machine user is 'lee' in the hardcoded path, not 'hyunwoo-chae').
+  This is a pre-existing hardcoded-path bug in source/config committed for a different developer's machine. Out of scope to fix per task rules -- observing and reporting only.
+[2026-08-14 14:41:04] This single node failure triggered launch_ros's default 'on process exit -> shutdown everything' behavior: ALL 20+ nodes (gazebo, map_merge_collector, elevation_map_merger, merged_elevation_map_saver, ground_elevation_mapper/saver for wheel+leg, drone_elevation_mapper, etc.) received cascading SIGINT -> SIGTERM -> SIGKILL within ~35s of launch start.
+[2026-08-14 14:41:04] Launch process (PID 21036) has already fully exited (confirmed via ps -p 21036 -> no such process).
+[2026-08-14 14:41:04] No robot (wheel/leg/drone) reached its elevation_map_status/path_status completion. /merged/merge_status and /merged/merge_error were never published (elevation_map_merger died before any trigger could complete, and was independently already going to skip the merge anyway due to the pre-existing maps/merged_elevation_map from Aug 6 -- see earlier log entry).
+[2026-08-14 14:41:04] Decision: this matches exit condition (d) from the task spec (core nodes died, no chance of completion) plus effectively also very early full-stack death. Skipping the 2-hour/2-min polling loop (would be pure waiting on a process that is already gone) and proceeding directly to cleanup (step 3) and reporting (step 5), skipping visualization (step 4) since no merge occurred.
+[2026-08-14 14:41:04] Leftover process detected: gz sim server (PID 21057) is still running/orphaned despite gazebo-1 wrapper being reported dead -- launch's SIGKILL cascade did not reap this child. Will be cleaned up in step 3.
+[2026-08-14 14:41:13] Cleanup: pkill -f agconav_all.launch.py and killing leftover gz sim PID 21057
+[2026-08-14 14:41:27] Cleanup verified: PID 21057 (gz sim/ruby) force-killed with SIGKILL, no longer present. pgrep sweep for 'gz sim|gz-sim|ros2 launch|agconav' shows no leftover processes (only this verification shell itself matched, which is expected noise).
+               total        used        free      shared  buff/cache   available
+Mem:           5.8Gi       1.7Gi       909Mi        66Mi       3.4Gi       4.1Gi
+Swap:          4.0Gi       624Ki       4.0Gi
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda2        78G   28G   47G  38% /
+[2026-08-14 14:42:38] SUMMARY.md written to run_results/SUMMARY.md. No commit/push performed (no map image generated, per task rule 5). Unattended task complete.
+[2026-08-14 16:37:07] User approved deletion of stale maps/merged_elevation_map (Aug 6 13:23 prior run output) before this re-run, so elevation_map_merger/merged_elevation_map_saver won't skip. wheel/leg/drone individual map dirs left untouched.
+
+===== RE-RUN #2 (after platform-service.launch.py xacro path fix + stale merged map cleared) =====
+[2026-08-14 16:37:22] Start of re-run. Branch=brian_test. Uncommitted local fix present: config/clearpath_a300/platform/launch/platform-service.launch.py
+[2026-08-14 16:37:22] git pull origin brian_test: already up to date
+[2026-08-14 16:37:22] Running colcon build --symlink-install
+[2026-08-14 16:37:33] colcon build exit 0. Launching: ros2 launch agconav_bringup agconav_all.launch.py headless:=true
+[2026-08-14 16:37:33] Launch PID: 22994
+[2026-08-14 16:38:31] === poll iteration 0 (elapsed ~0min) ===
+-- ros2 node list --
+
+-- critical node presence check --
+  /map_merge_collector : MISSING
+  /elevation_map_merger : MISSING
+  /merged_elevation_map_saver : MISSING
+-- status topics --
+  /wheel/elevation_map_status => 
+  /leg/elevation_map_status => 
+  /drone/elevation_map_status => /opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py:188: RuntimeWarning: Failed to fini rosout publisher: rcl node implementation is invalid, at ./src/rcl/node.c:390   self.__node = _rclpy.Node( error creating node: the given context is not valid, either rcl_init() was not called or rcl_shutdown() was called., at ./src/rcl/guard_condition.c:67 
+  /drone/path_status => 
+  /merged/merge_status => 
+  /merged/merge_error => 
+-- resources --
+Mem:           5.8Gi       4.8Gi       193Mi       128Mi       1.0Gi       948Mi
+Swap:          4.0Gi       389Mi       3.6Gi
+/dev/vda2        78G   28G   47G  38% /
+-- launch process alive? --
+  launch PID 22994: ALIVE
+[2026-08-14 16:41:29] === poll iteration 1 (elapsed ~2min) ===
+-- ros2 node list --
+/agconav_clock_bridge
+/agconav_sensor_bridge
+/base_footprint_to_base_link_tf_node
+/base_to_footprint_ekf
+/controller_manager
+/drone_cmd_vel_bridge
+/drone_elevation_mapper
+/drone_gps_static_tf
+/drone_path_player
+/drone_pose_controller
+/drone_set_pose_bridge
+/drone_tf_bridge
+/elevation_map_saver
+/footprint_to_odom_ekf
+/gazebo_bridge
+/gz_ros_control
+/leg/behavior_server
+/leg/bt_navigator
+/leg/controller_server
+/leg/ekf_node
+/leg/global_costmap/global_costmap
+/leg/ground_elevation_map_saver
+/leg/lifecycle_manager_navigation
+/leg/navsat_transform_node
+/leg/planner_server
+/leg/transform_listener_impl_b7917db16d80
+/leg/transform_listener_impl_b87e7a6d5460
+/leg/yaw_consistency_checker
+/leg_tf_prefix_relay
+/lifecycle_manager_map_saver
+/map_merge_collector
+/map_save_coordinator
+/map_saver
+/merged_elevation_map_saver
+/quadruped_controller_node
+/robot_state_publisher
+/state_estimation_node
+/terrain_feature_calculator
+/transform_listener_impl_acee2037a820
+/transform_listener_impl_b46984bb0680
+/traversability_verdictor_leg
+/traversability_verdictor_wheel
+/wheel/behavior_server
+/wheel/bt_navigator
+/wheel/cmd_vel_bridge
+/wheel/controller_manager
+/wheel/controller_server
+/wheel/ekf_node
+/wheel/global_costmap/global_costmap
+/wheel/ground_elevation_map_saver
+/wheel/ground_elevation_mapper
+/wheel/ground_segmentation_node
+/wheel/gz_ros_control
+/wheel/joint_state_broadcaster
+/wheel/joy_node
+/wheel/navigation_complete
+/wheel/navsat_transform_node
+/wheel/odom_base_tf_bridge
+/wheel/planner_server
+/wheel/platform_velocity_controller
+/wheel/robot_state_publisher
+/wheel/route_server
+/wheel/teleop_twist_joy_node
+/wheel/transform_listener_impl_ad930b8426e0
+/wheel/transform_listener_impl_c41b99566e20
+/wheel/transform_listener_impl_f871500f6810
+/wheel/twist_mux
+/wheel/twist_server_node
+/wheel/velocity_smoother
+/wheel/yaw_consistency_checker
+/wheel_clock_bridge
+/wheel_gps_0_link_alias_tf
+/wheel_imu_0_link_alias_tf
+/wheel_lidar3d_0_sensor_link_alias_tf
+/wheel_tf_prefix_relay
+-- critical node presence check --
+  /map_merge_collector : ALIVE
+  /elevation_map_merger : MISSING
+  /merged_elevation_map_saver : ALIVE
+-- status topics --
+  /wheel/elevation_map_status => 
+  /leg/elevation_map_status => 
+  /drone/elevation_map_status => 
+  /drone/path_status => 
+  /merged/merge_status => 
+  /merged/merge_error => 
+-- resources --
+Mem:           5.8Gi       4.4Gi       185Mi       132Mi       1.5Gi       1.3Gi
+Swap:          4.0Gi       1.3Gi       2.7Gi
+/dev/vda2        78G   28G   47G  38% /
+-- launch process alive? --
+  launch PID 22994: ALIVE
+[2026-08-14 16:41:29] EXIT CONDITION (d): one or more critical merge nodes missing from ros2 node list
+[2026-08-14 16:43:27] CORRECTION: the NODE_DEAD verdict from the previous monitor iteration was a FALSE POSITIVE. Verified elevation_map_merger's actual OS process (PID 23029) is still alive and running (ps -p 23029 shows Sl state, 1.6% CPU). 'ros2 node list' failed to enumerate it, most likely because ROS2 discovery itself is degraded under heavy memory pressure (at the time: 96Mi free RAM, 1.3GiB swap in use and rising) rather than the node actually having died -- no 'process has died' line for elevation_map_merger appears anywhere in /tmp/agconav_full_run2.log. Killing the old flaky monitor (pgrep for monitor_run2.sh) and replacing it with a version that checks the 3 merge-critical node PIDs directly via 'ps -p' (authoritative) instead of trusting 'ros2 node list' under memory pressure. Continuing to wait for actual completion; total 2h budget counted from launch start 16:37:33.
+[2026-08-14 16:43:57] === poll iteration 0 (elapsed ~6min since launch) ===
+-- critical node PID liveness (authoritative, not ros2 discovery) --
+  map_merge_collector (pid 23028): ALIVE
+  elevation_map_merger (pid 23029): ALIVE
+  merged_elevation_map_saver (pid 23030): ALIVE
+-- launch log 'process has died' lines so far (any node) --
+[ERROR] [spawner-31]: process has died [pid 23386, exit code 1, cmd '/opt/ros/jazzy/lib/controller_manager/spawner --controller-manager-timeout 60 joint_state_broadcaster --ros-args -r __ns:=/wheel -r /tf:=/wheel/tf -r /tf_static:=/wheel/tf_static'].
+-- status topics (best-effort, ros2 discovery may be flaky under memory pressure) --
+  /wheel/elevation_map_status => !rclpy.ok() 
+  /leg/elevation_map_status => 
+  /drone/elevation_map_status => 
+  /drone/path_status => 
+  /merged/merge_status => 
+  /merged/merge_error => 
+-- resources --
+Mem:           5.8Gi       4.5Gi       256Mi       131Mi       1.3Gi       1.2Gi
+Swap:          4.0Gi       1.3Gi       2.7Gi
+/dev/vda2        78G   28G   47G  38% /
+-- launch process alive? --
+  launch PID 22994: ALIVE
+[2026-08-14 16:46:52] === poll iteration 1 (elapsed ~9min since launch) ===
+-- critical node PID liveness (authoritative, not ros2 discovery) --
+  map_merge_collector (pid 23028): ALIVE
+  elevation_map_merger (pid 23029): ALIVE
+  merged_elevation_map_saver (pid 23030): ALIVE
+-- launch log 'process has died' lines so far (any node) --
+[ERROR] [spawner-31]: process has died [pid 23386, exit code 1, cmd '/opt/ros/jazzy/lib/controller_manager/spawner --controller-manager-timeout 60 joint_state_broadcaster --ros-args -r __ns:=/wheel -r /tf:=/wheel/tf -r /tf_static:=/wheel/tf_static'].
+-- status topics (best-effort, ros2 discovery may be flaky under memory pressure) --
+  /wheel/elevation_map_status => 
+  /leg/elevation_map_status => 
+  /drone/elevation_map_status => 
+  /drone/path_status => 
+  /merged/merge_status => data: false --- 
+  /merged/merge_error => data: 'merge_wait_timeout_sec=30.0s elapsed without both wheel/leg elevation_map_status=True (still missing: wheel, leg)' --- 
+-- resources --
+Mem:           5.8Gi       4.6Gi       238Mi       131Mi       1.3Gi       1.2Gi
+Swap:          4.0Gi       1.3Gi       2.7Gi
+/dev/vda2        78G   28G   47G  38% /
+-- launch process alive? --
+  launch PID 22994: ALIVE
+[2026-08-14 16:46:52] EXIT CONDITION (b): /merged/merge_error published: data: 'merge_wait_timeout_sec=30.0s elapsed without both wheel/leg elevation_map_status=True (still missing: wheel, leg)'
+---
+[2026-08-14 16:48:40] Run #2 outcome: FAILURE (merge_error). Cleaning up: pkill -f agconav_all.launch.py
+[2026-08-14 16:48:58] Cleanup confirmed for run #2: launch PID 22994 and gz sim PIDs 23013/23015 all terminated. No leftover ros2/gz/agconav processes.
+               total        used        free      shared  buff/cache   available
+Mem:           5.8Gi       3.5Gi       1.3Gi       129Mi       1.3Gi       2.3Gi
+Swap:          4.0Gi       1.1Gi       2.9Gi
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda2        78G   28G   47G  38% /
+[2026-08-14 16:49:46] SUMMARY.md updated with re-run #2 results (FAILURE via merge_error, root cause candidates logged). No commit/push (no map generated).
+[2026-08-14 17:01:01] IMPORTANT OPERATIONAL FIX: discovered that run #2's cleanup (pkill -f agconav_all.launch.py) only killed the launch supervisor PID 22994 via SIGTERM, which does NOT trigger launch's internal SIGINT cascade to its ~66 managed child node processes. Those children (ground_elevation_mapper, nav2 stacks x2, ekf_node, controller_manager spawners, parameter_bridges, etc.) were left running unnoticed until now (~15 min later), consuming 3.6GiB RAM + 1.0GiB swap. Force-killed all 66 with kill -9. Memory now healthy: 1.8Gi used / 2.8Gi free. Lesson for future cleanup: send SIGINT to the launch PID itself (or use 'kill -INT', not pkill -f + plain SIGTERM) so launch performs its own graceful cascade shutdown instead of orphaning children.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
