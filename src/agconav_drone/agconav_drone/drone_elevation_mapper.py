@@ -316,16 +316,34 @@ class DroneElevationMapper(Node):
         # np.gradient로 근사한다 -- 점 단위 이웃 탐색이나 별도 포인트클라우드
         # 라이브러리 없이, 이미 비닝된 높이 격자만 사용한다. 이번 배치 자신의
         # 칼만 갱신(아래) 전에 계산하므로 이전 스캔들의 값만 반영한다.
-        if self._elevation.shape[0] < 2 or self._elevation.shape[1] < 2:
+        #
+        # 성능: self._elevation 전체가 아니라, 이번 배치가 실제로 건드린 셀
+        # 범위 + 중심차분에 필요한 가장자리 1칸만 잘라낸 국소 윈도우에만
+        # np.gradient를 적용한다. np.gradient(edge_order=1 기본값)는 각 점의
+        # 미분에 바로 이웃한 칸(내부는 i-1/i+1 중심차분, 배열 경계는 i/i±1
+        # 편측차분)만 쓰므로, 윈도우가 이 이웃을 전부 포함하는 한 결과는
+        # 전체 배열로 계산한 것과 수학적으로 완전히 동일하다 -- 드론 지도
+        # 규모(최대 25,000,000셀)에서 콜백마다 전체 배열을 미분하면 지도가
+        # 커질수록 콜백 처리 시간이 계속 늘어나는 문제가 있었다.
+        win_row_start = max(0, int(rows.min()) - 1)
+        win_row_end = min(self._elevation.shape[0], int(rows.max()) + 2)
+        win_col_start = max(0, int(cols.min()) - 1)
+        win_col_end = min(self._elevation.shape[1], int(cols.max()) + 2)
+        local_elevation = self._elevation[win_row_start:win_row_end, win_col_start:win_col_end]
+
+        if local_elevation.shape[0] < 2 or local_elevation.shape[1] < 2:
             # np.gradient는 미분할 축이 너무 짧으면(예: 첫 스캔의 점들이 전부
             # 한 행/열에만 들어간 경우) NaN이 아니라 예외를 던진다. 이웃
             # 정보가 아직 없는 것과 똑같이 취급해, 아래에서 cos_theta=1.0으로
-            # 폴백시킨다.
-            dzdx = np.full_like(self._elevation, np.nan)
-            dzdy = np.full_like(self._elevation, np.nan)
+            # 폴백시킨다. "전체 배열이 작을 때"가 아니라 "이 국소 윈도우가
+            # 작을 때" 기준 -- 윈도우는 항상 전체 배열 안에 들어가므로,
+            # 전체 배열이 이 조건을 만족하지 않는 한(즉 전체가 이미 2보다
+            # 작은 한) 윈도우도 항상 2 이상이라 두 기준은 동치다.
+            dzdx = np.full_like(local_elevation, np.nan)
+            dzdy = np.full_like(local_elevation, np.nan)
         else:
             with np.errstate(invalid='ignore'):
-                dzdx, dzdy = np.gradient(self._elevation, self._resolution)
+                dzdx, dzdy = np.gradient(local_elevation, self._resolution)
         normal_norm = np.sqrt(dzdx ** 2 + dzdy ** 2 + 1.0)
         normal_x = -dzdx / normal_norm
         normal_y = -dzdy / normal_norm
@@ -333,11 +351,16 @@ class DroneElevationMapper(Node):
 
         ray_x, ray_y, ray_z = mean_x - sx, mean_y - sy, mean_z - sz
         ray_norm = np.sqrt(ray_x ** 2 + ray_y ** 2 + ray_z ** 2)
+        # rows/cols는 self._elevation 전체 기준 인덱스인데, normal_x/y/z는
+        # 윈도우로 잘라낸 국소 배열이라 좌표계가 다르다 -- 윈도우 시작
+        # 오프셋(win_row_start/win_col_start)만큼 빼서 국소 좌표로 변환한다.
+        local_rows = rows - win_row_start
+        local_cols = cols - win_col_start
         with np.errstate(invalid='ignore'):
             cos_theta = np.abs(
-                (ray_x / ray_norm) * normal_x[rows, cols]
-                + (ray_y / ray_norm) * normal_y[rows, cols]
-                + (ray_z / ray_norm) * normal_z[rows, cols])
+                (ray_x / ray_norm) * normal_x[local_rows, local_cols]
+                + (ray_y / ray_norm) * normal_y[local_rows, local_cols]
+                + (ray_z / ray_norm) * normal_z[local_rows, local_cols])
         # 이 셀에서 법선을 구할 이웃 정보가 없다 -- 처음 관측되는 셀
         # (self._elevation이 아직 NaN)이거나, 이웃들이 np.gradient에 충분한
         # 정보를 못 주는 경우(결과가 NaN)다. "수직으로 정면 입사"
