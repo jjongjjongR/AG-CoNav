@@ -1,0 +1,117 @@
+[INFO] [launch]: All log files can be found below /home/hyunwoo-chae/.ros/log/2026-08-16-03-59-57-690393-hyunwoo-chae-QEMU-Virtual-Machine-12920
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [gazebo-1]: process started with pid [12934]
+[INFO] [parameter_bridge-2]: process started with pid [12935]
+[INFO] [parameter_bridge-3]: process started with pid [12937]
+[INFO] [parameter_bridge-4]: process started with pid [12938]
+[INFO] [static_transform_publisher-5]: process started with pid [12939]
+[INFO] [parameter_bridge-6]: process started with pid [12940]
+[INFO] [wait_for_world-7]: process started with pid [12941]
+[wait_for_world-7] [wait_for_world] 'Seongdong_gu' 로드 대기 (최대 180s, 10s 후부터 3s 간격 확인)
+[static_transform_publisher-5] [INFO] [1786820398.070677098] [drone_os1_lidar_static_tf]: Spinning until stopped - publishing transform
+[static_transform_publisher-5] translation: ('0.000000', '0.000000', '-0.175406')
+[static_transform_publisher-5] rotation: ('0.000000', '0.707108', '0.000000', '0.707105')
+[static_transform_publisher-5] from 'drone/base_link' to 'drone/os1_lidar'
+[parameter_bridge-3] [INFO] [1786820398.095210953] [exp_sensor_bridge]: Creating GZ->ROS Bridge: [/drone/points/points (gz.msgs.PointCloudPacked) -> /drone/points/points (sensor_msgs/msg/PointCloud2)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1786820398.098848082] [exp_sensor_bridge]: Creating GZ->ROS Bridge: [/drone/imu (gz.msgs.IMU) -> /drone/imu (sensor_msgs/msg/Imu)] (Lazy 0)
+[parameter_bridge-4] [INFO] [1786820398.115876414] [exp_drone_tf_bridge]: Creating GZ->ROS Bridge: [/model/X3/pose (gz.msgs.Pose_V) -> /model/X3/pose (tf2_msgs/msg/TFMessage)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1786820398.145932801] [exp_clock_bridge]: Creating GZ->ROS Bridge: [/clock (gz.msgs.Clock) -> /clock (rosgraph_msgs/msg/Clock)] (Lazy 0)
+[parameter_bridge-6] [INFO] [1786820398.149875782] [exp_set_pose_bridge]: Creating ROS->GZ service bridge [/world/Seongdong_gu/set_pose (ros_gz_interfaces/srv/SetEntityPose -> /)]
+[gazebo-1] [1;33mWarning [Utils.cc:132][0m [/scale:/home/hyunwoo-chae/AG-CoNav-test_main/install/agconav_test_worlds/share/agconav_test_worlds/worlds/Seongdong_gu_100x100/Seongdong_gu_100x100.world:L374]: XML Element[scale], child of element[include], not defined in SDF. Copying[scale] as children of [include].
+[gazebo-1] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="x3"]/link[@name="X3/base_link"]/sensor[@name="drone_imu_sensor"]/gz_frame_id:/home/hyunwoo-chae/AG-CoNav-test_main/install/agconav_description/share/agconav_description/models/agconav_drone/model.sdf:L44]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[gazebo-1] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="x3"]/link[@name="os1_lidar"]/sensor[@name="os1_lidar"]/gz_frame_id:/home/hyunwoo-chae/AG-CoNav-test_main/install/agconav_description/share/agconav_description/models/agconav_drone/model.sdf:L354]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[gazebo-1] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="x3"]/link[@name="gps_link"]/sensor[@name="navsat_sensor"]/gz_frame_id:/home/hyunwoo-chae/AG-CoNav-test_main/install/agconav_description/share/agconav_description/models/agconav_drone/model.sdf:L410]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[gazebo-1] [1;36mDbg[0m DART Bullet heightfield AABB: min = {-49.8054, -49.8054, -2.6248}, max = {49.8054, 49.8054, 2.6248} (will be translated by z=2.6248)
+[gazebo-1] libEGL warning: egl: failed to create dri2 screen
+[gazebo-1] libEGL warning: egl: failed to create dri2 screen
+[gazebo-1] libEGL warning: NEEDS EXTENSION: falling back to kms_swrast
+[wait_for_world-7] [wait_for_world] 'Seongdong_gu' 로드 완료 — spawn 시작
+[INFO] [wait_for_world-7]: process has finished cleanly [pid 12941]
+[INFO] [ros2-8]: process started with pid [13149]
+[INFO] [drone_pose_controller-9]: process started with pid [13150]
+[INFO] [drone_path_player-10]: process started with pid [13151]
+[INFO] [drone_elevation_mapper-11]: process started with pid [13152]
+[ros2-8] stdin is not a terminal device. Keyboard handling disabled.[INFO] [1786820410.793967707] [rosbag2_recorder]: Press SPACE for pausing/resuming
+[ros2-8] [INFO] [1786820410.794822800] [rosbag2_recorder]: Event publisher thread: Started
+[ros2-8] [INFO] [1786820410.800816161] [rosbag2_recorder]: Starting recording to '/home/hyunwoo-chae/AG-CoNav-test_main/bags/dryrun_teleport_4m_5mps'
+[ros2-8] [INFO] [1786820410.802590601] [rosbag2_recorder]: Listening for topics...
+[ros2-8] [INFO] [1786820410.802609144] [rosbag2_recorder]: Recording...
+[ros2-8] [INFO] [1786820410.802695024] [rosbag2_recorder]: Topics discovery started.
+[drone_pose_controller-9] [INFO] [1786820410.901460641] [drone_pose_controller]: drone_pose_controller 시작: service=/world/Seongdong_gu/set_pose, entity=X3, max_retries=3
+[ros2-8] [INFO] [1786820410.904145636] [rosbag2_recorder]: Subscribed to topic '/tf_static'
+[drone_elevation_mapper-11] [INFO] [1786820411.045744881] [drone_elevation_mapper]: Accumulating "/drone/points" -> "/drone/elevation_map" (resolution=0.1 m/cell, target_frame="map"), publishing once on "/drone/path_status"
+[drone_elevation_mapper-11] [INFO] [1786820411.046165448] [drone_elevation_mapper]: 드론은 84m 상공에서 내려다보는 스캔이라 지상 로봇보다 셀당 점군 밀도가 훨씬 낮을 수 있음 - resolution=0.10m 기준으로 count==0인 빈 셀(NaN)이 많이 남는지 실측 필요 (module design analysis 참고).
+[drone_elevation_mapper-11] [WARN] [1786820411.428651084] [drone_elevation_mapper]: no point cloud received yet.
+[ros2-8] [INFO] [1786820411.433078143] [rosbag2_recorder]: Subscribed to topic '/drone/elevation_map'
+[drone_elevation_mapper-11] [WARN] [1786820411.711106971] [drone_elevation_mapper]: no point cloud received yet.
+[drone_path_player-10] [INFO] [1786820412.456243685] [drone_path_player]: waypoint 5251개 로드 완료 (path_file=/home/hyunwoo-chae/AG-CoNav-test_main/install/agconav_test_worlds/share/agconav_test_worlds/config/path_100x100_5m_4m_5mps.yaml)
+[ros2-8] [INFO] [1786820412.466375507] [rosbag2_recorder]: Subscribed to topic '/drone/path_status'
+[ros2-8] [INFO] [1786820412.468040691] [rosbag2_recorder]: Subscribed to topic '/tf'
+[drone_elevation_mapper-11] [WARN] [1786820412.750334854] [drone_elevation_mapper]: no point cloud received yet.
+[ros2-8] [INFO] [1786820413.773081251] [rosbag2_recorder]: Subscribed to topic '/drone/imu'
+[ros2-8] [INFO] [1786820413.774246696] [rosbag2_recorder]: Subscribed to topic '/drone/points'
+[drone_elevation_mapper-11] [WARN] [1786820413.783526967] [drone_elevation_mapper]: no point cloud received yet.
+[drone_elevation_mapper-11] [WARN] [1786820601.505652934] [drone_elevation_mapper]: no point cloud in the last 2.68s (topic may be stalled).
+[drone_elevation_mapper-11] [WARN] [1786820602.516015357] [drone_elevation_mapper]: no point cloud in the last 3.68s (topic may be stalled).
+[drone_elevation_mapper-11] [WARN] [1786820607.634752642] [drone_elevation_mapper]: no point cloud in the last 2.08s (topic may be stalled).
+[ros2-8] [INFO] [1786820608.489306032] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[drone_elevation_mapper-11] [WARN] [1786820670.606516763] [drone_elevation_mapper]: no point cloud in the last 2.88s (topic may be stalled).
+[drone_elevation_mapper-11] [WARN] [1786820671.637970866] [drone_elevation_mapper]: no point cloud in the last 3.88s (topic may be stalled).
+[drone_elevation_mapper-11] [WARN] [1786820690.034800443] [drone_elevation_mapper]: TF lookup failed for "drone/os1_lidar" -> "map" at 281.900000000s, dropping cloud: Lookup would require extrapolation into the future.  Requested time 281.900000 but the latest data is at time 281.660000, when looking up transform from frame [drone/os1_lidar] to frame [map]
+[ros2-8] [INFO] [1786820803.230414457] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[drone_elevation_mapper-11] [WARN] [1786820899.724292851] [drone_elevation_mapper]: no point cloud in the last 2.88s (topic may be stalled).
+[drone_elevation_mapper-11] [WARN] [1786820947.804524304] [drone_elevation_mapper]: no point cloud in the last 2.37s (topic may be stalled).
+[ros2-8] [INFO] [1786820997.093674204] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[drone_elevation_mapper-11] [WARN] [1786821060.433226544] [drone_elevation_mapper]: no point cloud in the last 2.08s (topic may be stalled).
+[drone_elevation_mapper-11] [WARN] [1786821126.602006021] [drone_elevation_mapper]: no point cloud in the last 2.18s (topic may be stalled).
+[ros2-8] [INFO] [1786821191.437314812] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[drone_elevation_mapper-11] [WARN] [1786821260.101226209] [drone_elevation_mapper]: TF lookup failed for "drone/os1_lidar" -> "map" at 839.900000000s, dropping cloud: Lookup would require extrapolation into the future.  Requested time 839.900000 but the latest data is at time 839.740000, when looking up transform from frame [drone/os1_lidar] to frame [map]
+[ros2-8] [INFO] [1786821383.831642487] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[drone_path_player-10] [INFO] [1786821499.334163942] [drone_path_player]: 경로 재생 종료 (waypoint 남지 않음, 스캔 완료)
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [drone_elevation_mapper-11]: sending signal 'SIGINT' to process[drone_elevation_mapper-11]
+[INFO] [drone_path_player-10]: sending signal 'SIGINT' to process[drone_path_player-10]
+[INFO] [drone_pose_controller-9]: sending signal 'SIGINT' to process[drone_pose_controller-9]
+[INFO] [ros2-8]: sending signal 'SIGINT' to process[ros2-8]
+[INFO] [parameter_bridge-6]: sending signal 'SIGINT' to process[parameter_bridge-6]
+[INFO] [static_transform_publisher-5]: sending signal 'SIGINT' to process[static_transform_publisher-5]
+[INFO] [parameter_bridge-4]: sending signal 'SIGINT' to process[parameter_bridge-4]
+[INFO] [parameter_bridge-3]: sending signal 'SIGINT' to process[parameter_bridge-3]
+[INFO] [parameter_bridge-2]: sending signal 'SIGINT' to process[parameter_bridge-2]
+[INFO] [gazebo-1]: sending signal 'SIGINT' to process[gazebo-1]
+[ros2-8] [INFO] [1786821507.953677223] [rosbag2_recorder]: Topics discovery stopped.
+[parameter_bridge-6] [INFO] [1786821507.957099255] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[ros2-8] [INFO] [1786821507.958000099] [rosbag2_recorder]: Pausing recording.
+[ros2-8] [INFO] [1786821507.961069152] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[static_transform_publisher-5] [INFO] [1786821507.960871932] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[parameter_bridge-4] [INFO] [1786821507.968538711] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[parameter_bridge-3] [INFO] [1786821507.983630962] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[parameter_bridge-2] [INFO] [1786821507.988053385] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[ros2-8] [INFO] [1786821508.002961500] [rosbag2_recorder]: Recording stopped
+[ros2-8] [WARN] [1786821508.003043338] [rosbag2_recorder]: Number of messages lost on the transport layer: 154
+[ros2-8] [INFO] [1786821508.037283243] [rosbag2_recorder]: Event publisher thread: Exited
+[drone_elevation_mapper-11] Traceback (most recent call last):
+[drone_elevation_mapper-11]   File "/home/hyunwoo-chae/AG-CoNav-test_main/install/agconav_drone/lib/agconav_drone/drone_elevation_mapper", line 33, in <module>
+[drone_elevation_mapper-11]     sys.exit(load_entry_point('agconav-drone', 'console_scripts', 'drone_elevation_mapper')())
+[drone_elevation_mapper-11]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[drone_elevation_mapper-11]   File "/home/hyunwoo-chae/AG-CoNav-test_main/build/agconav_drone/agconav_drone/drone_elevation_mapper.py", line 346, in main
+[drone_elevation_mapper-11]     rclpy.shutdown()
+[drone_elevation_mapper-11]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/__init__.py", line 134, in shutdown
+[drone_elevation_mapper-11]     _shutdown(context=context)
+[drone_elevation_mapper-11]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/utilities.py", line 82, in shutdown
+[drone_elevation_mapper-11]     context.shutdown()
+[drone_elevation_mapper-11]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/context.py", line 129, in shutdown
+[drone_elevation_mapper-11]     self.__context.shutdown()
+[drone_elevation_mapper-11] rclpy._rclpy_pybind11.RCLError: failed to shutdown: rcl_shutdown already called on the given context, at ./src/rcl/init.c:333
+[INFO] [static_transform_publisher-5]: process has finished cleanly [pid 12939]
+[INFO] [parameter_bridge-6]: process has finished cleanly [pid 12940]
+[INFO] [parameter_bridge-4]: process has finished cleanly [pid 12938]
+[INFO] [parameter_bridge-3]: process has finished cleanly [pid 12937]
+[INFO] [parameter_bridge-2]: process has finished cleanly [pid 12935]
+[INFO] [drone_pose_controller-9]: process has finished cleanly [pid 13150]
+[INFO] [drone_path_player-10]: process has finished cleanly [pid 13151]
+[INFO] [ros2-8]: process has finished cleanly [pid 13149]
+[ERROR] [drone_elevation_mapper-11]: process has died [pid 13152, exit code 1, cmd '/home/hyunwoo-chae/AG-CoNav-test_main/install/agconav_drone/lib/agconav_drone/drone_elevation_mapper --ros-args -r __node:=drone_elevation_mapper --params-file /home/hyunwoo-chae/AG-CoNav-test_main/install/agconav_drone/share/agconav_drone/config/drone_elevation_mapper.yaml --params-file /tmp/launch_params_qdjwxe9_'].
+[ERROR] [gazebo-1]: process[gazebo-1] failed to terminate '5' seconds after receiving 'SIGINT', escalating to 'SIGTERM'
+[INFO] [gazebo-1]: sending signal 'SIGTERM' to process[gazebo-1]
+[ERROR] [gazebo-1]: process has died [pid 12934, exit code -15, cmd 'ruby /opt/ros/jazzy/opt/gz_tools_vendor/bin/gz sim /home/hyunwoo-chae/AG-CoNav-test_main/install/agconav_test_worlds/share/agconav_test_worlds/worlds/Seongdong_gu_100x100/Seongdong_gu_100x100.world -r -s --force-version 8'].

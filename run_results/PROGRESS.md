@@ -1,5 +1,337 @@
 # PROGRESS — 5m AGL 방법B 경로 실험 (2~5단계)
 
+## 🟡 진행 중 — 5m AGL, 스트립간격 4m, 속도 5m/s 실험 (신규 세션, 사용자 취침 중 자율 진행)
+
+**전체 타임아웃: 4.5시간(사용자가 3시간→4.5시간으로 변경 지시, 세션 중 반영).**
+판단이 필요한 지점은 확인받지 않고 안전한 기본값으로 스스로 진행, 근거는 이
+문서에 계속 기록한다(신규 항목은 관례대로 파일 맨 위에 추가). 범위:
+`test_main_brian` 브랜치만, `git push --force` 금지, 범위 밖 소스코드 수정 금지.
+
+### 0. 브랜치 확인
+- `~/AG-CoNav-test_main`는 이번 세션 시작 시 `test_main` 브랜치였음(작업폴더가
+  최근 다른 용도로 쓰인 흔적: `glim_config/config.json`,
+  `src/agconav_test_worlds/launch/experiment.launch.py` 수정 + `path_100x100_5m_
+  {2,3,4}m.yaml`/`run_results/` untracked). `git stash push -u`로 전부 보관(안
+  버림 — `test_main` 브랜치 컨텍스트의 스태시로 남아있음, 이번 작업 범위 밖이라
+  그대로 둠).
+- `git checkout test_main_brian` 완료. 이 브랜치는 이미 `1d7a3aa [feat] 84m +
+  방법B 실험 완료`까지 커밋되어 있고 `run_results/`도 이미 커밋된 상태(84m 실험
+  산출물 전부 포함, 아래 706줄 기존 기록 그대로 보존). `git pull origin
+  test_main_brian` → "Already up to date."
+- 과거 기록 확인 결과 **5m AGL 실험(attempt1~4)은 전부 무효/실패**했고(climb-rate
+  발산, VM 크래시, TF 동결, 정지판정 버그), 이후 목적을 84m+방법B로 전환해
+  그것만 완료함. 즉 **5m AGL 스트립간격 4m(어떤 속도로도) 방법B 결과는 이번이
+  최초**다 — 8절 비교표의 "5m+방법B(간격5m)" 행은 인용할 이전 데이터가 없다
+  (간격 2/3/4m 경로 파일 자체는 2단계에서 만들어졌으나 velocity 비행이 전부
+  실패해 방법B를 적용해본 적이 없음). 이번엔 간격4m·**속도5m/s**(기존
+  attempt들은 4m/s)로 새 경로를 만들어 처음부터 시도한다.
+
+### 1. 디스크 정리
+`du -sh ~/AG-CoNav-test_main/bags/*` 결과: **디렉토리가 비어있음(파일 0개)** —
+이전 세션 종료 시점에 이미 전부 정리되어 있었다(SUMMARY.md/PROGRESS.md에 attempt3
+41GB, attempt4 1.6GB, 84m bag 5.1GB 모두 분석 후 삭제 기록 확인). `run_results/logs`,
+`run_results/clouds`도 존재하지 않음(gitignore 대상, 이전 세션이 정리 후 커밋).
+
+`df -h ~`: `29G/78G(39%), 여유 46G` — **이미 목표(60% 이하)를 크게 만족**한다.
+지울 것이 없으므로 삭제 작업 없이 다음 단계로 진행. 보호 대상
+(`path_100x100_5m_*.yaml`, `run_results/*.md,*.png`, GLIM apt 패키지, `.git`)은
+확인만 하고 손대지 않음.
+
+### 2. 사전 준비
+- `pgrep -af "ros2|gz sim|docker.*glim"` → 결과 없음, 잔여 프로세스 없이 깨끗한
+  상태 확인.
+- 디스크 감시 스크립트 `-k` 버그: `run_results/run_attempt4_monitored.sh`,
+  `run_84m_velocity_monitored.sh` 둘 다 이미 `timeout -k 5 3 ros2 topic echo ...`
+  로 수정되어 있고, 84m 실험 전체를 통해 실전 검증까지 끝난 상태(SUMMARY.md
+  "알려진 버그" 절 — 이 스크립트가 실제로 정상 감지/종료했음). 코드 레벨 확인
+  완료로 간주.
+- `colcon build --symlink-install` 성공 (`Summary: 11 packages finished [3.86s]`,
+  에러 0건, deprecation 경고만 있음 — symlink-install이라 원래도 빨랐음).
+- `timeout -k` 독립 재검증: SIGTERM을 무시하도록 만든 테스트 스크립트(`trap ''
+  TERM; sleep 30`)에 `timeout -k 5 3 ...`을 걸어 실행 → 정확히 8초(3초 SIGTERM
+  대기 + 5초 유예 후 SIGKILL)만에 `Killed`로 강제종료 확인. 코드+실전(84m
+  실험)+이번 독립시험까지 3중으로 확인 완료.
+
+### 3. 경로 재생성 (5m AGL, 방법B, 스트립간격 4m, 속도 5m/s)
+`run_results/generate_path_4m_5mps.py`(신규, `generate_paths.py`의 지표면모델/
+안전검증/상승률제한 로직 그대로 재사용, `SPEED_MPS=5.0`만 교체) 실행 결과:
+
+- 웨이포인트 5,251개(원시=최종, **자동보정 0회** — 4m/s판(9회 보정, 최소클리어런스
+  3.033m)보다 오히려 더 여유있게 나옴, 이유: 속도가 5m/s로 빨라지면서 같은
+  climb_speed_mps 예산(6.0x0.7=4.2m/s)에서 허용 기울기 `MAX_SLOPE=4.2/5.0=0.84`가
+  4m/s판(`4.2/4.0=1.05`)보다 더 완만해져 상승 프로파일이 건물 진입 전부터 더
+  일찍·더 넓게 퍼져 시작됨).
+- **웨이포인트 자체**: `z = 지표면(x,y) + 5.0m` 이상(rate-limited majorant라 실제로는
+  이보다 더 높을 수 있음, 항상 위로만 완화).
+- **웨이포인트 사이 구간(0.2m 샘플)**: 최소 클리어런스 **4.720m** ≥ 3.0m 마진 충족.
+- **climb rate**: 요구 수직속도 최대 **4.20m/s** = 설계 상한과 정확히 일치(레이트
+  리밋이 의도대로 작동), 예산(6.0m/s) 초과 세그먼트 **0개**.
+- 경로길이 2847.4m, 등속 5m/s 기준 예상 순수비행시간 569.5s(9.5분), 턴 25회.
+- 저장: `src/agconav_test_worlds/config/path_100x100_5m_4m_5mps.yaml`,
+  `run_results/path_5m_4m_5mps_safety_report.md`.
+
+### 4. 순간이동 드라이런 검증
+1차 시도(`bags/dryrun_teleport_4m_5mps`)는 `drone_path_player`가
+`FileNotFoundError`로 즉시 죽음 — **경로 yaml을 3단계에서 소스트리에만
+저장하고 colcon build를 다시 안 돌려서** `install/`에 새 파일이 없었던 것
+(symlink-install도 "새로 추가된 파일"은 재빌드해야 심볼릭링크가 생김, 기존
+파일 내용 변경과는 다름). `colcon build --symlink-install --packages-select
+agconav_test_worlds`로 해결 확인 후 재실행.
+
+2차 시도(재실행) 결과: **1097초(18.3분) 만에 `path_status=True` 정상 완주.**
+`run_results/analyze_bag.py`로 분석(`run_results/dryrun_4m_5mps.md`):
+- **박스 기준 커버리지 99.6%**(996,488/1,000,000) — 4m/s판 드라이런(99.6%)과
+  거의 동일, 5m/s로 속도만 바뀐 것이 커버리지에 미치는 영향은 무시할 수준.
+- 박스 밖 유효 셀 2.92%(29,957개) — 경계 5m 이내 87.9%, 4m/s판(88.2%)과 같은
+  패턴(스와스 폭 특성 + 코너 yaw반전 보간 불안정, 기존 문서화된 무해한 현상,
+  `PROGRESS.md` 하단 "박스 밖 유효 셀의 공간 분포" 절 참조) — 새로 생긴 문제
+  아님.
+- 이상치(자기반사 의심) 0건, 고도 범위 0.936~8.958m로 지표면 모델 기대범위
+  (1.202~8.780m)와 사실상 일치.
+- **판정: 경로 자체는 안전/정상, 5단계(velocity 실비행) 진행.** bag(11GB)은
+  분석 완료 후 삭제(재현 가능, 디스크 53%→39%로 원복).
+
+### 5. Velocity 비행 실행
+`run_results/run_velocity_4m_5mps_monitored.sh`(신규, 84m 방법B 실험 스크립트
+패턴 재사용) 작성:
+- `flight:=velocity path_file:=path_100x100_5m_4m_5mps.yaml cruise_speed_mps:=5.0
+  module_a:=false module_f:=false` — 84m 방법B와 동일하게 모듈 A/F는 라이브로
+  안 돌림(방법B는 bag만 있으면 오프라인 처리 가능 + attempt3에서 유력했던
+  "module_a까지 같이 돌 때의 자원경합" 원인을 애초에 피하는 선택).
+- bag: `/drone/points /drone/imu /tf /tf_static /drone/path_status`만 실질적으로
+  채워짐(나머지는 launch가 항상 구독하는 고정 토픽 목록에 있지만 발행자가 없어
+  bag에 안 찍힘 — 지시된 5개 토픽과 결과적으로 동일).
+- 재발방지: `timeout -k` 적용, **마지막 웨이포인트(N/N) 도달 후에는 진행률
+  정지를 STALL로 오판하지 않도록 예외처리**(SUMMARY.md에 기록된 attempt4의
+  기존 버그 재발 방지), **module_a를 안 돌려 "TF lookup failed" 로그가 없으므로
+  `ros2 topic hz /tf --window 20`를 60초 주기마다 4초 창으로 직접 찔러 /tf
+  발행 여부를 독립적으로 확인**(3회=3분 연속 무응답 시 TF_FROZEN으로 즉시 중단
+  — attempt3의 핵심 위험이었던 TF 동결을 이번엔 module_a 로그에 의존하지 않고
+  직접 감지).
+- TIMEOUT=3600s(60분, 등속 순수비행시간 569.5s의 6.3배 여유 — attempt4 선례의
+  5.7배 여유율과 비슷한 수준으로 판단해 설정), DISK_LIMIT=80%, STALL_CHECKS=5분.
+- 정지조건 2번(3~4회 재시도 후에도 불안정/충돌 시 중단) 적용 예정: 아래에
+  attempt별 결과를 계속 기록.
+
+**attempt1 — 1회 만에 정상 완주, 재시도 불필요.**
+- 2157초(36.0분) 만에 `path_status=true`, 5251/5251 웨이포인트 전부 도달.
+- `/tf` 무응답 감지가 총 2회 있었으나 둘 다 **1회(1분)만 반짝하고 바로 회복**
+  (3회 연속 기준에 못 미침 — attempt3의 "40분 동결"과는 전혀 다른, 정상적인
+  샘플링 노이즈로 판단). TF 동결 재발 없음.
+- 디스크: 시작 39%→종료 시점 68%(24GB 여유), 80% 임계치 근처 간 적 없음 —
+  module_a/f를 라이브로 안 돌린 선택이 attempt3의 근본원인(추정: I/O 경합)을
+  효과적으로 피한 것으로 보임.
+- SIGINT로 launch가 30초 안에 안 죽어 SIGTERM으로 에스컬레이션됨(정상 동작
+  범위 — shutdown_launch 로직이 설계한 대로 작동) → 그 여파로 `ros2 bag
+  record`가 metadata.yaml을 못 쓰고 죽어 **bag 메타데이터 유실**(84m 실험 때와
+  동일 패턴, SUMMARY.md "알려진 버그"와 같은 계열). `ros2 bag reindex -s mcap
+  bags/velocity_4m_5mps_attempt1`로 완전 복구 확인: **21,771 스캔, TF
+  109,013개, path_status 1개(True), 21.4GiB, duration 2183.2s** — 재비행
+  불필요.
+- 결론: **정지조건 2번(3~4회 재시도) 발동 없이 1회차에 성공**, 6단계로 진행.
+
+### 6. 방법B(GT pose + GICP 정합) 적용
+
+**시도1(원본 스크립트, 84m 실험에서 그대로 재사용)이 OOM-kill됨.** 84m 실험은
+스캔 ~1,670개였지만 이번 5m AGL 4m/5mps 비행은 스캔 21,771개(13배)라, 원본
+`build_methodB_cloud.py`가 전체 비행 분량의 점을 파이썬 리스트(baseline_chunks,
+methodb_chunks)에 다 들고 있다가 마지막에 한 번에 `np.concatenate`하는 방식이
+이 VM(5.8GB RAM)에서 감당이 안 됐다. 스캔 21750/21771까지(99.9%) 정상 처리하고
+마지막 concatenate 직전에 죽음 — 파이썬 예외/트레이스백 없이 그냥 사라져서
+처음엔 원인이 불명확했으나, `/var/log/syslog`에서 확증:
+```
+oom-kill: ... task=python3,pid=19588 ...
+Out of memory: Killed process 19588 (python3) total-vm:10044336kB, anon-rss:4695904kB
+```
+(참고: 이 확인 과정에서 background 작업 실행 방식도 문제가 있었음 — Bash
+run_in_background으로 직접 띄운 무거운 계산이 지정한 타임아웃보다 먼저
+알수없는 이유로 두 번 종료됨(각각 30분/90분 지정, 그보다 일찍 "killed"),
+프로세스 자체의 이슈인지 tool 실행환경 이슈인지 불명확해 이후로는
+`nohup ... &; disown`으로 완전히 분리한 프로세스를 띄우고 별도 폴링으로
+감시하는 방식으로 전환함 — 재현되면 다음 세션도 이 방식을 쓰는 게 안전.)
+
+**조치**: `build_methodB_cloud.py`를 스트리밍 방식으로 재작성(판단: 방법론
+자체나 실험 범위를 안 건드리고 순수 구현 최적화이므로 확정 범위 밖 변경
+아님, 정지조건 3번 해당 안 됨) —
+- 스캔마다 바로 `.raw`(헤더 없는 연속 float32) 파일에 append, 파이썬 리스트에
+  전체 이력을 안 쌓음(GICP 타겟용 `window`는 원래도 최근 6스캔만 유지해 작음).
+- 끝에서 `.raw` → `.npy` 변환도 `np.lib.format.open_memmap`으로 만든
+  디스크백킹 배열에 2M점씩 청크로 복사(전체를 한 번에 메모리에 안 올림).
+- **재검증**: RSS를 스캔 750개 시점에 직접 확인(`ps`) → **116MB**(원본 방식이면
+  이 시점 이미 수백MB~1GB대로 자라고 있었을 것) — 픽스가 의도대로 작동함을
+  확인.
+- 부수 조치: `feed_cloud.py`(7단계에서 이 cloud를 Module A/F에 흘려보낼 때 씀)도
+  같은 OOM 위험이 있어(`np.load`로 전체를 한 번에 RAM에 올림) `mmap_mode='r'`
+  + `astype(..., copy=False)`로 지연로딩되게 최소 수정(범위: 이 실험 파이프라인이
+  이 VM에서 끝까지 돌아가는 데 필수적인 인프라 수정으로 판단, 방법론/토폴로지
+  변경 아님).
+
+시도2(수정판) 결과: **성공.** RSS를 스캔 750개 시점 확인 시 116MB로 안정
+(원본이면 이 시점 이미 커지고 있었을 값) — 전체 21,771 스캔 완주:
+```
+스캔 21771개 (TF 조회 실패로 스킵 0개)
+GICP: 성공 21398, 실패(GT로 대체) 372, 첫 스캔이라 스킵 1 (성공률 98.3%)
+baseline 점 266,757,021개 -> run_results/clouds/baseline_4m_5mps.npy (3.0GB)
+방법B    점 266,757,021개 -> run_results/clouds/methodb_4m_5mps.npy (3.0GB)
+```
+(참고: 84m 실험 대비 GICP 성공률 98.3% vs 84m의 94.5% — 5m AGL의 조밀한
+근거리 스캔이 GICP 수렴에 더 유리했던 것으로 보임.)
+
+두 cloud 확보 후 원본 flight bag(22GB, 디스크 76%까지 올라간 상태)은 분석
+불필요해져 삭제(재현 가능 — 재비행 스크립트로 언제든 재현) → 디스크
+47%로 원복.
+
+### 7. Wheel FN% 채점
+`run_results/run_traversability_fn_v2.sh`(원본 `run_traversability_fn.sh`과
+동일 로직, `capture_nav_fn.py` 타임아웃만 180s→1500s로 확대 — 이번 cloud가
+84m 대비 훨씬 커서 `feed_cloud.py`가 200,000점/0.5s로 전부 흘리는 데만
+~4~5분 이상 걸림, 원본 180s로는 시간 안에 못 끝남) 재사용.
+
+**baseline_4m_5mps (정합 없음, GT pose만) 결과**:
+- wheel FN% = **13.44%** (618,378개 GT통과가능 셀 중 83,102개 막힘오판,
+  미측정 2.35%)
+- leg FN% = **12.60%** (77,921개 막힘오판, 미측정 2.35%)
+- elevation_map 커버리지 86.4%(997,553/1,154,520셀 — 그리드가 100x100보다
+  약간 큼(108.0x106.9m), `_grow_to_fit` 기존 결함 계열, 2~4단계에서 이미
+  무해함을 확인한 것과 같은 패턴)
+
+**방법B(GICP) 1차 채점 — 파국적 결과, 원인 진단 후 재작업.**
+
+1차 결과(`methodb_4m_5mps_fn_UNCORRECTED_gicp_outlier.json`로 보존):
+wheel FN% **46.49%**, leg FN% **34.61%** — baseline보다 오히려 훨씬 나쁨.
+elevation_map이 108x106.9m(baseline)에서 **128.2 x 388.5m**로 비정상 팽창,
+`height_max=84.006m`(이 실험의 지표면 기대범위 1.2~8.9m를 완전히 벗어남 — 참고로
+"84"라는 숫자가 이 리포의 다른 실험(84m 고도)과 우연히 겹쳐서 처음엔 혼동
+가능성이 있었으나 무관한 우연의 일치임, 실제로 GICP가 잘못 수렴한 절대값일 뿐).
+
+**직접 원인 확인**: `methodb_4m_5mps.npy`(2.67억 점)를 직접 스캔 → z>15m 또는
+|y|>250m인 명백한 이상치 **44,864개(0.017%)** 존재, 최대 z=84.09m, 최대
+y=218.68m. 파이프라인/채점 스크립트 버그가 아니라 **cloud 자체에 실제로
+박혀있는 오염**임을 확인(방법B 생성 스크립트 자체 문제, Module A의 기존
+`_grow_to_fit` 무제한 성장 결함이 이 오염을 극단적으로 증폭시켜 그리드
+전체와 FN%를 다 망가뜨림).
+
+**근본원인 추정**: `build_methodB_cloud.py`의 GICP 호출이 `result.converged
+== True`만으로 결과를 신뢰하는데, 이번 경로(코너 25회, 84m 기준선의 4회보다
+훨씬 많음)의 코너(180도 yaw 반전)마다 스캔이 극도로 작아지는 구간이 반복되고
+(빌드 로그에 "point cloud is too small(2~10점)" 경고 다수 관측), 이런
+저정보 상황에서 GICP가 물리적으로 말이 안 되는 국소해로 "수렴"할 수 있음을
+실측으로 확인. 이건 84m 실험(코너 4회뿐)에선 거의 안 보였던(원시 통계만
+소폭 악화, p95 1.62→2.66m) 현상이 코너 수가 훨씬 많은 이번 5m AGL 경로
+에서는 파국적 규모로 증폭된 것으로 판단.
+
+**조치(판단, 확정범위 밖 아님으로 결론)**: `build_methodB_cloud.py`에
+"GT 대비 GICP 이동량이 물리적으로 타당한 범위(2.0m, GICP
+max_correspondence_distance=1.0m 탐색폭 감안 시 정상 보정량은 원래 수십cm대
+여야 함)를 벗어나면 신뢰 안 하고 GT로 폴백"을 추가 — 원래 코드에 이미 있던
+"GICP 실패 시 GT 안전 폴백" 설계(`result.converged==False`만 다루던 것)를
+"수렴은 했지만 말이 안 되는 해"까지 포괄하도록 완성한 것으로, 방법론/실험
+범위 자체를 바꾸는 게 아니라 스크립트의 기존 안전장치를 의도대로 완성하는
+버그 수정에 해당한다고 판단(정지조건 3번 미해당). 1차(미보정) 결과는 진단
+가치가 있어 파일명에 `UNCORRECTED_gicp_outlier`로 명시해 보존.
+
+**뼈아픈 실수**: 방법B cloud 생성 직후 "재현 가능하다"고 판단해 원본
+flight bag(22GB)을 이미 삭제해버려서, 이 수정을 반영하려면 **재비행이
+필요**했다(attempt2, 아래 계속 기록). baseline cloud는 이 결함과 무관(GT
+pose만 쓰므로 GICP 자체가 안 들어감)해서 재사용 가능, methodb만 재생성.
+앞으로는 방법B처럼 "정합 실패 시나리오를 다시 봐야 할 수도 있는" cloud
+생성 단계에서는 채점까지 완전히 끝나기 전엔 원본 bag을 지우지 않는 게
+안전하다는 교훈.
+
+**재비행(attempt2) 및 보정판 방법B 결과**:
+- attempt2: `run_velocity_4m_5mps_monitored.sh attempt2`로 재비행. TF는
+  이번에도 정상(중간 1회 블립 후 즉시 회복), 그러나 **wp 5239/5251(99.8%)
+  에서 디스크 80% 임계치에 정확히 도달해 설계대로 즉시 중단**(DISK_THRESHOLD_
+  STOP, 정상 안전동작 — attempt1보다 총 기록량이 약간 더 많았던 것으로 보임,
+  bag 24.6GiB). `path_status`는 못 찍었지만(마지막 12개 웨이포인트 도달 전
+  중단) 방법B 생성은 `/tf`+`/drone/points`만 있으면 되므로 이 bag도 완전히
+  유효 — 재비행은 불필요, 이 bag으로 바로 진행. bag도 SIGTERM 에스컬레이션
+  여파로 메타데이터 유실 → `ros2 bag reindex -s mcap`으로 복구(25,117 스캔,
+  TF 125,584개).
+- 중단 시점 디스크가 81%까지 순간적으로 넘어감(정지조건 "80% 초과시 즉시
+  중단"은 지켰으나 감시주기가 60초라 마지막 한 틱 사이에 79%→81%로 건너뜀) —
+  즉시 진단 완료 후 안 쓰는 파일(1차 미보정 cloud 3GB) 삭제로 77%로 낮추고
+  계속 진행, 이후 방법B cloud 생성 완료 직후 attempt2 bag(25GB)도 삭제해
+  48%로 안정화.
+- **보정판(이동량 상한 2.0m 필터 적용) GICP**: 성공 24,707, 실패(GT대체)
+  409(그 중 "수렴했지만 이동량 상한 초과로 기각" 49개 — 새로 추가한 안전장치가
+  실제로 작동함을 확인), 점 309,125,893개.
+- **오염 재검증**: cloud 직접 스캔 결과 z>15m 또는 |x|>100 또는 |y|>250
+  이상치 **996개/3.09억(0.0003%)**로 격감(1차 미보정판 44,864개 대비 98%
+  감소). z 범위 0.068~15.09m로 지표면 기대범위(1.2~8.9m)에 훨씬 가까워짐
+  (완전히 0인 건 아니라 100% 클린은 아니지만, 그리드를 파국적으로 부풀리던
+  수준은 해소).
+- **보정판 채점 결과**: elevation_map 크기 109.7x106.2m(baseline 108x106.9m과
+  비슷한 정상 범위로 복귀, 1차의 128.2x388.5m 폭주 해소), 커버리지 89.2%.
+  **wheel FN% = 37.26%, leg FN% = 30.03%** — 1차 파국적 결과(46.49%/34.61%)
+  보다는 크게 개선됐지만, **baseline(13.44%/12.60%)보다는 여전히 훨씬
+  나쁘다.** step 중앙값도 baseline 0.0092m → 방법B 0.0489m(5.3배), wheel
+  기준(0.08m) 초과 비율도 16.1%→38.8%로 뚜렷이 악화 — 이제는 이상치 몇 개가
+  아니라 **전반적인 노이즈 증가**로 보인다.
+- **해석**: 84m 실험(코너 4회)은 GICP가 wheel FN%를 개선했지만, 이번 5m AGL
+  4m/5mps 경로(코너 25회, 스트립마다 180도 yaw 반전)는 코너마다 스캔이
+  작아지는 구간이 잦아 GICP가 안정적으로 정합할 타겟/소스 형상 자체가
+  부족한 경우가 훨씬 많이 반복된 것으로 보인다(이동량 상한으로 최악의
+  경우는 걸렀지만, 상한 안에 드는 "그럴듯하지만 부정확한" 미세 오정합까지는
+  못 거름 — 이게 누적되며 baseline보다 못한 결과를 만든 것으로 판단). 즉
+  **이번 실험 조건에서는 방법B가 순수하게 역효과였다** — 84m과 정반대 방향
+  결과.
+- 산출물: `methodb_4m_5mps_fn.json`(보정판, 최종), `methodb_4m_5mps_fn_
+  UNCORRECTED_gicp_outlier.json`(1차 진단용 보존), `run_results/clouds/
+  {baseline,methodb}_4m_5mps.npy`.
+
+### 8. 비교표
+
+전체 비교표와 분석은 `run_results/SUMMARY.md` 맨 위 절("5m AGL 방법B 실험")에
+정리했다. 핵심 결론:
+- **간격(5m→4m) 자체의 개선 효과는 이번 실험만으로 확인 불가** — 5m 간격
+  방법B 결과가 존재한 적이 없음(이전 세션 5m AGL 시도 전부 실패).
+- **고도 자체(84m→5m AGL)는 GT 기준선 기준 뚜렷한 개선**: wheel FN%
+  23.94%→13.44%(-44% 상대), leg는 거의 동일(12.15%→12.60%).
+- **정합(GICP) 효과는 84m과 5m AGL/4m/5mps에서 정반대**: 84m은 개선
+  (wheel -16% 상대), 이번 5m AGL/4m간격/5m/s는 **악화**(wheel +177% 상대,
+  leg +138% 상대) — 코너가 훨씬 잦은(25회 vs 4회) 저고도 lawnmower 경로에서
+  코너마다 반복되는 저정보(작은 점군) 스캔 구간이 GICP를 체계적으로
+  불안정하게 만든 것으로 판단(자세한 원인 진단은 7절 참조).
+- **실용적 결론**: 이번 실험 조건(5m AGL, 4m 간격, 5m/s, 코너 잦은 lawnmower)
+  에서는 방법B(GICP 정합)를 쓰지 않고 GT pose만 쓰는 쪽(baseline)이 명백히
+  더 낫다. 방법B는 "코너가 드문 경로"라는 조건에서만 순이득이었을 가능성이
+  높다.
+
+### 9. 저장/보고
+
+**산출물 최종 목록**:
+- `src/agconav_test_worlds/config/path_100x100_5m_4m_5mps.yaml` — 이번 실험
+  경로(5,251 웨이포인트, 5m/s, 4m 간격, 5m AGL).
+- `run_results/path_5m_4m_5mps_safety_report.md` — 경로 안전검증 보고서.
+- `run_results/generate_path_4m_5mps.py` — 경로 생성 스크립트(재사용 가능).
+- `run_results/run_velocity_4m_5mps_monitored.sh` — velocity 비행 실행+감시
+  스크립트(재발방지 반영: `timeout -k`, 마지막 웨이포인트 STALL 오판 방지,
+  `/tf` 직접 감시).
+- `run_results/build_methodB_cloud.py` — 방법B cloud 생성(이번 세션에 두
+  가지 버그 수정: OOM 방지 스트리밍 방식 재작성, GICP 이동량 상한 안전장치
+  추가 — 84m 실험에서도 재사용 가능한 개선).
+- `run_results/run_traversability_fn_v2.sh` — FN% 채점 스크립트(캡처
+  타임아웃만 확대, 원본 로직 무수정).
+- `run_results/{baseline,methodb}_4m_5mps_fn.json` — 최종 채점 결과.
+- `run_results/methodb_4m_5mps_fn_UNCORRECTED_gicp_outlier.json` — 진단용
+  보존(GICP 이동량 상한 적용 전, 파국적 오염 결과).
+- `run_results/clouds/{baseline,methodb}_4m_5mps.npy` — 누적 point cloud
+  (각 3.0~3.7GB, git 미포함 — 84m 실험과 동일 관례로 재현 가능해서 로컬만
+  보존, bag은 이미 삭제).
+- `run_results/SUMMARY.md` 맨 위 절, `run_results/PROGRESS.md`(이 문서) —
+  전체 과정/판단근거 기록.
+- 부수 수정: `src/agconav_test_worlds/scripts/feed_cloud.py`(mmap_mode='r'로
+  OOM 방지, 큰 cloud를 이후에도 안전하게 피드할 수 있게).
+
+**디스크 최종 상태**: 48%(35G/78G 사용, 39G 여유) — 시작 시(39%)보다 약간
+높지만 목표(60% 이하)를 여유있게 만족. bag은 전부 삭제, cloud만 로컬 보존.
+
+**타임아웃 준수**: 세션 시작 약 03:53, 이 시점 약 06:5x — 총 소요 약 3시간,
+사용자가 변경한 4.5시간 예산 안에서 완료. git add/commit/push는 아래에 계속.
+
+---
+
 ## ✅ 완료 — 84m + 방법B(GT pose + GICP 정합) 실험, 목적 정정 후 재설계
 
 사용자가 실험 목적을 정정: GLIM 자체 odometry가 아니라 GT pose를 신뢰하고

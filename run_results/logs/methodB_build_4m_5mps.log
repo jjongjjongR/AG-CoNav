@@ -1,0 +1,1237 @@
+  스캔 50개 처리, GICP 성공 48 실패 1
+  스캔 100개 처리, GICP 성공 96 실패 3
+  스캔 150개 처리, GICP 성공 136 실패 13
+  스캔 200개 처리, GICP 성공 185 실패 14
+  스캔 250개 처리, GICP 성공 219 실패 30
+  스캔 300개 처리, GICP 성공 263 실패 36
+  스캔 350개 처리, GICP 성공 309 실패 40
+  스캔 400개 처리, GICP 성공 358 실패 41
+  스캔 450개 처리, GICP 성공 408 실패 41
+  스캔 500개 처리, GICP 성공 458 실패 41
+  스캔 550개 처리, GICP 성공 508 실패 41
+  스캔 600개 처리, GICP 성공 555 실패 44
+  스캔 650개 처리, GICP 성공 603 실패 46
+  스캔 700개 처리, GICP 성공 653 실패 46
+  스캔 750개 처리, GICP 성공 703 실패 46
+  스캔 800개 처리, GICP 성공 753 실패 46
+  스캔 850개 처리, GICP 성공 802 실패 47
+  스캔 900개 처리, GICP 성공 852 실패 47
+  스캔 950개 처리, GICP 성공 902 실패 47
+  스캔 1000개 처리, GICP 성공 950 실패 49
+  스캔 1050개 처리, GICP 성공 1000 실패 49
+  스캔 1100개 처리, GICP 성공 1050 실패 49
+  스캔 1150개 처리, GICP 성공 1099 실패 50
+  스캔 1200개 처리, GICP 성공 1149 실패 50
+  스캔 1250개 처리, GICP 성공 1198 실패 51
+  스캔 1300개 처리, GICP 성공 1247 실패 52
+  스캔 1350개 처리, GICP 성공 1297 실패 52
+  스캔 1400개 처리, GICP 성공 1346 실패 53
+  스캔 1450개 처리, GICP 성공 1396 실패 53
+  스캔 1500개 처리, GICP 성공 1446 실패 53
+  스캔 1550개 처리, GICP 성공 1496 실패 53
+  스캔 1600개 처리, GICP 성공 1545 실패 54
+  스캔 1650개 처리, GICP 성공 1593 실패 56
+  스캔 1700개 처리, GICP 성공 1641 실패 58
+  스캔 1750개 처리, GICP 성공 1688 실패 61
+  스캔 1800개 처리, GICP 성공 1736 실패 63
+  스캔 1850개 처리, GICP 성공 1784 실패 65
+  스캔 1900개 처리, GICP 성공 1834 실패 65
+  스캔 1950개 처리, GICP 성공 1882 실패 67
+  스캔 2000개 처리, GICP 성공 1928 실패 71
+  스캔 2050개 처리, GICP 성공 1974 실패 75
+  스캔 2100개 처리, GICP 성공 2023 실패 76
+  스캔 2150개 처리, GICP 성공 2073 실패 76
+  스캔 2200개 처리, GICP 성공 2123 실패 76
+  스캔 2250개 처리, GICP 성공 2173 실패 76
+  스캔 2300개 처리, GICP 성공 2223 실패 76
+  스캔 2350개 처리, GICP 성공 2273 실패 76
+  스캔 2400개 처리, GICP 성공 2323 실패 76
+  스캔 2450개 처리, GICP 성공 2373 실패 76
+  스캔 2500개 처리, GICP 성공 2423 실패 76
+  스캔 2550개 처리, GICP 성공 2473 실패 76
+  스캔 2600개 처리, GICP 성공 2522 실패 77
+  스캔 2650개 처리, GICP 성공 2571 실패 78
+  스캔 2700개 처리, GICP 성공 2621 실패 78
+  스캔 2750개 처리, GICP 성공 2671 실패 78
+  스캔 2800개 처리, GICP 성공 2721 실패 78
+  스캔 2850개 처리, GICP 성공 2771 실패 78
+  스캔 2900개 처리, GICP 성공 2821 실패 78
+  스캔 2950개 처리, GICP 성공 2869 실패 80
+  스캔 3000개 처리, GICP 성공 2919 실패 80
+  스캔 3050개 처리, GICP 성공 2969 실패 80
+  스캔 3100개 처리, GICP 성공 3018 실패 81
+  스캔 3150개 처리, GICP 성공 3068 실패 81
+  스캔 3200개 처리, GICP 성공 3118 실패 81
+  스캔 3250개 처리, GICP 성공 3168 실패 81
+  스캔 3300개 처리, GICP 성공 3214 실패 85
+  스캔 3350개 처리, GICP 성공 3261 실패 88
+  스캔 3400개 처리, GICP 성공 3309 실패 90
+  스캔 3450개 처리, GICP 성공 3356 실패 93
+  스캔 3500개 처리, GICP 성공 3406 실패 93
+  스캔 3550개 처리, GICP 성공 3452 실패 97
+  스캔 3600개 처리, GICP 성공 3500 실패 99
+  스캔 3650개 처리, GICP 성공 3549 실패 100
+  스캔 3700개 처리, GICP 성공 3598 실패 101
+  스캔 3750개 처리, GICP 성공 3644 실패 105
+  스캔 3800개 처리, GICP 성공 3694 실패 105
+  스캔 3850개 처리, GICP 성공 3744 실패 105
+  스캔 3900개 처리, GICP 성공 3794 실패 105
+  스캔 3950개 처리, GICP 성공 3844 실패 105
+  스캔 4000개 처리, GICP 성공 3894 실패 105
+  스캔 4050개 처리, GICP 성공 3944 실패 105
+  스캔 4100개 처리, GICP 성공 3994 실패 105
+  스캔 4150개 처리, GICP 성공 4041 실패 108
+  스캔 4200개 처리, GICP 성공 4091 실패 108
+  스캔 4250개 처리, GICP 성공 4141 실패 108
+  스캔 4300개 처리, GICP 성공 4191 실패 108
+  스캔 4350개 처리, GICP 성공 4241 실패 108
+  스캔 4400개 처리, GICP 성공 4291 실패 108
+  스캔 4450개 처리, GICP 성공 4341 실패 108
+  스캔 4500개 처리, GICP 성공 4391 실패 108
+  스캔 4550개 처리, GICP 성공 4441 실패 108
+  스캔 4600개 처리, GICP 성공 4488 실패 111
+  스캔 4650개 처리, GICP 성공 4537 실패 112
+  스캔 4700개 처리, GICP 성공 4587 실패 112
+  스캔 4750개 처리, GICP 성공 4636 실패 113
+  스캔 4800개 처리, GICP 성공 4686 실패 113
+  스캔 4850개 처리, GICP 성공 4736 실패 113
+  스캔 4900개 처리, GICP 성공 4785 실패 114
+  스캔 4950개 처리, GICP 성공 4835 실패 114
+  스캔 5000개 처리, GICP 성공 4885 실패 114
+  스캔 5050개 처리, GICP 성공 4932 실패 117
+  스캔 5100개 처리, GICP 성공 4979 실패 120
+  스캔 5150개 처리, GICP 성공 5026 실패 123
+  스캔 5200개 처리, GICP 성공 5070 실패 129
+  스캔 5250개 처리, GICP 성공 5120 실패 129
+  스캔 5300개 처리, GICP 성공 5168 실패 131
+  스캔 5350개 처리, GICP 성공 5211 실패 138
+  스캔 5400개 처리, GICP 성공 5260 실패 139
+  스캔 5450개 처리, GICP 성공 5309 실패 140
+  스캔 5500개 처리, GICP 성공 5359 실패 140
+  스캔 5550개 처리, GICP 성공 5409 실패 140
+  스캔 5600개 처리, GICP 성공 5459 실패 140
+  스캔 5650개 처리, GICP 성공 5509 실패 140
+  스캔 5700개 처리, GICP 성공 5559 실패 140
+  스캔 5750개 처리, GICP 성공 5609 실패 140
+  스캔 5800개 처리, GICP 성공 5658 실패 141
+  스캔 5850개 처리, GICP 성공 5708 실패 141
+  스캔 5900개 처리, GICP 성공 5758 실패 141
+  스캔 5950개 처리, GICP 성공 5808 실패 141
+  스캔 6000개 처리, GICP 성공 5857 실패 142
+  스캔 6050개 처리, GICP 성공 5907 실패 142
+  스캔 6100개 처리, GICP 성공 5957 실패 142
+  스캔 6150개 처리, GICP 성공 6007 실패 142
+  스캔 6200개 처리, GICP 성공 6057 실패 142
+  스캔 6250개 처리, GICP 성공 6107 실패 142
+  스캔 6300개 처리, GICP 성공 6157 실패 142
+  스캔 6350개 처리, GICP 성공 6207 실패 142
+  스캔 6400개 처리, GICP 성공 6257 실패 142
+  스캔 6450개 처리, GICP 성공 6307 실패 142
+  스캔 6500개 처리, GICP 성공 6357 실패 142
+  스캔 6550개 처리, GICP 성공 6407 실패 142
+  스캔 6600개 처리, GICP 성공 6457 실패 142
+  스캔 6650개 처리, GICP 성공 6507 실패 142
+  스캔 6700개 처리, GICP 성공 6555 실패 144
+  스캔 6750개 처리, GICP 성공 6605 실패 144
+  스캔 6800개 처리, GICP 성공 6650 실패 149
+  스캔 6850개 처리, GICP 성공 6700 실패 149
+  스캔 6900개 처리, GICP 성공 6749 실패 150
+  스캔 6950개 처리, GICP 성공 6796 실패 153
+  스캔 7000개 처리, GICP 성공 6845 실패 154
+  스캔 7050개 처리, GICP 성공 6890 실패 159
+  스캔 7100개 처리, GICP 성공 6940 실패 159
+  스캔 7150개 처리, GICP 성공 6988 실패 161
+  스캔 7200개 처리, GICP 성공 7038 실패 161
+  스캔 7250개 처리, GICP 성공 7088 실패 161
+  스캔 7300개 처리, GICP 성공 7138 실패 161
+  스캔 7350개 처리, GICP 성공 7188 실패 161
+  스캔 7400개 처리, GICP 성공 7238 실패 161
+  스캔 7450개 처리, GICP 성공 7288 실패 161
+  스캔 7500개 처리, GICP 성공 7338 실패 161
+  스캔 7550개 처리, GICP 성공 7388 실패 161
+  스캔 7600개 처리, GICP 성공 7438 실패 161
+  스캔 7650개 처리, GICP 성공 7488 실패 161
+  스캔 7700개 처리, GICP 성공 7538 실패 161
+  스캔 7750개 처리, GICP 성공 7587 실패 162
+  스캔 7800개 처리, GICP 성공 7637 실패 162
+  스캔 7850개 처리, GICP 성공 7687 실패 162
+  스캔 7900개 처리, GICP 성공 7737 실패 162
+  스캔 7950개 처리, GICP 성공 7787 실패 162
+  스캔 8000개 처리, GICP 성공 7837 실패 162
+  스캔 8050개 처리, GICP 성공 7887 실패 162
+  스캔 8100개 처리, GICP 성공 7937 실패 162
+  스캔 8150개 처리, GICP 성공 7987 실패 162
+  스캔 8200개 처리, GICP 성공 8037 실패 162
+  스캔 8250개 처리, GICP 성공 8087 실패 162
+  스캔 8300개 처리, GICP 성공 8137 실패 162
+  스캔 8350개 처리, GICP 성공 8187 실패 162
+  스캔 8400개 처리, GICP 성공 8237 실패 162
+  스캔 8450개 처리, GICP 성공 8285 실패 164
+  스캔 8500개 처리, GICP 성공 8334 실패 165
+  스캔 8550개 처리, GICP 성공 8377 실패 172
+  스캔 8600개 처리, GICP 성공 8426 실패 173
+  스캔 8650개 처리, GICP 성공 8464 실패 185
+  스캔 8700개 처리, GICP 성공 8514 실패 185
+  스캔 8750개 처리, GICP 성공 8557 실패 192
+  스캔 8800개 처리, GICP 성공 8607 실패 192
+  스캔 8850개 처리, GICP 성공 8656 실패 193
+  스캔 8900개 처리, GICP 성공 8706 실패 193
+  스캔 8950개 처리, GICP 성공 8756 실패 193
+  스캔 9000개 처리, GICP 성공 8806 실패 193
+  스캔 9050개 처리, GICP 성공 8856 실패 193
+  스캔 9100개 처리, GICP 성공 8906 실패 193
+  스캔 9150개 처리, GICP 성공 8956 실패 193
+  스캔 9200개 처리, GICP 성공 9006 실패 193
+  스캔 9250개 처리, GICP 성공 9056 실패 193
+  스캔 9300개 처리, GICP 성공 9106 실패 193
+  스캔 9350개 처리, GICP 성공 9156 실패 193
+  스캔 9400개 처리, GICP 성공 9206 실패 193
+  스캔 9450개 처리, GICP 성공 9256 실패 193
+  스캔 9500개 처리, GICP 성공 9306 실패 193
+  스캔 9550개 처리, GICP 성공 9356 실패 193
+  스캔 9600개 처리, GICP 성공 9406 실패 193
+  스캔 9650개 처리, GICP 성공 9456 실패 193
+  스캔 9700개 처리, GICP 성공 9506 실패 193
+  스캔 9750개 처리, GICP 성공 9556 실패 193
+  스캔 9800개 처리, GICP 성공 9606 실패 193
+  스캔 9850개 처리, GICP 성공 9652 실패 197
+  스캔 9900개 처리, GICP 성공 9702 실패 197
+  스캔 9950개 처리, GICP 성공 9752 실패 197
+  스캔 10000개 처리, GICP 성공 9802 실패 197
+  스캔 10050개 처리, GICP 성공 9852 실패 197
+  스캔 10100개 처리, GICP 성공 9902 실패 197
+  스캔 10150개 처리, GICP 성공 9952 실패 197
+  스캔 10200개 처리, GICP 성공 10002 실패 197
+  스캔 10250개 처리, GICP 성공 10049 실패 200
+  스캔 10300개 처리, GICP 성공 10096 실패 203
+  스캔 10350개 처리, GICP 성공 10145 실패 204
+  스캔 10400개 처리, GICP 성공 10194 실패 205
+  스캔 10450개 처리, GICP 성공 10244 실패 205
+  스캔 10500개 처리, GICP 성공 10288 실패 211
+  스캔 10550개 처리, GICP 성공 10338 실패 211
+  스캔 10600개 처리, GICP 성공 10388 실패 211
+  스캔 10650개 처리, GICP 성공 10438 실패 211
+  스캔 10700개 처리, GICP 성공 10488 실패 211
+  스캔 10750개 처리, GICP 성공 10538 실패 211
+  스캔 10800개 처리, GICP 성공 10588 실패 211
+  스캔 10850개 처리, GICP 성공 10638 실패 211
+  스캔 10900개 처리, GICP 성공 10688 실패 211
+  스캔 10950개 처리, GICP 성공 10738 실패 211
+  스캔 11000개 처리, GICP 성공 10788 실패 211
+  스캔 11050개 처리, GICP 성공 10838 실패 211
+  스캔 11100개 처리, GICP 성공 10888 실패 211
+  스캔 11150개 처리, GICP 성공 10938 실패 211
+  스캔 11200개 처리, GICP 성공 10988 실패 211
+  스캔 11250개 처리, GICP 성공 11038 실패 211
+  스캔 11300개 처리, GICP 성공 11088 실패 211
+  스캔 11350개 처리, GICP 성공 11138 실패 211
+  스캔 11400개 처리, GICP 성공 11188 실패 211
+  스캔 11450개 처리, GICP 성공 11238 실패 211
+  스캔 11500개 처리, GICP 성공 11288 실패 211
+  스캔 11550개 처리, GICP 성공 11338 실패 211
+  스캔 11600개 처리, GICP 성공 11388 실패 211
+  스캔 11650개 처리, GICP 성공 11438 실패 211
+  스캔 11700개 처리, GICP 성공 11488 실패 211
+  스캔 11750개 처리, GICP 성공 11538 실패 211
+  스캔 11800개 처리, GICP 성공 11588 실패 211
+  스캔 11850개 처리, GICP 성공 11637 실패 212
+  스캔 11900개 처리, GICP 성공 11687 실패 212
+  스캔 11950개 처리, GICP 성공 11736 실패 213
+  스캔 12000개 처리, GICP 성공 11784 실패 215
+  스캔 12050개 처리, GICP 성공 11834 실패 215
+  스캔 12100개 처리, GICP 성공 11879 실패 220
+  스캔 12150개 처리, GICP 성공 11926 실패 223
+  스캔 12200개 처리, GICP 성공 11976 실패 223
+  스캔 12250개 처리, GICP 성공 12025 실패 224
+  스캔 12300개 처리, GICP 성공 12075 실패 224
+  스캔 12350개 처리, GICP 성공 12125 실패 224
+  스캔 12400개 처리, GICP 성공 12175 실패 224
+  스캔 12450개 처리, GICP 성공 12225 실패 224
+  스캔 12500개 처리, GICP 성공 12275 실패 224
+  스캔 12550개 처리, GICP 성공 12325 실패 224
+  스캔 12600개 처리, GICP 성공 12375 실패 224
+  스캔 12650개 처리, GICP 성공 12425 실패 224
+  스캔 12700개 처리, GICP 성공 12475 실패 224
+  스캔 12750개 처리, GICP 성공 12525 실패 224
+  스캔 12800개 처리, GICP 성공 12575 실패 224
+  스캔 12850개 처리, GICP 성공 12625 실패 224
+  스캔 12900개 처리, GICP 성공 12674 실패 225
+  스캔 12950개 처리, GICP 성공 12723 실패 226
+  스캔 13000개 처리, GICP 성공 12773 실패 226
+  스캔 13050개 처리, GICP 성공 12822 실패 227
+  스캔 13100개 처리, GICP 성공 12871 실패 228
+  스캔 13150개 처리, GICP 성공 12921 실패 228
+  스캔 13200개 처리, GICP 성공 12971 실패 228
+  스캔 13250개 처리, GICP 성공 13021 실패 228
+  스캔 13300개 처리, GICP 성공 13070 실패 229
+  스캔 13350개 처리, GICP 성공 13120 실패 229
+  스캔 13400개 처리, GICP 성공 13170 실패 229
+  스캔 13450개 처리, GICP 성공 13220 실패 229
+  스캔 13500개 처리, GICP 성공 13270 실패 229
+  스캔 13550개 처리, GICP 성공 13320 실패 229
+  스캔 13600개 처리, GICP 성공 13370 실패 229
+  스캔 13650개 처리, GICP 성공 13420 실패 229
+  스캔 13700개 처리, GICP 성공 13470 실패 229
+  스캔 13750개 처리, GICP 성공 13520 실패 229
+  스캔 13800개 처리, GICP 성공 13570 실패 229
+  스캔 13850개 처리, GICP 성공 13620 실패 229
+  스캔 13900개 처리, GICP 성공 13665 실패 234
+  스캔 13950개 처리, GICP 성공 13711 실패 238
+  스캔 14000개 처리, GICP 성공 13759 실패 240
+  스캔 14050개 처리, GICP 성공 13809 실패 240
+  스캔 14100개 처리, GICP 성공 13858 실패 241
+  스캔 14150개 처리, GICP 성공 13908 실패 241
+  스캔 14200개 처리, GICP 성공 13958 실패 241
+  스캔 14250개 처리, GICP 성공 14008 실패 241
+  스캔 14300개 처리, GICP 성공 14058 실패 241
+  스캔 14350개 처리, GICP 성공 14108 실패 241
+  스캔 14400개 처리, GICP 성공 14158 실패 241
+  스캔 14450개 처리, GICP 성공 14208 실패 241
+  스캔 14500개 처리, GICP 성공 14258 실패 241
+  스캔 14550개 처리, GICP 성공 14308 실패 241
+  스캔 14600개 처리, GICP 성공 14358 실패 241
+  스캔 14650개 처리, GICP 성공 14408 실패 241
+  스캔 14700개 처리, GICP 성공 14458 실패 241
+  스캔 14750개 처리, GICP 성공 14506 실패 243
+  스캔 14800개 처리, GICP 성공 14556 실패 243
+  스캔 14850개 처리, GICP 성공 14606 실패 243
+  스캔 14900개 처리, GICP 성공 14656 실패 243
+  스캔 14950개 처리, GICP 성공 14706 실패 243
+  스캔 15000개 처리, GICP 성공 14756 실패 243
+  스캔 15050개 처리, GICP 성공 14806 실패 243
+  스캔 15100개 처리, GICP 성공 14856 실패 243
+  스캔 15150개 처리, GICP 성공 14906 실패 243
+  스캔 15200개 처리, GICP 성공 14956 실패 243
+  스캔 15250개 처리, GICP 성공 15006 실패 243
+  스캔 15300개 처리, GICP 성공 15056 실패 243
+  스캔 15350개 처리, GICP 성공 15106 실패 243
+  스캔 15400개 처리, GICP 성공 15156 실패 243
+  스캔 15450개 처리, GICP 성공 15206 실패 243
+  스캔 15500개 처리, GICP 성공 15256 실패 243
+  스캔 15550개 처리, GICP 성공 15306 실패 243
+  스캔 15600개 처리, GICP 성공 15356 실패 243
+  스캔 15650개 처리, GICP 성공 15404 실패 245
+  스캔 15700개 처리, GICP 성공 15451 실패 248
+  스캔 15750개 처리, GICP 성공 15498 실패 251
+  스캔 15800개 처리, GICP 성공 15544 실패 255
+  스캔 15850개 처리, GICP 성공 15594 실패 255
+  스캔 15900개 처리, GICP 성공 15644 실패 255
+  스캔 15950개 처리, GICP 성공 15693 실패 256
+  스캔 16000개 처리, GICP 성공 15743 실패 256
+  스캔 16050개 처리, GICP 성공 15792 실패 257
+  스캔 16100개 처리, GICP 성공 15842 실패 257
+  스캔 16150개 처리, GICP 성공 15892 실패 257
+  스캔 16200개 처리, GICP 성공 15942 실패 257
+  스캔 16250개 처리, GICP 성공 15992 실패 257
+  스캔 16300개 처리, GICP 성공 16042 실패 257
+  스캔 16350개 처리, GICP 성공 16092 실패 257
+  스캔 16400개 처리, GICP 성공 16142 실패 257
+  스캔 16450개 처리, GICP 성공 16192 실패 257
+  스캔 16500개 처리, GICP 성공 16242 실패 257
+  스캔 16550개 처리, GICP 성공 16292 실패 257
+  스캔 16600개 처리, GICP 성공 16340 실패 259
+  스캔 16650개 처리, GICP 성공 16388 실패 261
+  스캔 16700개 처리, GICP 성공 16438 실패 261
+  스캔 16750개 처리, GICP 성공 16488 실패 261
+  스캔 16800개 처리, GICP 성공 16538 실패 261
+  스캔 16850개 처리, GICP 성공 16586 실패 263
+  스캔 16900개 처리, GICP 성공 16636 실패 263
+  스캔 16950개 처리, GICP 성공 16686 실패 263
+  스캔 17000개 처리, GICP 성공 16736 실패 263
+  스캔 17050개 처리, GICP 성공 16786 실패 263
+  스캔 17100개 처리, GICP 성공 16836 실패 263
+  스캔 17150개 처리, GICP 성공 16886 실패 263
+  스캔 17200개 처리, GICP 성공 16936 실패 263
+  스캔 17250개 처리, GICP 성공 16986 실패 263
+  스캔 17300개 처리, GICP 성공 17036 실패 263
+  스캔 17350개 처리, GICP 성공 17086 실패 263
+  스캔 17400개 처리, GICP 성공 17136 실패 263
+  스캔 17450개 처리, GICP 성공 17186 실패 263
+  스캔 17500개 처리, GICP 성공 17236 실패 263
+  스캔 17550개 처리, GICP 성공 17285 실패 264
+  스캔 17600개 처리, GICP 성공 17331 실패 268
+  스캔 17650개 처리, GICP 성공 17379 실패 270
+  스캔 17700개 처리, GICP 성공 17429 실패 270
+  스캔 17750개 처리, GICP 성공 17479 실패 270
+  스캔 17800개 처리, GICP 성공 17529 실패 270
+  스캔 17850개 처리, GICP 성공 17579 실패 270
+  스캔 17900개 처리, GICP 성공 17628 실패 271
+  스캔 17950개 처리, GICP 성공 17677 실패 272
+  스캔 18000개 처리, GICP 성공 17727 실패 272
+  스캔 18050개 처리, GICP 성공 17777 실패 272
+  스캔 18100개 처리, GICP 성공 17827 실패 272
+  스캔 18150개 처리, GICP 성공 17877 실패 272
+  스캔 18200개 처리, GICP 성공 17927 실패 272
+  스캔 18250개 처리, GICP 성공 17977 실패 272
+  스캔 18300개 처리, GICP 성공 18027 실패 272
+  스캔 18350개 처리, GICP 성공 18077 실패 272
+  스캔 18400개 처리, GICP 성공 18127 실패 272
+  스캔 18450개 처리, GICP 성공 18177 실패 272
+  스캔 18500개 처리, GICP 성공 18224 실패 275
+  스캔 18550개 처리, GICP 성공 18274 실패 275
+  스캔 18600개 처리, GICP 성공 18322 실패 277
+  스캔 18650개 처리, GICP 성공 18369 실패 280
+  스캔 18700개 처리, GICP 성공 18419 실패 280
+  스캔 18750개 처리, GICP 성공 18469 실패 280
+  스캔 18800개 처리, GICP 성공 18519 실패 280
+  스캔 18850개 처리, GICP 성공 18569 실패 280
+  스캔 18900개 처리, GICP 성공 18619 실패 280
+  스캔 18950개 처리, GICP 성공 18669 실패 280
+  스캔 19000개 처리, GICP 성공 18719 실패 280
+  스캔 19050개 처리, GICP 성공 18769 실패 280
+  스캔 19100개 처리, GICP 성공 18819 실패 280
+  스캔 19150개 처리, GICP 성공 18869 실패 280
+  스캔 19200개 처리, GICP 성공 18919 실패 280
+  스캔 19250개 처리, GICP 성공 18969 실패 280
+  스캔 19300개 처리, GICP 성공 19019 실패 280
+  스캔 19350개 처리, GICP 성공 19064 실패 285
+  스캔 19400개 처리, GICP 성공 19106 실패 293
+  스캔 19450개 처리, GICP 성공 19153 실패 296
+  스캔 19500개 처리, GICP 성공 19203 실패 296
+  스캔 19550개 처리, GICP 성공 19253 실패 296
+  스캔 19600개 처리, GICP 성공 19303 실패 296
+  스캔 19650개 처리, GICP 성공 19353 실패 296
+  스캔 19700개 처리, GICP 성공 19403 실패 296
+  스캔 19750개 처리, GICP 성공 19452 실패 297
+  스캔 19800개 처리, GICP 성공 19502 실패 297
+  스캔 19850개 처리, GICP 성공 19551 실패 298
+  스캔 19900개 처리, GICP 성공 19601 실패 298
+  스캔 19950개 처리, GICP 성공 19651 실패 298
+  스캔 20000개 처리, GICP 성공 19701 실패 298
+  스캔 20050개 처리, GICP 성공 19751 실패 298
+  스캔 20100개 처리, GICP 성공 19801 실패 298
+  스캔 20150개 처리, GICP 성공 19851 실패 298
+  스캔 20200개 처리, GICP 성공 19897 실패 302
+  스캔 20250개 처리, GICP 성공 19947 실패 302
+  스캔 20300개 처리, GICP 성공 19993 실패 306
+  스캔 20350개 처리, GICP 성공 20039 실패 310
+  스캔 20400개 처리, GICP 성공 20088 실패 311
+  스캔 20450개 처리, GICP 성공 20138 실패 311
+  스캔 20500개 처리, GICP 성공 20188 실패 311
+  스캔 20550개 처리, GICP 성공 20238 실패 311
+  스캔 20600개 처리, GICP 성공 20288 실패 311
+  스캔 20650개 처리, GICP 성공 20338 실패 311
+  스캔 20700개 처리, GICP 성공 20388 실패 311
+  스캔 20750개 처리, GICP 성공 20438 실패 311
+  스캔 20800개 처리, GICP 성공 20488 실패 311
+  스캔 20850개 처리, GICP 성공 20538 실패 311
+[WARN] [1786825012.435670513] [rosbag2_storage_mcap]: attempted to read in receive timestamp order with no message index
+  스캔 20900개 처리, GICP 성공 20588 실패 311
+  스캔 20950개 처리, GICP 성공 20638 실패 311
+  스캔 21000개 처리, GICP 성공 20687 실패 312
+  스캔 21050개 처리, GICP 성공 20737 실패 312
+  스캔 21100개 처리, GICP 성공 20784 실패 315
+  스캔 21150개 처리, GICP 성공 20822 실패 327
+  스캔 21200개 처리, GICP 성공 20871 실패 328
+  스캔 21250개 처리, GICP 성공 20907 실패 342
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+  스캔 21300개 처리, GICP 성공 20949 실패 350
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=8
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+  스캔 21350개 처리, GICP 성공 20986 실패 363
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=3
+  스캔 21400개 처리, GICP 성공 21034 실패 365
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=7
+  스캔 21450개 처리, GICP 성공 21080 실패 369
+warning: source point cloud is too small. |source|=8
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=2
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=5
+  스캔 21500개 처리, GICP 성공 21129 실패 370
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=8
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=3
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=3
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=3
+  스캔 21550개 처리, GICP 성공 21179 실패 370
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=3
+warning: source point cloud is too small. |source|=4
+warning: source point cloud is too small. |source|=5
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=8
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=8
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=2
+  스캔 21600개 처리, GICP 성공 21229 실패 370
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=6
+warning: source point cloud is too small. |source|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+  스캔 21650개 처리, GICP 성공 21278 실패 371
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=5
+  스캔 21700개 처리, GICP 성공 21327 실패 372
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=8
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=6
+warning: source point cloud is too small. |source|=7
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=8
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=6
+  스캔 21750개 처리, GICP 성공 21377 실패 372
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=6
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=8
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=2
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=4
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=5
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=7
+warning: source point cloud is too small. |source|=3
+warning: target point cloud is too small. |target|=9
+warning: source point cloud is too small. |source|=4
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=5
+warning: target point cloud is too small. |target|=10
+warning: source point cloud is too small. |source|=4
+스캔 21771개 (TF 조회 실패로 스킵 0개)
+GICP: 성공 21398, 실패(GT로 대체) 372, 첫 스캔이라 스킵 1
+baseline 점 266757021개 -> run_results/clouds/baseline_4m_5mps.npy
+방법B    점 266757021개 -> run_results/clouds/methodb_4m_5mps.npy

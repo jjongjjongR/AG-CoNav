@@ -17,7 +17,18 @@ baseline: 그 GT pose로 스캔 포인트를 map 프레임으로 그대로 옮�
 바로 먹을 수 있는 포맷).
 
     python3 build_methodB_cloud.py <bag_dir> <baseline.npy> <methodb.npy>
+
+**메모리 설계(2026-08-16 5m AGL 4m/5mps 실험에서 추가)**: 이 VM은 5.8GB RAM
+뿐이라, 84m 실험(스캔~1,670개)과 달리 이번처럼 스캔이 훨씬 많은 비행
+(21,771개)에서는 원래 방식(파이썬 리스트에 전체 비행 분량 점을 다 들고
+있다가 마지막에 한 번에 np.concatenate)이 **실제로 OOM-kill됨을 확인**
+(dmesg: anon-rss 4.7GB, `Out of memory: Killed process ... python3`,
+스캔 21750/21771까지 가고서 마지막 concatenate 직전에 죽음). 그래서 스캔마다
+바로 디스크에 스트리밍으로 append하고, 끝에서 raw -> .npy 변환도 청크
+단위로 memmap에 복사(전체를 한 번에 메모리에 올리지 않음)하도록 재작성함.
+GICP 타겟용 `window`(최근 6스캔만)는 원래도 작아서 그대로 메모리에 유지.
 """
+import os
 import sys
 
 import numpy as np
@@ -37,6 +48,17 @@ WINDOW_SCANS = 6           # 방법B GICP 타겟으로 쓰는 직전 스캔 개�
 GICP_DOWNSAMPLE = 0.3      # m -- config_preprocess.json의 downsample_resolution과 동일
 GICP_MAX_CORR_DIST = 1.0   # m
 GICP_THREADS = 4
+# 2026-08-16 5m AGL 4m/5mps 실험에서 추가: `result.converged`가 True인데도
+# GICP가 물리적으로 말이 안 되는 해(예: z가 84m로 튐)로 수렴하는 사례가 실제로
+# 나왔다(GT통과가능 셀 44,864개/2.67억 중 0.017%가 z>15m 또는 |y|>250m 등
+# 명백한 이상치 -- lawnmower 경로의 코너(180도 yaw 반전)마다 스캔이 아주
+# 작아지는 구간(build 로그에 "point cloud is too small" 다수)에서 타겟/소스가
+# 몇 점 안 남아 GICP가 잘못된 국소해로 "수렴"한 것으로 판단). max_correspondence_
+# distance=1.0m로 탐색폭 자체가 좁으므로, GT 대비 정상 보정량은 원래 수 cm~
+# 수십 cm 수준이어야 한다 -- 그래서 "GT 대비 이동량이 물리적으로 말이 안 되게
+# 큰 결과는 신뢰 안 함" 이라는, 원래 코드에 이미 있던 "GICP 실패 시 GT로 안전
+# 폴백" 설계를 완성하는 차원에서 이동량 상한을 추가한다.
+MAX_GICP_TRANSLATION_DEVIATION_M = 2.0
 
 
 def transform_to_matrix(tf: TransformStamped) -> np.ndarray:
@@ -57,8 +79,28 @@ def open_reader(bag_path: str) -> rosbag2_py.SequentialReader:
     return reader
 
 
+def raw_to_npy(raw_path, npy_path, n_pts, chunk_pts=2_000_000):
+    """raw_path(연속 float32 x,y,z 바이너리, 헤더 없음)를 청크 단위로 복사해
+    npy_path(.npy, shape=(n_pts,3))로 변환. 전체를 한 번에 메모리에 올리지 않는다."""
+    mm = np.lib.format.open_memmap(npy_path, mode='w+', dtype=np.float32, shape=(n_pts, 3))
+    with open(raw_path, 'rb') as f:
+        written = 0
+        while written < n_pts:
+            take = min(chunk_pts, n_pts - written)
+            buf = f.read(take * 12)
+            if not buf:
+                break
+            arr = np.frombuffer(buf, dtype=np.float32).reshape(-1, 3)
+            mm[written:written + len(arr)] = arr
+            written += len(arr)
+    mm.flush()
+    del mm
+    os.remove(raw_path)
+
+
 def main():
     bag_path, out_baseline, out_methodb = sys.argv[1], sys.argv[2], sys.argv[3]
+    raw_baseline, raw_methodb = out_baseline + '.raw', out_methodb + '.raw'
 
     reader = open_reader(bag_path)
     type_map = {t.name: t.type for t in reader.get_all_topics_and_types()}
@@ -67,10 +109,12 @@ def main():
         sys.exit(1)
 
     buffer = Buffer()
-    baseline_chunks, methodb_chunks = [], []
-    window = []  # 직전 스캔들의 월드프레임 점(방법B 궤적으로 정렬된 것)
+    window = []  # 직전 스캔들의 월드프레임 점(방법B 궤적으로 정렬된 것) -- 최대 WINDOW_SCANS개만 유지
+    n_pts_baseline = n_pts_methodb = 0
+    fb = open(raw_baseline, 'wb')
+    fm = open(raw_methodb, 'wb')
 
-    n_scans = n_tf_miss = n_gicp_ok = n_gicp_fail = n_gicp_skip_first = 0
+    n_scans = n_tf_miss = n_gicp_ok = n_gicp_fail = n_gicp_skip_first = n_gicp_implausible = 0
 
     while reader.has_next():
         topic, data, _t = reader.read_next()
@@ -108,7 +152,8 @@ def main():
 
         # --- baseline: GT pose 그대로 ---
         world_gt = (T_gt @ pts_h.T).T[:, :3].astype(np.float32)
-        baseline_chunks.append(world_gt)
+        fb.write(world_gt.tobytes())
+        n_pts_baseline += len(world_gt)
 
         # --- 방법B: GT를 초기값으로 GICP 정합 ---
         if window:
@@ -120,12 +165,16 @@ def main():
                     downsampling_resolution=GICP_DOWNSAMPLE,
                     max_correspondence_distance=GICP_MAX_CORR_DIST,
                     num_threads=GICP_THREADS)
-                if result.converged:
+                deviation = float(np.linalg.norm(
+                    result.T_target_source[:3, 3] - T_gt[:3, 3])) if result.converged else None
+                if result.converged and deviation <= MAX_GICP_TRANSLATION_DEVIATION_M:
                     T_refined = result.T_target_source
                     n_gicp_ok += 1
                 else:
                     T_refined = T_gt
                     n_gicp_fail += 1
+                    if result.converged:
+                        n_gicp_implausible += 1
             except Exception as e:
                 T_refined = T_gt
                 n_gicp_fail += 1
@@ -134,7 +183,9 @@ def main():
             n_gicp_skip_first += 1
 
         world_refined = (T_refined @ pts_h.T).T[:, :3]
-        methodb_chunks.append(world_refined.astype(np.float32))
+        world_refined_f32 = world_refined.astype(np.float32)
+        fm.write(world_refined_f32.tobytes())
+        n_pts_methodb += len(world_refined_f32)
 
         window.append(world_refined)
         if len(window) > WINDOW_SCANS:
@@ -143,19 +194,30 @@ def main():
         if n_scans % 50 == 0:
             print(f'  스캔 {n_scans}개 처리, GICP 성공 {n_gicp_ok} 실패 {n_gicp_fail}',
                   file=sys.stderr)
+            fb.flush()
+            fm.flush()
 
-    baseline_arr = (np.concatenate(baseline_chunks, axis=0)
-                     if baseline_chunks else np.zeros((0, 3), dtype=np.float32))
-    methodb_arr = (np.concatenate(methodb_chunks, axis=0)
-                    if methodb_chunks else np.zeros((0, 3), dtype=np.float32))
-
-    np.save(out_baseline, baseline_arr)
-    np.save(out_methodb, methodb_arr)
+    fb.close()
+    fm.close()
 
     print(f'스캔 {n_scans}개 (TF 조회 실패로 스킵 {n_tf_miss}개)')
-    print(f'GICP: 성공 {n_gicp_ok}, 실패(GT로 대체) {n_gicp_fail}, 첫 스캔이라 스킵 {n_gicp_skip_first}')
-    print(f'baseline 점 {len(baseline_arr)}개 -> {out_baseline}')
-    print(f'방법B    점 {len(methodb_arr)}개 -> {out_methodb}')
+    print(f'GICP: 성공 {n_gicp_ok}, 실패(GT로 대체) {n_gicp_fail} '
+          f'(그 중 수렴했지만 이동량 상한 {MAX_GICP_TRANSLATION_DEVIATION_M}m 초과로 기각 '
+          f'{n_gicp_implausible}), 첫 스캔이라 스킵 {n_gicp_skip_first}')
+
+    if n_pts_baseline:
+        raw_to_npy(raw_baseline, out_baseline, n_pts_baseline)
+    else:
+        np.save(out_baseline, np.zeros((0, 3), dtype=np.float32))
+        os.remove(raw_baseline)
+    if n_pts_methodb:
+        raw_to_npy(raw_methodb, out_methodb, n_pts_methodb)
+    else:
+        np.save(out_methodb, np.zeros((0, 3), dtype=np.float32))
+        os.remove(raw_methodb)
+
+    print(f'baseline 점 {n_pts_baseline}개 -> {out_baseline}')
+    print(f'방법B    점 {n_pts_methodb}개 -> {out_methodb}')
 
 
 if __name__ == '__main__':

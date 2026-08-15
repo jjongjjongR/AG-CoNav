@@ -1,0 +1,47 @@
+[2026-08-16 05:46:27] launch pid=20769 tag=attempt2
+[2026-08-16 05:46:31] *** /tf 무응답(1/3) ***
+[2026-08-16 05:46:31] 0s progress=N/A bag_size=N/A tf=없음 disk=/dev/vda2        78G   35G   40G  47% /
+[2026-08-16 05:47:36] *** /tf 무응답(2/3) ***
+[2026-08-16 05:47:36] 65s progress=wp 63/5251 bag_size=482M tf=없음 disk=/dev/vda2        78G   35G   39G  48% /
+[2026-08-16 05:48:43] 132s progress=wp 230/5251 bag_size=1.2G tf=average rate: 49.989 disk=/dev/vda2        78G   36G   38G  49% /
+[2026-08-16 05:49:50] 199s progress=wp 404/5251 bag_size=1.8G tf=average rate: 49.970 disk=/dev/vda2        78G   36G   38G  50% /
+[2026-08-16 05:50:58] 267s progress=wp 566/5251 bag_size=2.5G tf=average rate: 99.427 disk=/dev/vda2        78G   37G   37G  50% /
+[2026-08-16 05:52:05] 334s progress=wp 732/5251 bag_size=3.2G tf=average rate: 50.039 disk=/dev/vda2        78G   38G   36G  51% /
+[2026-08-16 05:53:12] 401s progress=wp 873/5251 bag_size=3.8G tf=average rate: 49.504 disk=/dev/vda2        78G   38G   36G  52% /
+[2026-08-16 05:54:20] 469s progress=wp 1040/5251 bag_size=4.5G tf=average rate: 49.942 disk=/dev/vda2        78G   39G   35G  53% /
+[2026-08-16 05:55:27] 536s progress=wp 1212/5251 bag_size=5.1G tf=average rate: 49.962 disk=/dev/vda2        78G   40G   35G  54% /
+[2026-08-16 05:56:34] 603s progress=wp 1381/5251 bag_size=5.8G tf=average rate: 49.978 disk=/dev/vda2        78G   40G   34G  55% /
+[2026-08-16 05:57:42] 671s progress=wp 1533/5251 bag_size=6.5G tf=average rate: 49.981 disk=/dev/vda2        78G   41G   33G  56% /
+[2026-08-16 05:58:49] 738s progress=wp 1668/5251 bag_size=7.1G tf=average rate: 50.034 disk=/dev/vda2        78G   42G   33G  57% /
+[2026-08-16 05:59:56] 805s progress=wp 1836/5251 bag_size=7.8G tf=average rate: 49.982 disk=/dev/vda2        78G   42G   32G  58% /
+[2026-08-16 06:01:04] 873s progress=wp 2006/5251 bag_size=8.4G tf=average rate: 50.021 disk=/dev/vda2        78G   43G   31G  59% /
+[2026-08-16 06:02:16] 945s progress=wp 2174/5251 bag_size=9.1G tf=average rate: 49.951 disk=/dev/vda2        78G   44G   31G  59% /
+[2026-08-16 06:03:23] *** /tf 무응답(1/3) ***
+[2026-08-16 06:03:23] 1012s progress=wp 2325/5251 bag_size=9.8G tf=없음 disk=/dev/vda2        78G   44G   30G  60% /
+[2026-08-16 06:04:31] 1080s progress=wp 2474/5251 bag_size=11G tf=average rate: 49.757 disk=/dev/vda2        78G   45G   29G  61% /
+[2026-08-16 06:05:38] 1147s progress=wp 2628/5251 bag_size=12G tf=average rate: 49.996 disk=/dev/vda2        78G   46G   29G  62% /
+[2026-08-16 06:06:45] 1214s progress=wp 2794/5251 bag_size=12G tf=average rate: 50.000 disk=/dev/vda2        78G   46G   28G  63% /
+[2026-08-16 06:07:53] 1282s progress=wp 2929/5251 bag_size=13G tf=average rate: 50.005 disk=/dev/vda2        78G   47G   27G  64% /
+[2026-08-16 06:09:00] 1349s progress=wp 3079/5251 bag_size=14G tf=average rate: 37.037 disk=/dev/vda2        78G   48G   27G  65% /
+[2026-08-16 06:10:08] 1416s progress=wp 3234/5251 bag_size=14G tf=average rate: 27.336 disk=/dev/vda2        78G   48G   26G  66% /
+[2026-08-16 06:11:15] 1484s progress=wp 3387/5251 bag_size=15G tf=average rate: 50.012 disk=/dev/vda2        78G   49G   25G  67% /
+[2026-08-16 06:12:22] 1551s progress=wp 3549/5251 bag_size=16G tf=average rate: 50.011 disk=/dev/vda2        78G   50G   25G  68% /
+[2026-08-16 06:13:29] 1618s progress=wp 3671/5251 bag_size=16G tf=average rate: 49.664 disk=/dev/vda2        78G   50G   24G  69% /
+[2026-08-16 06:14:37] 1686s progress=wp 3838/5251 bag_size=17G tf=average rate: 50.008 disk=/dev/vda2        78G   51G   23G  69% /
+[2026-08-16 06:15:44] *** /tf 무응답(1/3) ***
+[2026-08-16 06:15:44] 1753s progress=wp 3990/5251 bag_size=18G tf=없음 disk=/dev/vda2        78G   52G   23G  70% /
+[2026-08-16 06:16:52] 1821s progress=wp 4126/5251 bag_size=18G tf=average rate: 50.049 disk=/dev/vda2        78G   52G   22G  71% /
+[2026-08-16 06:17:59] 1888s progress=wp 4265/5251 bag_size=19G tf=average rate: 49.597 disk=/dev/vda2        78G   53G   21G  72% /
+[2026-08-16 06:19:06] 1955s progress=wp 4435/5251 bag_size=19G tf=average rate: 49.992 disk=/dev/vda2        78G   54G   21G  73% /
+[2026-08-16 06:20:14] 2023s progress=wp 4592/5251 bag_size=20G tf=average rate: 49.987 disk=/dev/vda2        78G   54G   20G  74% /
+[2026-08-16 06:21:21] 2090s progress=wp 4743/5251 bag_size=21G tf=average rate: 49.997 disk=/dev/vda2        78G   55G   19G  75% /
+[2026-08-16 06:22:28] 2157s progress=wp 4877/5251 bag_size=21G tf=average rate: 49.995 disk=/dev/vda2        78G   56G   19G  76% /
+[2026-08-16 06:23:36] 2225s progress=wp 5038/5251 bag_size=22G tf=average rate: 49.996 disk=/dev/vda2        78G   56G   18G  77% /
+[2026-08-16 06:24:43] 2292s progress=wp 5203/5251 bag_size=23G tf=average rate: 49.997 disk=/dev/vda2        78G   57G   17G  78% /
+[2026-08-16 06:25:50] 2359s progress=wp 5239/5251 bag_size=23G tf=average rate: 49.994 disk=/dev/vda2        78G   58G   17G  78% /
+[2026-08-16 06:26:58] 2427s progress=wp 5239/5251 bag_size=24G tf=average rate: 34.461 disk=/dev/vda2        78G   58G   16G  79% /
+[2026-08-16 06:28:05] 2494s progress=wp 5239/5251 bag_size=25G tf=average rate: 50.023 disk=/dev/vda2        78G   59G   15G  80% /
+[2026-08-16 06:28:05] *** 디스크 사용량 80% >= 80% — 즉시 중단 ***
+[2026-08-16 06:28:05] SHUTDOWN 시작 — 사유: 디스크 사용량 80% 임계치 초과
+[2026-08-16 06:28:35] SIGINT로 안 죽어서 SIGTERM 에스컬레이션
+[2026-08-16 06:28:50] 잔여 프로세스 확인: 없음

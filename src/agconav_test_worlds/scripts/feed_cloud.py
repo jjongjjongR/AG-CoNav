@@ -28,7 +28,10 @@ CHUNK = 200_000
 class Feeder(Node):
     def __init__(self, pts):
         super().__init__('feed_cloud')
-        self.pts = pts.astype(np.float32)
+        # copy=False: 입력이 이미 float32 mmap이면 그대로 두고, 슬라이스 시점에만
+        # 페이지인되게 한다 (astype 기본 copy=True는 여기서 전체를 즉시 RAM에 복사해버려
+        # mmap_mode='r'로 연 의미가 없어짐).
+        self.pts = pts.astype(np.float32, copy=False)
         sensor = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,
                             history=HistoryPolicy.KEEP_LAST, depth=5)
         latched = QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
@@ -71,7 +74,11 @@ class Feeder(Node):
 
 
 def main():
-    arr = np.load(sys.argv[1])[:, :3]
+    # mmap_mode='r': 이 VM은 5.8GB RAM뿐이라, 큰 비행(예: 5m AGL 4m/5mps, 점
+    # ~수억 개)의 cloud를 np.load로 통째로 올리면 OOM 위험이 있다(방법B cloud
+    # 생성 스크립트에서 실제로 OOM-kill 관측, run_results/PROGRESS.md 참조).
+    # 메모리매핑으로 열면 self.pts[a:b] 슬라이스만 그때그때 페이지인된다.
+    arr = np.load(sys.argv[1], mmap_mode='r')[:, :3]
     print('%s: %d점  X[%.1f,%.1f] Y[%.1f,%.1f] Z[%.1f,%.1f]'
           % (sys.argv[1], len(arr), arr[:, 0].min(), arr[:, 0].max(),
              arr[:, 1].min(), arr[:, 1].max(), arr[:, 2].min(), arr[:, 2].max()))
