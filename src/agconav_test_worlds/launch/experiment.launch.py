@@ -28,8 +28,10 @@ from launch.actions import (DeclareLaunchArgument, ExecuteProcess,
 from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch.substitutions import (LaunchConfiguration, PathJoinSubstitution,
+                                  PythonExpression)
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 WORLD_NAME = 'Seongdong_gu'
 WORLD_DIR = 'Seongdong_gu_100x100'
@@ -52,6 +54,8 @@ def generate_launch_description():
     run_module_a = LaunchConfiguration('module_a')
     run_module_f = LaunchConfiguration('module_f')
     use_rviz = LaunchConfiguration('rviz')
+    path_file_arg = LaunchConfiguration('path_file')
+    cruise_speed_arg = LaunchConfiguration('cruise_speed_mps')
 
     is_teleport = PythonExpression(["'", flight, "' == 'teleport'"])
     is_velocity = PythonExpression(["'", flight, "' == 'velocity'"])
@@ -66,6 +70,13 @@ def generate_launch_description():
                               description='모듈 F(주행성)까지 실행 — 종단 테스트'),
         DeclareLaunchArgument('rviz', default_value='false',
                               description='RViz 로 스캔·지도·주행성을 함께 본다'),
+        DeclareLaunchArgument('path_file', default_value='path_100x100.yaml',
+                              description='share/config/ 아래 웨이포인트 yaml 파일명 '
+                                          '(5m AGL 실험용 path_100x100_5m_{2m,3m,4m}.yaml 등)'),
+        DeclareLaunchArgument('cruise_speed_mps', default_value='8.0',
+                              description='velocity 모드(velocity_path_follower) 순항 속도. '
+                                          'teleport 모드는 drone_path_player.yaml의 값을 그대로 씀 '
+                                          '(기존 동작 유지, 이 인자의 영향을 받지 않음).'),
         DeclareLaunchArgument(
             'bag_output',
             default_value=[os.path.join(os.getcwd(), 'bags', 'exp_'), flight]),
@@ -136,7 +147,7 @@ def generate_launch_description():
         package='agconav_drone', executable='drone_path_player',
         name='drone_path_player', output='screen', condition=IfCondition(is_teleport),
         parameters=[os.path.join(drone_share, 'config', 'drone_path_player.yaml'),
-                    {'path_file': os.path.join(share, 'config', 'path_100x100.yaml'),
+                    {'path_file': PathJoinSubstitution([share, 'config', path_file_arg]),
                      'use_sim_time': True}])
 
     # ---- velocity 비행 -------------------------------------------------------
@@ -151,8 +162,9 @@ def generate_launch_description():
     follower = Node(
         package='agconav_test_worlds', executable='velocity_path_follower.py',
         name='velocity_path_follower', output='screen', condition=IfCondition(is_velocity),
-        parameters=[{'path_file': os.path.join(share, 'config', 'path_100x100.yaml'),
-                     'cruise_speed_mps': 8.0, 'use_sim_time': True}])
+        parameters=[{'path_file': PathJoinSubstitution([share, 'config', path_file_arg]),
+                     'cruise_speed_mps': ParameterValue(cruise_speed_arg, value_type=float),
+                     'use_sim_time': True}])
 
     # ---- 모듈 A (2.5D 지도) --------------------------------------------------
     mapper = Node(

@@ -1,0 +1,30 @@
+rosbag2_bagfile_information:
+  version: 9
+  storage_identifier: mcap
+  duration:
+    nanoseconds: 0
+  starting_time:
+    nanoseconds_since_epoch: 1786805931554581120
+  message_count: 1
+  topics_with_message_count:
+    - topic_metadata:
+        name: /drone/elevation_map
+        type: grid_map_msgs/msg/GridMap
+        serialization_format: cdr
+        offered_qos_profiles:
+          []
+        type_description_hash: ""
+      message_count: 1
+  compression_format: ""
+  compression_mode: ""
+  relative_file_paths:
+    - drone_elevation_map_0.mcap
+  files:
+    - path: drone_elevation_map_0.mcap
+      starting_time:
+        nanoseconds_since_epoch: 1786805931554581120
+      duration:
+        nanoseconds: 0
+      message_count: 2
+  custom_data: ~
+  ros_distro: jazzy
