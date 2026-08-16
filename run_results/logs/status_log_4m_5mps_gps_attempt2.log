@@ -1,0 +1,39 @@
+[2026-08-17 03:12:39] launch pid=18735 tag=gps_attempt2
+[2026-08-17 03:12:44] *** /tf 무응답(1/3) ***
+[2026-08-17 03:12:44] 0s progress=N/A bag_size=N/A tf=없음 disk=/dev/vda2        78G   29G   45G  39% /
+[2026-08-17 03:13:48] 65s progress=wp 63/5251 bag_size=511M tf=average rate: 49.952 disk=/dev/vda2        78G   29G   45G  40% /
+[2026-08-17 03:14:55] 132s progress=wp 218/5251 bag_size=1.2G tf=average rate: 49.986 disk=/dev/vda2        78G   30G   44G  41% /
+[2026-08-17 03:16:03] 200s progress=wp 404/5251 bag_size=1.9G tf=average rate: 49.955 disk=/dev/vda2        78G   31G   44G  42% /
+[2026-08-17 03:17:10] 267s progress=wp 566/5251 bag_size=2.5G tf=average rate: 49.986 disk=/dev/vda2        78G   31G   43G  43% /
+[2026-08-17 03:18:17] 334s progress=wp 732/5251 bag_size=3.2G tf=average rate: 49.727 disk=/dev/vda2        78G   32G   42G  43% /
+[2026-08-17 03:19:25] 402s progress=wp 873/5251 bag_size=3.8G tf=average rate: 50.114 disk=/dev/vda2        78G   33G   42G  44% /
+[2026-08-17 03:20:32] 469s progress=wp 1040/5251 bag_size=4.5G tf=average rate: 50.017 disk=/dev/vda2        78G   33G   41G  45% /
+[2026-08-17 03:21:39] 536s progress=wp 1212/5251 bag_size=5.2G tf=average rate: 50.029 disk=/dev/vda2        78G   34G   40G  46% /
+[2026-08-17 03:22:47] 604s progress=wp 1382/5251 bag_size=5.8G tf=average rate: 49.984 disk=/dev/vda2        78G   35G   40G  47% /
+[2026-08-17 03:23:54] 671s progress=wp 1533/5251 bag_size=6.5G tf=average rate: 49.668 disk=/dev/vda2        78G   35G   39G  48% /
+[2026-08-17 03:25:02] 738s progress=wp 1669/5251 bag_size=7.1G tf=average rate: 49.769 disk=/dev/vda2        78G   36G   38G  49% /
+[2026-08-17 03:26:14] 811s progress=wp 1849/5251 bag_size=7.8G tf=average rate: 50.001 disk=/dev/vda2        78G   37G   38G  50% /
+[2026-08-17 03:27:21] 878s progress=wp 2007/5251 bag_size=8.5G tf=average rate: 49.996 disk=/dev/vda2        78G   37G   37G  51% /
+[2026-08-17 03:28:28] 945s progress=wp 2175/5251 bag_size=9.2G tf=average rate: 50.000 disk=/dev/vda2        78G   38G   36G  52% /
+[2026-08-17 03:29:36] 1013s progress=wp 2325/5251 bag_size=9.8G tf=average rate: 50.112 disk=/dev/vda2        78G   39G   36G  52% /
+[2026-08-17 03:30:43] 1080s progress=wp 2475/5251 bag_size=11G tf=average rate: 49.977 disk=/dev/vda2        78G   39G   35G  53% /
+[2026-08-17 03:31:50] 1147s progress=wp 2629/5251 bag_size=12G tf=average rate: 50.116 disk=/dev/vda2        78G   40G   34G  54% /
+[2026-08-17 03:32:58] 1215s progress=wp 2808/5251 bag_size=12G tf=average rate: 50.011 disk=/dev/vda2        78G   41G   34G  55% /
+[2026-08-17 03:34:05] 1282s progress=wp 2929/5251 bag_size=13G tf=average rate: 50.000 disk=/dev/vda2        78G   41G   33G  56% /
+[2026-08-17 03:35:12] 1349s progress=wp 3079/5251 bag_size=14G tf=average rate: 49.992 disk=/dev/vda2        78G   42G   32G  57% /
+[2026-08-17 03:36:20] 1417s progress=wp 3234/5251 bag_size=14G tf=average rate: 50.004 disk=/dev/vda2        78G   43G   32G  58% /
+[2026-08-17 03:37:27] 1484s progress=wp 3388/5251 bag_size=15G tf=average rate: 49.967 disk=/dev/vda2        78G   43G   31G  59% /
+[2026-08-17 03:38:34] 1551s progress=wp 3550/5251 bag_size=16G tf=average rate: 32.264 disk=/dev/vda2        78G   44G   30G  60% /
+[2026-08-17 03:39:42] 1619s progress=wp 3672/5251 bag_size=16G tf=average rate: 49.734 disk=/dev/vda2        78G   44G   30G  61% /
+[2026-08-17 03:40:49] 1686s progress=wp 3838/5251 bag_size=17G tf=average rate: 50.027 disk=/dev/vda2        78G   45G   29G  61% /
+[2026-08-17 03:41:56] 1753s progress=wp 3991/5251 bag_size=18G tf=average rate: 50.002 disk=/dev/vda2        78G   46G   28G  62% /
+[2026-08-17 03:43:04] 1821s progress=wp 4127/5251 bag_size=18G tf=average rate: 50.099 disk=/dev/vda2        78G   46G   28G  63% /
+[2026-08-17 03:44:11] 1888s progress=wp 4267/5251 bag_size=19G tf=average rate: 49.931 disk=/dev/vda2        78G   47G   27G  64% /
+[2026-08-17 03:45:18] 1955s progress=wp 4444/5251 bag_size=20G tf=average rate: 49.993 disk=/dev/vda2        78G   48G   26G  65% /
+[2026-08-17 03:46:26] 2023s progress=wp 4595/5251 bag_size=20G tf=average rate: 49.996 disk=/dev/vda2        78G   48G   26G  66% /
+[2026-08-17 03:47:33] 2090s progress=wp 4746/5251 bag_size=21G tf=average rate: 50.020 disk=/dev/vda2        78G   49G   25G  67% /
+[2026-08-17 03:48:40] 2157s progress=wp 4859/5251 bag_size=22G tf=average rate: 49.971 disk=/dev/vda2        78G   50G   24G  68% /
+[2026-08-17 03:48:42] path_status=true — 완주
+[2026-08-17 03:48:42] SHUTDOWN 시작 — 사유: 정상 완주
+[2026-08-17 03:50:22] SIGINT로 100초 내 안 죽어서 SIGTERM 에스컬레이션
+[2026-08-17 03:50:37] 잔여 프로세스 확인: 없음

@@ -1,5 +1,335 @@
 # PROGRESS — 5m AGL 방법B 경로 실험 (2~5단계)
 
+## [새 세션] GLIM(+GPS 사후결합) 전체 파이프라인 실험
+
+**전체 타임아웃 4시간.** 판단 지점은 확인 없이 스스로 진행, 근거는 이
+문서에 계속 기록. 목표: 우리 자체 칼만필터/GICP 대신 GLIM(GLIM의
+odometry+sub_mapping+global_mapping 전체)을 GPS로 드리프트 억제한
+상태로 돌려서, wheel FN%·최대연결덩어리% 등 4개 지표를 산출.
+`drone_elevation_mapper.py`는 절대 안 건드림(다른 실험에서 계속 쓰임).
+
+### 0. 재개 확인
+`pgrep -af "ros2|gz sim|docker"` → dockerd 외 없음(깨끗). `df -h ~` →
+69%/23G 여유(안전, 0-1단계 별도 정리 불필요 — 아래 참고). `git log`
+HEAD가 직전 세션 커밋(`3f5700d`)과 일치, 이번 작업 전혀 시작 안 된 상태.
+
+### 0-1. 디스크 정리 판단
+지시사항은 70% 이상이면 정리하라고 했는데 현재 69%로 임계값 아래다 —
+**정리 스킵**(애매한 걸 지우지 말라는 지시와도 부합, 여유가 이미
+충분). 4단계(velocity 재비행) bag 기록 중 60초 주기 감시로 실시간
+대응하는 것으로 충분하다고 판단.
+
+### 1. 사전 확인
+- GLIM PPA 설치 확인: `dpkg -l | grep glim` → `ros-jazzy-glim`,
+  `ros-jazzy-glim-ros` 1.2.2-0noble arm64 정상 설치 확인(재설치 안 함).
+  `ros2 pkg executables glim_ros` → `glim_rosbag`/`glim_rosnode`/
+  `map_editor`/`offline_viewer`/`validator_node` 정상 조회.
+- `path_100x100_5m_4m_5mps.yaml`, `Seongdong_gu_100x100_dynamic` 월드
+  둘 다 존재 확인(`find` 명령으로). 재생성/드라이런 스킵(지시대로).
+- `glim_config/`(config.json이 CT+passthrough+pose_graph 조합 고정,
+  이유는 파일 내 주석에 상세 기록돼 있음 — GPU 없음+IMU 회전 감지
+  안정성) 그대로 존재, 이번에도 재사용.
+- **중요 발견**: `src/agconav_test_worlds/scripts/add_point_times.py`
+  (기존 GLIM 실험이 만든 후처리 스크립트) 발견 — gpu_lidar가 점별
+  타임스탬프를 안 주므로, organized cloud의 열(column) 인덱스로
+  `t = col/width * 0.1`를 계산해 PointField `t`를 추가해준다(우리가
+  ④ 디스큐에서 쓴 것과 완전히 동일한 근사식). GLIM은 이 필드가 있으면
+  `autoconf_perpoint_times`로 자동 인식한다(`glim_config/
+  config_sensors.json` 주석 확인). **이번에도 velocity 재비행 후 이
+  스크립트로 후처리해 GLIM에 넣을 것.**
+
+### 2. GLIM GPS/GNSS 결합 지원 조사
+- 설치된 apt 패키지(`ros-jazzy-glim`, `ros-jazzy-glim-ros`)의 `.so`
+  목록(`dpkg -L`)에 gnss/gps 관련 라이브러리 없음(전부 확인:
+  `libglim`, `libglobal_mapping[_pose_graph]`,
+  `libodometry_estimation_{cpu,ct}`, `libsub_mapping[_passthrough]`,
+  `libmemory_monitor`, `lib{standard,interactive,rviz}_viewer`,
+  `libmap_editor`).
+- GLIM 코어(`koide3/glim`) 공식 README/문서(WebFetch) — GPS/GNSS를
+  지원 입력으로 명시한 곳 없음. "global callback slot" 메커니즘으로
+  factor graph에 커스텀 제약을 넣을 수 있다는 확장 포인트만 있음.
+- **`koide3/glim_ext`**(별도 저장소, WebSearch+WebFetch로 확인) —
+  `libgnss_global.so`("GNSS-based constraints for global optimization")
+  모듈이 실제로 존재. 단 (1) 저장소 README가 명시적으로 "ROS2 only"
+  + **"half-baked code that may not be well-maintained and not
+  suitable for practical purposes"**라고 경고, (2) apt 패키지에는
+  전혀 포함 안 돼 있어 **별도로 이 저장소를 clone+빌드**해야 함(ARM64
+  빌드 성공 여부, 의존성, 우리 config와의 정합성 전부 미검증).
+- **판단: glim_ext의 gnss_global 미채택, 사후 결합(loose coupling)
+  방식 채택.** 근거: (1) 공식적으로 "실용적이지 않다"고 경고된
+  실험적 코드를 4시간 예산 안에 빌드+검증+디버깅까지 하는 것은 위험이
+  지시사항의 "안전한 기본값" 원칙에 안 맞음, (2) 지시사항 자체가
+  "지원 안 되면 사후 결합을 직접 구현해라"는 구체적 폴백 알고리즘을
+  이미 명시해뒀음 — 이게 이런 상황(네이티브 지원은 있지만 프로덕션
+  품질이 아님)을 위한 안전한 기본값으로 판단.
+
+### 2-1. GPS 센서/토픽 확인 및 브리지 추가
+- `agconav_description`과 `agconav_test_worlds`(dynamic 모델) 양쪽
+  `model.sdf`에 `navsat_sensor`(topic=`drone/gps`, update_rate=10Hz —
+  지시사항의 "GPS 주기 10Hz"와 일치, `<noise>` 블록 없음) 존재 확인.
+  지금까지의 실험은 이 센서를 브리지/기록한 적이 없었음(GPS를 쓴 첫
+  실험).
+- `ros_gz_bridge`가 `sensor_msgs/msg/NavSatFix`↔`gz.msgs.NavSat`
+  변환을 지원함을 설치된 헤더(`convert/sensor_msgs.hpp`)에서 확인.
+- `src/agconav_test_worlds/launch/experiment.launch.py` 수정(2곳):
+  1. `exp_sensor_bridge`에
+     `/drone/gps@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat` 추가.
+  2. `recorder`(ros2 bag record) 토픽 목록에 `/drone/gps` 추가.
+  `drone_elevation_mapper.py`는 이 수정과 무관(건드리지 않음).
+  symlink-install이라 재빌드 불필요(`readlink`로 launch 파일이 src를
+  직접 가리킴 확인), `py_compile`로 문법만 확인.
+
+### 3. GPS 사후 결합(loose coupling) 설계 확정
+- GLIM을 먼저 GPS 없이 그대로 돌려 원시 궤적(각 스캔 시점의
+  map/odom→imu 또는 base pose)을 얻는다(`glim_rosbag` bag 배치처리,
+  `librviz_viewer`가 발행하는 TF/odometry 토픽에서 궤적 추출 — 구체
+  방법은 4단계에서 실측 확인 후 기록).
+- GPS(`sensor_msgs/NavSatFix`, WGS84 위경도고도)를 로컬 ENU/map
+  좌표로 변환해야 한다 — 시뮬레이션 world 원점의 위경도 기준점(GLIM/
+  robot_localization의 navsat_transform_node 관례상 필요)을 확인해야
+  함(4단계에서 실측).
+- 매 GPS 샘플 시각(10Hz)마다 그 시각의 GLIM 궤적을 보간해 얻고, GPS
+  절대위치로 스냅(place) → 이후 다음 GPS 앵커까지 구간은, "GLIM이
+  추정한 상대 이동(모양)은 유지하되 두 앵커 사이를 보정값 기준으로
+  재배치"한다. 구현: 각 앵커 구간 [t0,t1]에서 GLIM 원시 pose와 보정된
+  앵커 pose 사이의 잔차(보정 오프셋, SE(3))를 t0/t1에서 각각 계산하고,
+  그 사이 임의 시각 t의 pose는 GLIM 원시 pose에 (t0→t1 오프셋을
+  시간비례로 SE(3) 보간한 보정치)를 곱해 적용 — 회전은 slerp,
+  평행이동은 lerp(지시사항 그대로).
+- 다음: 4단계(velocity 재비행)로 진행.
+
+### 3-1. GLIM 궤적 출력 방식 확인(WebFetch, 공식 문서)
+GLIM(`glim_rosnode`/`glim_rosbag`)은 종료 시(auto_quit 또는 수동 종료)
+`/tmp/dump`에 TUM 포맷(`t x y z qx qy qz qw`, 한 줄에 한 pose) 궤적
+파일 4개를 자동 저장한다: `odom_imu.txt`/`odom_lidar.txt`(루프클로저
+없는 순수 오도메트리), `traj_imu.txt`/`traj_lidar.txt`(글로벌 매핑
+결과, pose_graph 루프클로저 적용됨 — 우리 config가
+`enable_global_mapping: true`이므로 이 파일이 최종 산출물). **점을
+map으로 옮기려면 라이다 원점 pose가 필요하므로 `traj_lidar.txt`를
+원시 궤적으로 채택**(IMU→LiDAR 변환 재계산 불필요).
+[glim quickstart](https://koide3.github.io/glim/quickstart.html) 참고.
+
+### 3-2. GPS 좌표 변환 확인
+- `Seongdong_gu_100x100_dynamic.world`의 `<spherical_coordinates>`:
+  lat=37.54233814881853°, lon=127.06050643805561°, elevation=15.4m —
+  이게 world 원점(0,0,0)에 대응하는 WGS84 기준점(gz-sim 표준 관례,
+  world x=East, y=North, z=Up로 정렬).
+- `pymap3d`(WGS84 geodetic↔ENU 변환) 설치 필요 확인 →
+  `pip install --user --break-system-packages pymap3d` 성공(3.2.0).
+  이유: 정확한 타원체 기반 변환이 필요해 직접 근사식을 짜는 것보다
+  검증된 라이브러리가 안전. `--break-system-packages`는 로컬 사용자
+  패키지 설치일 뿐이라 위험도 낮다고 판단.
+- 실제 gz-sim navsat 센서가 이 변환과 정확히 일치하는지는 bag의 실측
+  GPS 값과 동시각 `/tf`(map→base_link, 물리엔진의 진짜 위치)를
+  대조해서 4단계 완료 후 검증할 것(아직 미검증).
+
+### 3-3. GPS 사후 결합 알고리즘 확정
+GLIM 원시 궤적(SE3, "모양"을 담고 있음)에 시간에 따라 부드럽게 변하는
+"보정 transform" C(t)를 왼쪽에서 곱해 GPS 앵커에 맞춘다:
+```
+P_raw(t)      = GLIM traj_lidar.txt에서 시각 t의 raw pose (SE3)
+C_k           = GPS 앵커 시각 t_k에서의 보정 transform
+              = translation: GPS_position(t_k) - P_raw(t_k).translation
+              = rotation: identity (GPS는 orientation을 안 주므로 —
+                안전한 기본값, 회전 보정 없음)
+C(t), t_k<=t<=t_{k+1}:
+              = translation: lerp(C_k.t, C_{k+1}.t, alpha)
+              = rotation: slerp(C_k.R, C_{k+1}.R, alpha)  (둘 다
+                identity라 결과도 identity — 하지만 지시사항대로 SE3
+                보간 함수 자체는 일반적으로 구현해 향후 회전보정 필요
+                시에도 그대로 재사용 가능하게 함)
+              alpha = (t - t_k) / (t_{k+1} - t_k)
+P_corrected(t) = C(t) @ P_raw(t)   (C(t)는 world-frame 보정이므로 왼쪽 곱)
+```
+회전 보정을 항상 identity로 고정하는 이유: NavSatFix는 3D 위치만 주고
+orientation이 없다 — 임의로 회전을 추정하려 들면(예: GPS 이동 방향에서
+yaw 추정) 저속/정지 구간에서 노이즈가 커지고 이번 실험 범위를 벗어나는
+과설계다. "안전한 기본값"으로 판단.
+
+### 3-4. 재사용 가능한 기존 스크립트 확인
+- `run_results/gt_traversable.py` — GT 통과가능 마스크(wheel/leg,
+  건물풋프린트+높이차 기준) 그대로 재사용 가능(무수정).
+- `run_results/build_methodB_cloud.py` — bag의 point cloud를 스트리밍
+  으로 읽어 pose 적용 후 디스크에 바로 append하는 메모리 안전 패턴
+  (이 VM 5.8GB RAM에서 21771 스캔 전체를 리스트에 들고 있다가
+  concatenate하면 OOM-kill됨을 실측한 교훈) — 이번 GLIM+GPS 지도
+  생성 스크립트도 이 패턴을 그대로 따른다(TF 조회 대신 GLIM+GPS 보정
+  pose로 대체).
+- `run_results/capture_nav_fn.py` — coverage_percent 정의(n_valid/
+  n_cells*100) 재사용.
+
+### 4. Velocity 재비행(GPS 포함) — 1차 시도 디스크 부족으로 중단, 정리 후 재시도
+1차 시도(`gps_attempt1`): wp 1836/5251(806s, 약 35%)에서 디스크
+80%(59G/78G) 도달 → 감시 스크립트가 정상적으로 감지해 SIGINT→(100초
+후)SIGTERM으로 graceful shutdown, 잔여 프로세스 없음 확인. **버그
+아님, 순수 용량 문제**: 시작 시점 69%(23G 여유)로 "정리 불필요"라고
+판단했었는데(0-1절), 새로 만드는 GPS bag이 이전 실험(22GB)과 비슷한
+크기가 될 것을 過小평가했다 — 80% 안전마진까지 감안하면 실제 쓸 수
+있는 여유는 23G가 아니라 ~8.6G뿐이었다(78G*(80-69)% ≈ 8.6G).
+
+**정리(사용자 지시 0-1절 그대로 적용)**:
+- 실패한 `bags/velocity_4m_5mps_gps_attempt1`(8.9G, 불완전 — 재사용
+  불가) 삭제.
+- `bags/velocity_4m_5mps_attempt1`(22G) + `_tf_cache.pkl`(24M) 삭제 —
+  근거: 이 bag을 쓴 실험(#5 기준선, A/①R보정, B(구)/B'(신)④디스큐)
+  전부 완료돼 `run_results/SUMMARY.md`에 최종 결과 기록됨(grep으로
+  "10.91%"/"20.51%" 등 5곳 확인) + `git log origin/test_main_brian`
+  HEAD가 로컬과 동일한 `3f5700d`로 이미 push 확인됨 — 재현이 필요하면
+  재비행 가능하지만 이번 세션 범위 밖.
+- 지우지 않은 것: `exp_teleport`(용도 불명, 애매해서 보존), Docker
+  이미지/GICP 캐시(정리 없이도 이미 45G 여유 확보돼 불필요 — 애매한
+  건 지우지 말라는 지시에 따름).
+- 결과: 39%(29G/78G, 45G 여유)로 회복. 재시도 진행.
+
+**2차 시도(`gps_attempt2`) — 정상 완주.** launch 03:12:39 시작, 03:48:42
+`path_status=true` 확인, graceful shutdown(SIGINT 후 100초 넘어 SIGTERM
+에스컬레이션 — 예상된 대용량 bag 정상 동작), 잔여 프로세스 없음. bag
+디렉토리에 `metadata.yaml` 누락(지시사항이 미리 경고한 SIGTERM
+에스컬레이션발 버그, 예상대로 재현) → `ros2 bag reindex`로 즉시 복구,
+정상 확인:
+- **Duration: 2254.092371115s** (≈37.57분) — 이걸 "비행 소요시간"
+  지표로 채택(launch~path_status 전체 36분3초에는 world 로딩 등
+  비행과 무관한 오버헤드가 섞여 있어, bag 기록 자체의 duration이 더
+  정확한 "비행 시간"으로 판단. 이전 GPS 없는 실험의 동일 경로/속도
+  bag duration 2258.8s와 거의 일치 — 재현성 확인).
+- 토픽: `/drone/gps` 22509건(NavSatFix), `/drone/points` 22508건,
+  `/drone/imu` 224866건, `/tf` 112545건 — **GPS와 LiDAR가 거의 1:1로
+  매칭**(둘 다 10Hz 설계와 일치), 브리지/기록 정상 확인.
+- 최종 디스크: 69%(51G/78G) — 안전.
+- 다음: 5단계, `add_point_times.py`로 이 bag에 point-level t 필드
+  추가 후 GLIM 실행.
+
+### 5. point-level t 필드 추가 — 디스크 부족으로 전략 변경
+`add_point_times.py bags/velocity_4m_5mps_gps_attempt2
+bags/velocity_4m_5mps_gps_attempt2_t`로 새 bag을 통째로 만들려다
+디스크가 69%→88%(9.2G 여유)까지 차오르는 것을 60초 감시 스크립트가
+잡아 강제 종료(불완전 결과물 `..._t` 즉시 삭제, 원본 gps_attempt2
+bag은 무사 — 23G 그대로). **원본(23G)과 신규(point_step 32→36B라
+point cloud만 12.5%↑, 다른 토픽은 그대로 — 최소 25G+ 예상)를 동시에
+담을 공간이 이 VM(78G, 여유 23G)엔 없다.**
+
+**전략 변경 — 디스크에 중간 bag을 아예 안 만든다**:
+`run_results/points_t_republisher.py`(신규, add_point_times.py의
+`add_times()` 로직 그대로 재사용) — `/drone/points`를 구독해 t필드를
+얹어 `/drone/points_t`로 즉시 재발행하는 노드. 파이프라인을
+`ros2 bag play`(원본 재생, 디스크 추가 소비 없음) → 이 republisher →
+`glim_rosnode`(라이브 구독 모드, `points_topic:=/drone/points_t`로
+오버라이드)로 바꾼다 — `glim_rosbag`(bag 파일을 직접 배치 처리하는
+모드)는 t필드가 이미 파일에 있어야 하므로 이번엔 못 쓰고, 라이브
+모드로 전환. 대신 자동 재생속도 조절(`glim_rosbag`의 장점) 없이
+`ros2 bag play --rate 1.0`(실시간)으로 안전하게 진행 — 4코어 VM에서
+빠른 배속은 GLIM이 못 따라가 드랍될 위험이 있다고 판단.
+
+**실측 결과 — rate=1.0도 못 따라감, rate=0.5로도 부족**: 첫 시도(rate
+1.0)에서 `points/imu timestamp rewind detected`(시간이 거꾸로 감지)가
+계속 반복. 원인 분리를 위해 republisher 없이 원본 `/drone/points`를
+GLIM에 직결(pseudo timestamp 폴백)해 재현한 결과 **rewind 0건** →
+republisher 쪽 문제로 특정. republisher에 단조증가 가드(직전 발행
+stamp보다 뒤로 가는 메시지는 버림, 근본원인 미상이나 안전하게 회피)를
+추가해 rate=0.5로 재시도 → rewind는 5건까지 급감(사실상 해결)했지만
+`large time gap between consecutive LiDAR frames`(diff 0.6~1.0s, 스캔
+간격 0.2s의 3~5배)는 여전히 반복 — **CT odometry 연산 자체가 스캔당
+약 0.8~1.2초 걸리는 것으로 추정**(diff 누적 속도로 역산). 이 페이스면
+22508스캔 전체 처리에 최소 5~6시간 필요 — 이번 세션 전체 예산(4시간)을
+이미 초과하는 작업량.
+
+**시간 예산 재판단**: `glim_rosbag`(자동 속도조절)도 처리 자체를
+빠르게 하진 않는다(정확성만 보장, CT 연산량은 동일 — 속도 문제의 근본
+해법 아님). `config_odometry_cpu.json`(VGICP+IMU, 이번 velocity bag은
+IMU 회전이 정상이라 이론상 쓸 수 있음)으로 바꾸면 더 빠를 수도 있으나,
+남은 시간에 검증 안 된 새 조합으로 갈아타는 리스크가 커 **채택 안
+함**(안전한 기본값 원칙).
+
+**결정**: config는 그대로(CT+passthrough+pose_graph) 유지. 디스크
+문제는 mcap 청크(12개, 각 ~2.5GB) 단위로 하나씩 t필드 변환→재생→삭제
+순환으로 우회(`run_results/add_point_times_single.py`,
+`run_results/run_glim_chunked.sh` 신규). GLIM은 라이브 노드로 청크
+전체에 걸쳐 상태(궤적)를 유지한 채 이어 처리한다. **처리속도 자체는
+못 올리므로, rate=1.0(재생 자체는 실시간)으로 진행해 전체 bag을 최대한
+빨리 "훑되", GLIM이 못 따라가 밀리는 스캔은 QoS(depth=10, KEEP_LAST)로
+자연 드랍되게 둔다** — 궤적 시간해상도가 낮아지는 대가를 감수하고
+시간 안에 전체를 한 번은 지나가는 것을 우선한다(안전한 기본값 —
+"느리지만 정확"보다 "이번 세션 예산 안에 끝나는 결과"를 택함, 품질
+저하는 SUMMARY.md에 한계로 명시할 것). 남은 시간이 부족해지면 그
+시점의 `/tmp/dump` 부분 궤적으로 마무리하고 다음 세션에 인계.
+
+### 6. GLIM 실행 — 시도 4회, 전부 실패 (세션 종료, 다음 세션 인계)
+
+**1차(전체 파이프라인 그대로, local+global mapping 둘 다 켬)**: 12청크
+전부 재생 완료(총 ~38분)까지는 갔으나, `libmemory_monitor`가 "CPU
+memory usage: 5851.95/5894.34 MB 99.28%"를 마지막으로 찍고
+**OOM killer에 SIGKILL당함**(`[ros2run]: Killed`) — `/tmp/dump` 자체가
+생성 안 됨(SIGKILL은 정상 종료 훅을 못 부름), **완전 손실**. sub_mapping
+(passthrough)/global_mapping(pose_graph)이 서브맵을 계속 누적하며
+메모리가 무계한으로 자라는 것으로 추정.
+
+**2차(odometry-only, `enable_local_mapping:=false
+enable_global_mapping:=false`)**: 메모리 증가는 여전했으나(청크당
+~0.4~0.7GB) 미리 건 메모리 가드(사용량 4600MB 도달 시 SIGINT, 신규
+`run_results/glim_memory_guard*` 패턴)가 05:05:45에 정상 발동해 dump는
+받음(`traj_lidar.txt` 3016 pose, t=[9.4, 738.3]s — 전체의 32.8%만
+처리). **그러나 궤적이 처음부터(t=136.5s) 이미 물리적으로 불가능한
+값으로 발산**(x=-123, y=-95, z=-102m — 5m AGL 비행인데 z가 -100m대) —
+로컬 참조(sub_mapping)나 전역 최적화(global_mapping) 없이 CT
+오도메트리 단독으로는 이 데이터에서 안정적이지 않다는 뜻으로 해석.
+
+**3차(local mapping만 켬, `enable_global_mapping:=false`)**: 메모리
+가드 05:19:42 발동, dump 받음(`traj_lidar.txt` 2934 pose,
+t=[9.1,648.1]s, 28.8%). **역시 t=106.4s부터 이미 발산**(z=153m) —
+local_mapping(sub_mapping)만으로는 발산을 못 막음. **global_mapping
+(pose_graph, 전역 최적화/루프클로저)이 발산 억제의 핵심이었다는 뜻** —
+그런데 이걸 켜면 정확히 그것 때문에 메모리가 못 버틴다(1차 결과)는
+딜레마.
+
+**4차(1차와 동일 설정, 메모리 가드만 추가)**: 가드 05:35:24 발동, dump
+받음(`traj_lidar.txt` 3065 pose, t=[9.1,744.4]s, 33.0%). **이번에도
+t=101.3s부터 발산**(z=2.9→50→226→265m로 계속 커짐). global_mapping을
+켰는데도 발산했다는 것은, 3차 결과("global_mapping이 핵심")라는 해석이
+**틀렸거나 불충분함을 시사** — 진짜 원인은 아직 미상. 유력한 남은
+가설(미검증, 시간 부족으로 조사 못함): `config_odometry_ct.json`의
+`constant_velocity_inf_scale`/초기화 관련 주석("이 bag은 드론이 이미
+8m/s로 순항 중일 때 시작한다는 가정으로 조정됨")이 이번 5m/s bag의
+실제 시작 조건(호버링 후 가속 — 이전 실험들과 동일 경로이므로 정지
+상태로 시작할 가능성이 높음)과 안 맞아 CT의 등속 사전확률이 초반부터
+어긋나며 발산을 유발했을 가능성.
+
+**결론 — 이번 세션에서는 GLIM으로 신뢰할 수 있는 궤적을 못 얻었다.**
+4번의 시도(파이프라인 조합 3가지 × 메모리 가드) 전부 궤적이 물리적으로
+불가능한 값으로 발산했고, 유일하게 발산 안 한 조합(1차, 전체
+파이프라인)은 대신 메모리 부족으로 완전히 죽어 궤적 자체를 못 건졌다.
+**GPS 사후 결합(3-3절 알고리즘)은 이미 구현해뒀지만
+(`run_results/glim_gps_correct.py`), 입력으로 쓸 만한 정상 궤적이
+없어 실행하지 못했다** — 발산한 궤적에 GPS 위치 보정을 적용해봐야
+"모양은 유지, 위치만 절대좌표로 스냅"하는 방식이라 원본이 이미 망가진
+상태에서는 의미 있는 결과가 안 나온다(시도 안 함, 시간 낭비 방지).
+
+### 세션 재개용 참고 (다음 세션이 이어받을 경우)
+1. **GPS 포함 bag은 정상 확보돼 있다** — `bags/velocity_4m_5mps_gps_attempt2`
+   (23G, `ros2 bag reindex` 이미 완료, `/drone/gps` 22509건/`/drone/points`
+   22508건 확인됨) — **재비행 불필요**, 이걸 그대로 재사용.
+2. 다음 세션이 우선 시도해볼 것(시간순 우선순위):
+   a. `config_odometry_ct.json`의 초기화/사전확률 파라미터를 이 bag의
+      실제 시작 속도에 맞게 재조정(위 "유력한 남은 가설" 참고) —
+      `glim_config/`는 이번 실험 전용이라 수정해도 안전.
+   b. 그래도 발산하면 `config_odometry_cpu.json`(VGICP+IMU 타이트
+      커플링, 이번 실험처럼 IMU 회전이 정상인 bag에선 쓸 수 있음 —
+      PROGRESS.md 5단계에서 시간 부족으로 미시도했던 대안)로 전환
+      시도. 단 sub_mapping/global_mapping도 이 조합에 맞는
+      `config_sub_mapping_cpu.json`/`config_global_mapping_cpu.json`
+      으로 함께 바꿔야 할 가능성 높음(미검증).
+   c. 메모리 문제는 `libmemory_monitor`가 자체 정리를 안 하는 것으로
+      보이므로, 궤적이 안정된 조합을 찾은 뒤에도 청크+가드 방식
+      (`run_results/run_glim_chunked.sh` + 메모리 가드 패턴, 이번
+      세션에서 검증된 안전장치)을 계속 쓰는 게 안전.
+3. 준비된 후속 스크립트(전부 이번 세션에서 작성, 정상 궤적만 있으면
+   바로 쓸 수 있음): `run_results/glim_gps_correct.py`(GPS 사후결합),
+   `run_results/glim_gps_build_map.py`(지도 생성),
+   `run_results/glim_gps_metrics.py`(4개 지표 중 3개 — 커버리지/wheel
+   FN%/wheel·leg 최대연결덩어리%). **비행 소요시간은 이미 확정
+   가능**(4단계, bag duration 2254.09s ≈ 37.57분).
+4. `src/agconav_test_worlds/launch/experiment.launch.py`의 GPS
+   브리지/기록 추가(2-1절)는 이미 커밋 대상 — 재작업 시 다시 안 해도 됨.
+
 ## [새 세션] ④ 디스큐 커버리지 손실 버그 수정 + B' 재측정
 
 **전체 타임아웃 2시간(재비행 없음, 재처리만).** 판단 지점은 확인 없이

@@ -1,0 +1,63 @@
+[05:22:31] 청크 0/11 변환 시작: bags/velocity_4m_5mps_gps_attempt2/velocity_4m_5mps_gps_attempt2_0.mcap
+스캔 1899장에 t 필드 추가 -> bags/_chunk_t
+[05:22:40] 청크 0 변환 완료, disk=73%
+[05:22:40] 청크 0 재생 시작 (rate 1.0, glim_rosnode가 실시간 소비)
+stdin is not a terminal device. Keyboard handling disabled.[INFO] [1786911760.640245012] [rosbag2_player]: Set rate to 1
+[INFO] [1786911760.650504568] [rosbag2_player]: Adding keyboard callbacks.
+[INFO] [1786911760.650578987] [rosbag2_player]: Press SPACE for Pause/Resume
+[INFO] [1786911760.650590654] [rosbag2_player]: Press CURSOR_RIGHT for Play Next Message
+[INFO] [1786911760.650594904] [rosbag2_player]: Press CURSOR_UP for Increase Rate 10%
+[INFO] [1786911760.650598821] [rosbag2_player]: Press CURSOR_DOWN for Decrease Rate 10%
+[INFO] [1786911760.651957569] [rosbag2_player]: Playback until timestamp: -1
+[WARN] [1786911760.731049180] [rosbag2_player]: New subscription discovered on topic '/tf_static', requesting incompatible QoS. No messages will be sent to it. Last incompatible policy: DURABILITY_QOS_POLICY
+[05:25:51] 청크 0 재생 완료
+[05:25:51] 청크 1/11 변환 시작: bags/velocity_4m_5mps_gps_attempt2/velocity_4m_5mps_gps_attempt2_1.mcap
+스캔 1899장에 t 필드 추가 -> bags/_chunk_t
+[05:25:58] 청크 1 변환 완료, disk=73%
+[05:25:58] 청크 1 재생 시작 (rate 1.0, glim_rosnode가 실시간 소비)
+stdin is not a terminal device. Keyboard handling disabled.[INFO] [1786911958.908894630] [rosbag2_player]: Set rate to 1
+[INFO] [1786911958.917449841] [rosbag2_player]: Adding keyboard callbacks.
+[INFO] [1786911958.917484092] [rosbag2_player]: Press SPACE for Pause/Resume
+[INFO] [1786911958.917490759] [rosbag2_player]: Press CURSOR_RIGHT for Play Next Message
+[INFO] [1786911958.917496676] [rosbag2_player]: Press CURSOR_UP for Increase Rate 10%
+[INFO] [1786911958.917501134] [rosbag2_player]: Press CURSOR_DOWN for Decrease Rate 10%
+[INFO] [1786911958.918827924] [rosbag2_player]: Playback until timestamp: -1
+[WARN] [1786911959.003136205] [rosbag2_player]: New subscription discovered on topic '/tf_static', requesting incompatible QoS. No messages will be sent to it. Last incompatible policy: DURABILITY_QOS_POLICY
+[05:29:09] 청크 1 재생 완료
+[05:29:09] 청크 2/11 변환 시작: bags/velocity_4m_5mps_gps_attempt2/velocity_4m_5mps_gps_attempt2_2.mcap
+스캔 1899장에 t 필드 추가 -> bags/_chunk_t
+[05:29:18] 청크 2 변환 완료, disk=73%
+[05:29:18] 청크 2 재생 시작 (rate 1.0, glim_rosnode가 실시간 소비)
+stdin is not a terminal device. Keyboard handling disabled.[INFO] [1786912159.179513419] [rosbag2_player]: Set rate to 1
+[INFO] [1786912159.188774018] [rosbag2_player]: Adding keyboard callbacks.
+[INFO] [1786912159.188800810] [rosbag2_player]: Press SPACE for Pause/Resume
+[INFO] [1786912159.188816686] [rosbag2_player]: Press CURSOR_RIGHT for Play Next Message
+[INFO] [1786912159.188834644] [rosbag2_player]: Press CURSOR_UP for Increase Rate 10%
+[INFO] [1786912159.188840769] [rosbag2_player]: Press CURSOR_DOWN for Decrease Rate 10%
+[INFO] [1786912159.190104289] [rosbag2_player]: Playback until timestamp: -1
+[WARN] [1786912159.273779269] [rosbag2_player]: New subscription discovered on topic '/tf_static', requesting incompatible QoS. No messages will be sent to it. Last incompatible policy: DURABILITY_QOS_POLICY
+[05:32:29] 청크 2 재생 완료
+[05:32:29] 청크 3/11 변환 시작: bags/velocity_4m_5mps_gps_attempt2/velocity_4m_5mps_gps_attempt2_3.mcap
+스캔 1899장에 t 필드 추가 -> bags/_chunk_t
+[05:32:36] 청크 3 변환 완료, disk=73%
+[05:32:36] 청크 3 재생 시작 (rate 1.0, glim_rosnode가 실시간 소비)
+stdin is not a terminal device. Keyboard handling disabled.[INFO] [1786912356.486869269] [rosbag2_player]: Set rate to 1
+[INFO] [1786912356.498318904] [rosbag2_player]: Adding keyboard callbacks.
+[INFO] [1786912356.498353488] [rosbag2_player]: Press SPACE for Pause/Resume
+[INFO] [1786912356.498359821] [rosbag2_player]: Press CURSOR_RIGHT for Play Next Message
+[INFO] [1786912356.498364571] [rosbag2_player]: Press CURSOR_UP for Increase Rate 10%
+[INFO] [1786912356.498388572] [rosbag2_player]: Press CURSOR_DOWN for Decrease Rate 10%
+[INFO] [1786912356.499687430] [rosbag2_player]: Playback until timestamp: -1
+[WARN] [1786912356.909788350] [rosbag2_player]: New subscription discovered on topic '/tf_static', requesting incompatible QoS. No messages will be sent to it. Last incompatible policy: DURABILITY_QOS_POLICY
+[05:35:47] 청크 3 재생 완료
+[05:35:47] 청크 4/11 변환 시작: bags/velocity_4m_5mps_gps_attempt2/velocity_4m_5mps_gps_attempt2_4.mcap
+스캔 1899장에 t 필드 추가 -> bags/_chunk_t
+[05:35:55] 청크 4 변환 완료, disk=73%
+[05:35:55] 청크 4 재생 시작 (rate 1.0, glim_rosnode가 실시간 소비)
+stdin is not a terminal device. Keyboard handling disabled.[INFO] [1786912555.429077923] [rosbag2_player]: Set rate to 1
+[INFO] [1786912555.438227537] [rosbag2_player]: Adding keyboard callbacks.
+[INFO] [1786912555.438284247] [rosbag2_player]: Press SPACE for Pause/Resume
+[INFO] [1786912555.438291497] [rosbag2_player]: Press CURSOR_RIGHT for Play Next Message
+[INFO] [1786912555.438297289] [rosbag2_player]: Press CURSOR_UP for Increase Rate 10%
+[INFO] [1786912555.438302872] [rosbag2_player]: Press CURSOR_DOWN for Decrease Rate 10%
+[INFO] [1786912555.439720986] [rosbag2_player]: Playback until timestamp: -1

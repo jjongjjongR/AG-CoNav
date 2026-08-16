@@ -113,7 +113,14 @@ def generate_launch_description():
                    parameters=[{'use_sim_time': True}],
                    arguments=[
                        '/drone/points/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
-                       '/drone/imu@sensor_msgs/msg/Imu[gz.msgs.IMU'],
+                       '/drone/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+                       # GLIM+GPS 실험(2026-08) 전용 신규 브리지. model.sdf의
+                       # navsat_sensor(update_rate=10Hz, <topic>drone/gps)를
+                       # ros_gz_bridge가 지원하는 sensor_msgs/NavSatFix<->
+                       # gz.msgs.NavSat 변환으로 그대로 노출한다. 노이즈 없는
+                       # (<noise> 블록 없음, run_results/PROGRESS.md 참고) 완벽한
+                       # GPS라 GLIM 궤적 드리프트를 억제하는 절대 앵커로 쓴다.
+                       '/drone/gps@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat'],
                    remappings=[('/drone/points/points', '/drone/points')])
 
     # agconav_sim 과 동일: 월드의 OdometryPublisher 가 map -> drone/base_link 로
@@ -207,7 +214,7 @@ def generate_launch_description():
     recorder = ExecuteProcess(
         cmd=['ros2', 'bag', 'record', '-s', 'mcap', '-o', bag_output,
              '--max-bag-size', '2000000000',
-             '/drone/points', '/drone/imu', '/tf', '/tf_static',
+             '/drone/points', '/drone/imu', '/drone/gps', '/tf', '/tf_static',
              '/drone/elevation_map', '/drone/path_status',
              '/terrain/features', '/wheel/nav_map', '/leg/nav_map',
              '/wheel/nav_map_status', '/leg/nav_map_status'],
