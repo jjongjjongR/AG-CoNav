@@ -1,3 +1,53 @@
+# SUMMARY — ④ 디스큐 커버리지 손실 버그 수정 (2026-08-16, 진행 중 — 다음 세션 이어받기)
+
+**상태: 세션 시간 예산(2시간) 소진, 결과 대기 중 마무리.** 목표는 직전
+실험(A/B/C)에서 발견된 ④(디스큐)의 커버리지 손실 버그(스캔 뒷부분
+버킷에서 TF extrapolation 실패로 ~8%p 손실)를 고치고 ④만 단독 재측정.
+
+## 완료한 것
+1. **원인 확정(실측)**: `ExtrapolationException`("Lookup would require
+   extrapolation into the future") — 버킷 6~9(스캔 중후반부)에 집중,
+   짧은 재현 구간에서만도 1170건. 라이브 `/tf` 구독은 point cloud
+   콜백이 요구하는 시각의 TF를 아직 재생 전이라 절대 못 가질 수 있는
+   구조적 문제였음.
+2. **근본 수정**: bag 재처리는 실시간이 아니므로, 노드 시작 시 그 bag의
+   `/tf`+`/tf_static`을 통째로 먼저 읽어 TF 버퍼를 채우는
+   `deskew_tf_preload_bag_path` 파라미터 추가
+   (`drone_elevation_mapper.py`). 수정 후 재현: extrapolation 실패
+   **0건**(확인 완료). 22GB bag을 매번 순차 스캔하는 비용을 줄이는
+   pickle 캐시(`/tf`+`/tf_static`만 추림)도 추가.
+3. **"hang처럼 보이는 문제" 재진단**: 수정 후 재처리가 47분+ 동안
+   로그 없이 멈춘 것처럼 보여 광범위하게 조사했으나(faulthandler 스택
+   덤프, 토픽 발행률, DDS discovery, QoS reliability, 메모리/스왑 —
+   전부 실측) 진짜 데드락 증거는 못 찾음. 오히려 체크 타이머가
+   "정상 수신 중엔 로그를 안 남기는" 설계이고, 지도는 완주 시(bag 맨
+   끝 `/drone/path_status`) 1회만 발행하는 설계라, **hang이 아니라
+   "정상이지만 예상보다 느리게 처리 중"일 가능성이 유력**하다는 결론에
+   도달(bag 자체가 큰 point cloud 메시지에서 burst 재생 패턴을 보임,
+   매퍼 없이 순수 재생만으로도 실측 확인).
+
+## 진행 중
+채점 타임아웃을 3000→10800초(3시간)로 늘려 최종 검증 재처리를
+백그라운드에서 실행 중(`run_results/logs/variantBprime_run.log`,
+결과 예정 위치 `run_results/variantBprime_deskew_fixed_fn.json`).
+
+## 다음 세션이 할 일
+1. 위 실행이 끝났는지 확인(`pgrep -af drone_elevation_mapper`, 결과
+   JSON 내용/mtime).
+2. 정상 완료(`missing`/에러 아님)면 → wheel/leg FN% 확인 → 기존
+   비교표에 B'(수정본) 행 추가 → SUMMARY.md/PROGRESS.md 최종 정리 →
+   git add/commit/push.
+3. 3시간도 넘겨 실패하면 → 진짜 hang일 가능성이 커지므로
+   `_grow_to_fit`/`_kalman_update_cells` 경로에서 디스큐 특유 입력이
+   극단적 케이스를 만드는지 추가 조사 필요(PROGRESS.md "3-4"절에 남은
+   가설 정리해둠).
+
+상세 조사 과정·타임스탬프·명령어는 전부 `run_results/PROGRESS.md`
+("[새 세션] ④ 디스큐 커버리지 손실 버그 수정 + B' 재측정" 이하)에
+기록됨.
+
+---
+
 # SUMMARY — ①실측R보정 + ④디스큐 변형 A/B/C 실험 (2026-08-16, 신규 세션)
 
 **세션**: 2026-08-16, 브랜치 `test_main_brian`(작업 폴더
