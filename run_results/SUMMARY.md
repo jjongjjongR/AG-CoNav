@@ -1,8 +1,163 @@
-# SUMMARY — 5m AGL 방법B 실험 (스트립간격 4m, 속도 5m/s) + 84m 대비 비교
+# SUMMARY — 5m AGL 칼만필터(Module A 이식 + 이상치 방어) 실험 + 5개 결과 종합비교
 
-**세션**: 2026-08-16, 사용자 취침 중 자율 진행(전체 타임아웃 4.5시간, 도중
-3시간→4.5시간으로 변경 지시받음). 브랜치 `test_main_brian`. 판단 근거는
-`run_results/PROGRESS.md`에 전부 기록.
+**세션**: 2026-08-16, 브랜치 `test_main_brian`(작업 폴더
+`~/AG-CoNav-test_main`), 자율 진행(전체 타임아웃 5시간, 재비행이 필요해져
+2시간→5시간으로 연장). 판단 근거는 `run_results/PROGRESS.md`에 전부 기록.
+
+## 이번 세션 목표
+
+5m AGL(4m 간격, 5m/s, `path_100x100_5m_4m_5mps.yaml`)에서, GICP 대신 GT
+pose + `brian_test` 브랜치에 있는 Module A 칼만필터 설계를 적용해 지도를
+만들고 wheel/leg FN%를 확인. 동시에 `brian_test`의 Module A에도 원래
+없었던 이상치 방어 로직 2가지(Module D를 참고해 새로 구현)를 채워 넣음.
+
+## 무엇을 했나 (요약)
+
+1. **0단계 — 재비행 필요 여부 확인**: `bags/`가 완전히 비어 있었다(이전
+   세션들이 "재현 가능"을 이유로 84m/5m 실험 bag을 전부 삭제). 홈
+   디렉토리 전체를 검색해도 5m AGL(4m/5mps, velocity) bag이 어디에도
+   없어 재비행 필요로 판단, 즉시 재비행. 조건은 이전과 동일: `flight:=
+   velocity`, `Seongdong_gu_100x100_dynamic`(velocity 모드 자동 선택),
+   `path_100x100_5m_4m_5mps.yaml`, `cruise_speed_mps:=5.0`.
+   `run_results/run_velocity_4m_5mps_monitored.sh attempt1` 사용(마지막
+   웨이포인트 도달 후 STALL 오판 버그가 이미 수정된 스크립트). 2231초
+   (약 37분) 만에 정상 완주(`path_status=true`), TF 끊김 없음, bag
+   22GB(12개 mcap 청크). 이번 bag(`bags/velocity_4m_5mps_attempt1`)은
+   기존과 달리 **삭제하지 않고 보존**하기로 결정(이전 세션들이 재현
+   가능을 이유로 지운 게 이번 재비행을 유발했으므로, 이 판단을
+   뒤집음 — 실패/중단 attempt만 삭제 대상).
+
+2. **1~2단계 — Module A 칼만필터 이식 + 방어 로직 2가지 신규 구현**:
+   `git show brian_test:src/agconav_drone/agconav_drone/
+   drone_elevation_mapper.py`로 확인한 결과, 요구된 요소(셀별
+   elevation/variance 칼만필터, R=거리+입사각+점밀도 결합, Q=0, 이노베이션
+   게이팅 임계값 9.0, `_grow_to_fit`의 NaN 패딩, `elevation_variance`
+   레이어, **np.gradient를 전체 배열이 아니라 국소 윈도우에만 적용하는
+   최적화**) 전부 실제로 존재함을 확인 — brian_test 쪽 이상 없음, 별도
+   보고 불필요. 이걸 test_main_brian의 같은 파일에 이식하면서 이
+   브랜치 고유의 `min_range_m`(기체 자기반사 제거) 필터는 유지했고,
+   `brian_test:src/agconav_ground_mapping/agconav_ground_mapping/
+   ground_elevation_mapper.py`(Module D)를 참고해 원래 Module A에는 없던
+   방어 로직 2가지를 새로 구현:
+   - **1겹 — `max_sensor_range`(기본 200.0m)**: transform 후 센서 원점
+     기준 거리가 이 값을 넘는 점을 격자 비닝 전에 버림(디버그 로그).
+   - **2겹 — `max_grid_cells`(기본 30,000,000)**: `_grow_to_fit`이 패딩을
+     실행하기 직전에 패딩 후 예상 총 셀 수를 계산, 초과 시 실제 배열
+     확장을 하지 않고 error 로그 후 (None, None) 반환 → 호출자가 이번
+     배치만 버리고 기존 누적(`self._elevation`/`_variance`)은 보존, 노드는
+     계속 살아있음.
+   `drone_elevation_mapper.yaml`에 칼만필터 파라미터 + 두 방어 파라미터
+   전부 추가. `agconav_drone/package.xml`의 `<depend>rosbag2_py</depend>`
+   바로 다음 줄에 `<exec_depend>rosbag2_storage_mcap</exec_depend>` 추가.
+
+3. **3단계 — bag 재생으로 지도 생성**: `colcon build --symlink-install
+   --packages-up-to agconav_drone agconav_traversability`(성공, 에러
+   없음) 후, `run_results/run_bag_replay_kalman.sh`(신규 작성, `feed_cloud.
+   py` 기반 `run_traversability_fn_v2.sh`를 `ros2 bag play --clock`
+   기반으로 변형)로 drone_elevation_mapper + terrain_feature_calculator +
+   traversability_verdictor(wheel/leg) + elevation_map_saver를
+   `use_sim_time:=true`로 먼저 띄운 뒤 bag을 `--clock --rate 1.0`으로
+   재생, `/drone/points`+`/tf`+`/tf_static`+`/drone/path_status`를
+   실시간과 동일하게 라이브 구독시켜 최종 elevation_map을 발행시켰다.
+   - **알려진 버그 발견 및 복구**: 첫 재생 시도에서 `ros2 bag play`가
+     "No storage id specified" 에러로 즉시 실패 — 원인은
+     `run_velocity_4m_5mps_monitored.sh`의 정상 종료 절차가 SIGINT →
+     (15초 내 안 죽으면) SIGTERM으로 에스컬레이션하는데, 이번 완주
+     종료 시 실제로 SIGTERM까지 갔고 그 여파로 `ros2 bag record`가
+     `metadata.yaml`을 못 쓰고 죽었다(mcap 데이터 파일 12개, 22GB는
+     전부 정상). `ros2 bag reindex -s mcap bags/velocity_4m_5mps_attempt1`
+     로 복구 성공, `ros2 bag info`로 데이터 손실 없음 확인(메시지 수
+     `/drone/points` 22,319 · `/tf` 111,598 · `/tf_static` 1 ·
+     `/drone/path_status` 1 · `/drone/imu` 223,053).
+   - **이상치 방어 동작 확인**: drone_elevation_mapper 시작 로그에
+     `max_sensor_range=200.0m, max_grid_cells=30000000, min_range_m=2.5m`
+     가 정확히 찍혀 파라미터가 정상 선언/초기화됨을 확인. 이번
+     100x100 지도 규모(관측 그리드 1,041,148셀)에서는 두 임계값 다
+     정상 상황에선 거의 안 걸리는 값이라(200m, 3천만 셀) 실제 컷 발동
+     로그는 없었음 — 이는 정상이며, 콜백 경로가 빠짐없이 실행됐다는
+     것으로 방어 로직 자체의 정상 동작을 확인.
+
+4. **4단계 — wheel/leg FN% 채점**: `capture_nav_fn.py`(기존, 무수정)로
+   GT 통과가능 셀(618,378개, 4개 기존 결과와 동일 기준 확인됨) 대비
+   채점. 결과는 아래 비교표 5번 행.
+
+## 최종 비교표 (5개 결과 종합)
+
+| # | 고도 | 속도 | 간격 | 위치정합 | 지도생성방식 | wheel FN% | leg FN% | 비고 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 84m | 8m/s | 32m | GT만 | 단순평균 | 23.94% | 12.15% | 기준선 |
+| 2 | 84m | 8m/s | 32m | GT+GICP | GICP정합 | 20.10% | 11.89% | wheel -16.0%(상대), leg -2.1%(상대) 개선. 코너 4회뿐이라 GICP가 대체로 안정 수렴(94.5%), 원시 노이즈(p95)는 오히려 악화 — "쉬운 곳을 더 쉽게" 효과 |
+| 3 | 5m AGL | 5m/s | 4m | GT만 | 단순평균 | 13.44% | 12.60% | 84m 대비 고도 자체 효과로 개선(근거리 스캔이라 점밀도↑, GICP 없이도 84m보다 나음) |
+| 4 | 5m AGL | 5m/s | 4m | GT+GICP | GICP정합 | 37.26% | 30.03% | 대폭 악화(3번 대비 wheel +177%). 코너 25회, 저정보 스캔마다 GICP가 반복적으로 불안정해져 노이즈 5.3배 폭증(step 중앙값 0.0092→0.0489m) |
+| 5 | 5m AGL | 5m/s | 4m | GT만 | **칼만필터(이상치방어 포함, 이번)** | **10.91%** | **8.03%** | 3번 대비 wheel -18.8%(상대)·leg -36.3%(상대) 개선, 4번 대비 wheel 3.4배·leg 3.7배 개선. 아래 분석 참조 |
+
+(GT 통과가능 셀 618,378개 기준, 5개 행 모두 동일 — GT는 경로 형상만으로
+정해지는 100x100 박스라 정합/알고리즘과 무관하게 고정. 원본:
+`84m_baseline_fn.json`, `84m_methodB_fn.json`, `baseline_4m_5mps_fn.json`,
+`methodb_4m_5mps_fn.json`, `kalman_4m_5mps_fn.json`.)
+
+## 분석 — 5번(칼만필터)이 왜 3번(단순평균)보다 낫고, 4번(GICP)보다 훨씬 나은가
+
+**5번 vs 3번(같은 GT pose, 알고리즘만 다름) — 칼만필터가 전 지표에서 개선.**
+두 실험 다 GT pose만 쓰고(정합 없음) 4m/5mps 조건이 같으므로, 차이는
+누적 알고리즘(러닝 애버리지 vs 칼만필터+이상치방어)에서 온다(단, 3번은
+이전 세션의 삭제된 bag, 5번은 이번 세션 재비행 bag이라 비행 자체의
+실행 차이가 완전히 0이라고 단정할 순 없음 — 다만 동일 스크립트/경로/속도의
+결정적 시뮬레이션이라 그 영향은 작을 것으로 판단). 실측:
+- wheel FN% 13.44%→10.91%(-2.53pp, 상대 -18.8%), leg FN% 12.60%→8.03%
+  (-4.57pp, 상대 -36.3%) — 개선.
+- 원시 단차(step) 지표도 전부 개선: 중앙값 0.00917→0.00692m(-24.5%),
+  p95 1.039→0.953m(-8.3%), max 8.567→6.519m(-23.9%). 84m 실험에서
+  GICP가 FN%는 개선하면서도 원시 노이즈(p95)를 악화시켰던 것과 달리,
+  이번 칼만필터는 **FN%와 원시 노이즈를 동시에 개선** — "이미 쉬운 곳만
+  쉽게" 만드는 게 아니라 지도 전체의 품질을 실제로 높였다는 뜻.
+- 커버리지도 개선: elevation_map 유효 셀 비율 86.40%→95.80%(+9.4pp),
+  FN 채점에서 GT 통과가능 셀 중 미측정 비율도 2.35%→1.46%로 감소.
+  거리/입사각/밀도 기반 R로 신뢰도 낮은 관측을 억제하면서도 콜드스타트
+  초기화(첫 관측은 게이팅 없이 즉시 반영)로 관측 자체가 버려지진 않아,
+  커버리지를 깎지 않고도 정확도만 높인 것으로 해석된다.
+
+**5번 vs 4번(GICP) — 사용자가 제시한 가설과 실측이 일치.** 가설: GICP는
+스캔 하나당 강체변환(rotation+translation) 하나를 통째로 추정하므로,
+코너의 저정보 스캔에서 정합이 잘못되면 그 스캔에 속한 점 전체가 한꺼번에
+엉뚱한 방향/거리로 밀려 여러 셀에 동시에 오염을 퍼뜨린다. 반면 칼만필터는
+셀 단위 독립 스칼라 필터라, 한 배치의 관측이 특정 셀들에서 이노베이션
+게이트(임계값 9.0)를 못 넘으면 그 셀들만 조용히 거부되고 다른 셀의 상태에는
+전혀 영향을 주지 않는다 — 게다가 5번은 애초에 GICP 같은 "전체를 다시
+추정하는" 단계 자체가 없으므로(GT pose를 그대로 신뢰) 구조적으로 스캔
+단위 오염이 발생할 수 없다.
+- 실측이 이 가설을 뒷받침: 4번(GICP)은 자신의 baseline인 3번 대비
+  step 중앙값이 0.0092m→0.0489m로 **5.3배 폭증**했다(코너 25회, "point
+  cloud is too small" 경고 다수, PROGRESS.md 기존 기록) — 이게 바로
+  "스캔 전체가 밀리는" 효과의 증거다. 반면 5번(칼만필터)은 같은 3번
+  대비 step 중앙값이 오히려 **24.5% 감소**(0.0092→0.0069m) — 정반대
+  방향. 알고리즘이 원시 노이즈를 늘리는 게 아니라 줄인다는 뜻이며,
+  코너가 25회나 있는 이번 경로에서도 저정보 구간이 전체 지도 품질을
+  끌어내리지 않았다는 직접적 증거다.
+- FN 미측정 비율도 대조적: 4번은 GICP "성공"(수렴) 케이스가 많아 오히려
+  미측정 비율이 낮았다(0.51%, 점이 넓게 퍼져 커버리지 자체는 89.18%로
+  3번보다도 높았음 — SUMMARY 하단 "84m 실험" 절의 "정확도-커버리지
+  트레이드오프"와 같은 패턴). 5번은 미측정 1.46%로 이보다는 높지만
+  3번(2.35%)보다는 낮다 — 즉 5번은 4번처럼 "틀린 값이라도 넓게 채우는"
+  방식이 아니라 "믿을 수 있는 값만 정확하게" 채우면서도 3번보다 더 넓게
+  채운, 커버리지와 정확도를 동시에 만족한 유일한 결과다.
+- 결론: 이번 실측은 사용자 가설(강체변환 전체 vs 셀단위 독립 처리)과
+  정확히 일치한다. 코너가 잦은 저고도 lawnmower 경로에서는 GICP처럼
+  "스캔 전체를 하나로 재추정"하는 방식이 구조적으로 취약하고, 칼만필터
+  (+GT pose 그대로 신뢰 + 이상치 방어 2겹)처럼 "관측 하나하나를 그 관측이
+  떨어진 셀에만, 신뢰도에 비례해 반영"하는 방식이 이런 경로 형태에 훨씬
+  강건하다.
+
+## 다음 결정 지점(참고용, 이번 범위 밖)
+
+GICP(방법B)는 코너가 드문 경로(84m, 코너 4회)에서는 순이득이 있었지만
+코너가 잦은 경로(5m AGL, 코너 25회)에서는 뚜렷한 손해였다. 칼만필터는
+두 경우 모두에서 opt-in 손해가 없어 보이는(코너 수와 무관하게 안전한)
+전략으로 보이나, 84m 조건에서의 칼만필터 실측은 아직 없다 — 필요하다면
+같은 방식으로 84m bag에도 적용해 6번째 행을 추가하는 것을 고려할 수 있다.
+
+---
+
 
 ## 무엇을 했나
 

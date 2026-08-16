@@ -12,3 +12,22 @@
     frame_id: map
     data_timeout_sec: 2.0
     check_period_sec: 1.0
+    # 기체 자기 반사 제거(이 브랜치 고유). 드론 자신의 팔/로터를 때린 반사가
+    # 센서 좌표계에서 거리 1m 남짓으로 들어오는 것을 걸러낸다.
+    min_range_m: 2.5
+    # 칼만필터 거리 기반 측정 노이즈(R) 파라미터. 드론도 leg(Go2)와 동일하게
+    # 실제 Ouster OS1-32를 장착하므로(README: "센서는 OS1-32로 통일 -- 3대
+    # 통일"), leg_elevation_mapper.yaml과 완전히 동일한 값이다 -- placeholder가
+    # 아니라 실측 확인된 값이다 (0.3-1m: ±0.7cm, 1-20m: ±1cm, 20-50m: ±2cm,
+    # >50m: ±5cm).
+    measurement_noise_max_distances: [1.0, 20.0, 50.0, 100.0]
+    measurement_noise_sigmas: [0.007, 0.010, 0.020, 0.050]
+    incidence_cos_floor: 0.17
+    innovation_gate_threshold: 9.0
+    # 1겹 방어: 유한하지만 물리적으로 말이 안 되게 먼 점을 센서 원점 기준
+    # 거리로 걸러낸다. Module D(ground_elevation_mapper)와 같은 기본값.
+    max_sensor_range: 200.0
+    # 2겹 방어: 이상치 하나가 격자를 무한히 키우려 드는 것을 막는 최후
+    # 방어선. agconav_map_fusion/grid_math.py가 쓰는 동명 파라미터와 같은
+    # 기본값으로 프로젝트 전체에서 일관되게 유지한다.
+    max_grid_cells: 30000000

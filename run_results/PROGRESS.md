@@ -1058,3 +1058,184 @@ sudo usermod -aG docker $USER
    wheel FN 비교 방식) 밖의 새 선택지가 필요할 때
 
 ---
+
+## 📝 디스크 안전 정책 추가 (사용자 저장공간 우려 확인 후, 재비행 도중 보강)
+
+사용자가 재비행 저장공간을 우려해 실측을 요청. 확인 결과:
+- bag 증가 속도 실측 ~10MB/s (velocity_4m_5mps_attempt1, 초반 60초 구간 샘플).
+- 예상 최종 bag 크기 ~7~9GB (경로 예상 비행시간 700~900s 기준).
+- 확인 시점 디스크: 78G 중 37G 사용(50%), 여유 37G — 1회 완주는 충분하나,
+  재시도 허용치(3~4회)를 다 쓰면서 실패 attempt bag을 안 지우면
+  4×9GB≈36GB로 여유공간을 거의 소진할 수 있음.
+
+**정책**: attempt가 실패해 재시도(attempt2, attempt3...)로 넘어갈 때, 실패한
+이전 attempt의 bag 디렉토리를 다음 attempt 시작 전에 삭제해 디스크를 확보한다
+(성공한 최종 bag만 남긴다). 디스크 감시 임계값은 기존 80% 대신 70%부터
+선제적으로 정리 판단을 시작한다.
+
+이 보강 지시 시점(velocity_4m_5mps_attempt1 진행 중, gz sim + ros2 bag record
+PID 27074/27079/27286 확인)까지는 attempt1 하나만 존재, 실패/정리 이력 없음.
+
+## [이번 세션] 0단계 재비행 + 1~2단계 Module A 이식 진행 중
+
+**0단계 판단**: bags/ 가 완전히 비어 있음(이전 세션이 재현 가능하다는 이유로
+전부 삭제) — 홈 디렉토리 전체를 find로 검색해도 5m AGL(4m 간격, 5m/s,
+velocity) bag이 어디에도 남아있지 않아 재비행 필요로 판단, 즉시 재비행 시작.
+`run_results/run_velocity_4m_5mps_monitored.sh attempt1` 사용(이전 세션이
+이미 만들어둔, 마지막 웨이포인트 도달 후 STALL 오판 버그가 수정된 스크립트).
+동일 조건: flight:=velocity, Seongdong_gu_100x100_dynamic(velocity 모드 자동
+선택), path_100x100_5m_4m_5mps.yaml, cruise_speed_mps:=5.0.
+
+**모니터링 중 발견한 버그(스크립트 자체는 아니고 내 감시 루프)**: 이전 세션의
+동일 tag(attempt1) 결과 파일 `velocity_4m_5mps_attempt1_result.txt`(04:57에
+COMPLETED로 stale하게 남아있던 것)이 지워지지 않은 채 남아있어서, 내가 처음
+짠 "결과 파일 존재하면 완료"로 보는 감시 루프가 즉시(1초 만에) 오탐 완료로
+잘못 판단했다. 실제로는 gz sim/ros2 bag record가 정상 기동 중이었음(ps로 확인).
+stale 파일 삭제 후 재모니터링해서 바로잡음 — 앞으로 같은 tag 재사용 시 이
+파일이 남아있을 수 있다는 점 주의.
+
+**중간 진행 상황(재비행)**: 200s 시점 wp 404/5251, bag 1.8GB, TF 정상(~49Hz),
+디스크 50%. 순항중.
+
+**사용자(코디네이터 경유) 정책 갱신**:
+- 디스크 부족 시 `run_results/clouds/`(6.5GB, 84m/5m 실험 point cloud 원본,
+  이미 FN% JSON으로 요약됨)와 `run_results/dryrun_4m_5mps_grid.npz`(90MB)는
+  지워도 된다고 명시적 허가받음 — 지운 순서/이유는 실제로 지울 때 여기 기록.
+- **정책 전환(중요)**: 이번에 새로 기록하는 bag(velocity_4m_5mps_attemptN,
+  최종 성공분)은 실험 종료 후에도 삭제하지 않는다 — 이전 세션들이 "재현
+  가능"을 이유로 84m/5m bag을 지운 판단이 바로 이번 재비행을 유발했기
+  때문. 실패/중단된 attempt bag만 삭제 대상.
+
+**1~2단계(코드)**: brian_test의 Module A(`drone_elevation_mapper.py`)를
+`git show`로 확인 — README에 명시된 요구사항(elevation/variance 칼만필터,
+R=거리+입사각+밀도, Q=0, 이노베이션 게이팅 9.0, NaN 패딩, elevation_variance
+레이어, **np.gradient 로컬 윈도우 최적화**) 전부 실제로 존재함을 확인(문제
+없음, 별도 보고 불필요). 이걸 test_main_brian의 같은 파일에 이식하면서:
+- 이 브랜치 고유의 `min_range_m`(기체 자기 반사 제거, transform 전 센서
+  로컬 좌표 원점 기준 거리 필터) 유지.
+- Module D(`ground_elevation_mapper.py`, brian_test)의 방어 로직 2가지를
+  참고해 Module A에 새로 구현: `max_sensor_range`(200.0, transform 후
+  센서 원점 기준 거리 필터, `_accumulate`에서 min_range 다음/그리드
+  비닝 전) + `max_grid_cells`(30,000,000, `_grow_to_fit`에서 패딩 직전
+  예상 총 셀 수 계산 후 초과 시 (None, None) 반환 → `_accumulate`에서
+  이번 배치만 버리고 기존 누적 보존).
+- `drone_elevation_mapper.yaml`에 칼만필터 파라미터 + 두 방어 파라미터
+  전부 추가.
+- `agconav_drone/package.xml`의 `<depend>rosbag2_py</depend>` 바로 다음
+  줄에 `<exec_depend>rosbag2_storage_mcap</exec_depend>` 추가.
+
+**다음**: 재비행 완료 대기(메모리가 빠듯함 - 277MB free, swap 1GB 사용 중이라
+colcon build는 비행 완전 종료 후에 실행해 자원 경합 방지). 완료 후 build →
+bag 재생(module_a 라이브 구독) → 채점 → 비교표.
+
+**타임아웃 변경(사용자 지시, 코디네이터 경유)**: 재비행이 필요해져 전체
+작업 타임아웃을 2시간 → 5시간으로 연장(시작 시각 기준, 이미 지난 시간
+포함). 재비행 자체의 정지조건(3~4회 재시도 불안정, TF 끊김, 디스크 80%
+하드컷)은 그대로 유지하되, 디스크 70%부터는 선제적으로
+`run_results/clouds/`, `dryrun_4m_5mps_grid.npz` 삭제로 여유를 확보하는
+정책을 추가 적용한다(80%가 스크립트의 하드 컷이므로 70%는 그 전에 손 쓸
+여유를 두기 위한 조기경보 기준).
+
+**선제적 디스크 정리(70% 조기경보, 사용자 사전 허가)**: 재비행 진행 중
+디스크가 60%를 넘고 증가 추세(비행 완료 시점 예상 ~74%)로 보여, 완료 후
+build+replay에서 추가로 필요할 여유를 확보하기 위해 미리 정리:
+- `run_results/clouds/`(6.5GB, 84m/5m 실험의 원본 point cloud .npy) — 이미
+  FN% JSON(`84m_*_fn.json`, `*_4m_5mps_fn.json`)으로 요약 완료, 필요시
+  build_methodB_cloud.py로 재생성 가능해 원본 보존 불필요.
+- `run_results/dryrun_4m_5mps_grid.npz`(90MB) — 2단계 드라이런 캐시, 이미
+  분석 완료.
+삭제 후 디스크 사용량 재확인함(로그 참고).
+
+## 3단계 진행 — bag 재생 시작 (칼만필터 + 방어 로직 2겹 라이브 검증)
+
+**재비행 완주**: attempt1, path_status=true, 2231s(약 37분), bag 22GB(12개
+mcap 청크), TF/프로세스 전부 정상 종료. `bags/velocity_4m_5mps_attempt1`
+보존(정책대로 삭제하지 않음).
+
+**colcon build**: `colcon build --symlink-install --packages-up-to
+agconav_drone agconav_traversability` — 성공, 에러 없음(deprecation 경고만).
+
+**bag 재생 실행**: `run_results/run_bag_replay_kalman.sh
+bags/velocity_4m_5mps_attempt1 kalman_4m_5mps
+run_results/kalman_4m_5mps_fn.json 92 1.0 3600` — drone_elevation_mapper,
+terrain_feature_calculator, traversability_verdictor(wheel/leg),
+elevation_map_saver 5개 노드를 use_sim_time:=true로 먼저 띄운 뒤
+`ros2 bag play --clock --rate 1.0`으로 원본 /drone/points, /tf, /tf_static,
+/drone/path_status를 재생. capture_nav_fn.py가 최종 산출물을 구독해 채점.
+
+**이상치 방어 로그 확인(3단계 요구사항)**: drone_elevation_mapper 시작 로그에
+`max_sensor_range=200.0m, max_grid_cells=30000000, min_range_m=2.5m`가 정확히
+찍히는 것을 확인 — 파라미터가 정상 선언/초기화됨(실제 컷오프 동작 여부는
+capture_nav_fn.py 결과의 coverage/height 통계로 간접 확인 예정 — 200m/
+3천만 셀 둘 다 이번 100x100 지도 규모에서는 정상 상황에선 거의 안 걸릴
+임계값이라 트리거 자체가 로그에 안 남는 게 오히려 정상, 콜백 경로가
+빠짐없이 실행됐다는 것만 확인).
+
+**다음**: bag 재생 완료(예상 ~37분, --rate 1.0) 대기 → wheel/leg FN% 채점
+→ 비교표 갱신 → git commit/push.
+
+**알려진 버그(이번에 발견) — SIGTERM 에스컬레이션이 bag record를 강제종료시켜
+metadata.yaml 누락**: `run_velocity_4m_5mps_monitored.sh`의
+`shutdown_launch()`가 launch 프로세스에 SIGINT→(15초 내 안 죽으면)
+SIGTERM으로 에스컬레이션하는데, 이번 정상 완주 종료 과정에서 실제로
+SIGTERM까지 에스컬레이션됐다(status_log: "SIGINT로 안 죽어서 SIGTERM
+에스컬레이션"). 그 여파로 하위 `ros2 bag record` 프로세스가 정상적인
+graceful shutdown(각 mcap 청크의 요약/인덱스 섹션 flush + metadata.yaml
+작성)을 못 마치고 죽어, bag 디렉토리에 mcap 파일 12개(22GB, 데이터 자체는
+전부 정상)는 있는데 `metadata.yaml`이 없는 상태가 됐다. 그 결과
+`ros2 bag play`가 "No storage id specified, and no plugin found that could
+open URI" 에러로 즉시 실패.
+
+**복구**: `ros2 bag reindex -s mcap bags/velocity_4m_5mps_attempt1` 실행 →
+성공("Could not set read order on open(), falling back to file order" 경고는
+있었지만 — mcap 파일 자체에 메시지 인덱스가 없어 수신 순서 재정렬을 못하고
+파일에 쓰인 순서를 그대로 쓴다는 뜻일 뿐, recorder가 어차피 시간순으로
+기록하므로 실질적 영향 없음). `ros2 bag info`로 데이터 무결성 확인:
+duration 2258.8s, `/drone/points` 22,319개, `/tf` 111,598개, `/tf_static` 1개,
+`/drone/path_status` 1개, `/drone/imu` 223,053개 — 데이터 손실 없음.
+
+**재발 방지**: 이 스크립트류(`run_velocity_*_monitored.sh`,
+`shutdown_launch` 패턴을 쓰는 모든 것)로 기록한 bag은, 재생하기 전에 항상
+`ros2 bag info <bag_dir>`로 metadata.yaml 존재/무결성을 먼저 확인하는
+습관을 들인다(이번 세션의 이후 단계부터 바로 적용). 근본 수정(SIGINT
+타임아웃을 늘리거나 bag record만 먼저 별도로 SIGINT하는 등)은 이번 작업
+범위 밖이라 이번엔 안 건드리고, 발생 시 reindex로 복구하는 절차만 확립.
+
+## 4~6단계 완료 — 채점 결과 및 최종 비교표
+
+**4단계 채점 결과**(`run_results/kalman_4m_5mps_fn.json`):
+- wheel FN% = 10.91% (n_gt_traversable=618,378, occupied_FN=67,436, unknown=9,046)
+- leg FN% = 8.03% (occupied_FN=49,646, unknown 동일 9,046)
+- elevation_map coverage = 95.80%(997,427/1,041,148), height 1.04~9.04m
+- step(단차) 중앙값 0.00692m, p95 0.953m, max 6.519m — baseline(3번)보다
+  전부 개선.
+
+**5단계 비교표(최종)**은 `run_results/SUMMARY.md` 최상단 절 참조(5개 행
+전체, 분석 포함) — 여기서는 요약만:
+
+| # | 고도 | 속도 | 간격 | 위치정합 | 지도생성방식 | wheel FN% | leg FN% |
+|---|---|---|---|---|---|---|---|
+| 1 | 84m | 8m/s | 32m | GT만 | 단순평균 | 23.94% | 12.15% |
+| 2 | 84m | 8m/s | 32m | GT+GICP | GICP정합 | 20.10% | 11.89% |
+| 3 | 5m AGL | 5m/s | 4m | GT만 | 단순평균 | 13.44% | 12.60% |
+| 4 | 5m AGL | 5m/s | 4m | GT+GICP | GICP정합 | 37.26% | 30.03% |
+| 5 | 5m AGL | 5m/s | 4m | GT만 | 칼만필터(이상치방어) | **10.91%** | **8.03%** |
+
+핵심 결론: 칼만필터(5번)는 3번(같은 GT-only, 알고리즘만 다름) 대비
+wheel -18.8%/leg -36.3%(상대) 개선, 4번(GICP) 대비는 wheel 3.4배/leg
+3.7배 개선. 원시 노이즈(step 중앙값/p95/max), 커버리지(95.80%),
+미측정비율(1.46%) 전부 3번보다 개선 — GICP(4번)처럼 "쉬운 곳만 쉽게"가
+아니라 지도 전체 품질을 실제로 높였다. 4번(GICP) 대비 압도적 우위는
+사용자가 제시한 가설(강체변환 전체 오염 vs 셀단위 독립 처리)과 실측이
+정확히 일치(4번은 자기 baseline인 3번보다 step 중앙값 5.3배 악화, 5번은
+같은 3번보다 24.5% 개선 — 정반대 방향). 상세 근거는 SUMMARY.md 참조.
+
+**6단계 — 저장/커밋**: 아래 커밋 로그 참조.
+
+## 이번 세션 최종 상태
+
+전체 6단계(0~6) 완료. 정지조건 발동 없음. bag(`bags/velocity_4m_5mps_
+attempt1`, 22GB)은 정책대로 보존(삭제 안 함, .gitignore로 git 추적 제외).
+다음 세션 이어받을 지점: 없음(이번 작업 범위 완료). 참고로 남길 것 —
+84m 조건에서의 칼만필터 실측은 아직 없음(SUMMARY.md "다음 결정 지점"
+참조, 이번 범위 밖이라 미수행).
