@@ -1,0 +1,6 @@
+[17:15:36] variant=variantA_calibR extra_params=-p measurement_noise_max_distances:=[20.0,50.0,90.0,170.0] -p measurement_noise_sigmas:=[0.008,0.009,0.010,0.012] -p measurement_noise_incidence_exponent:=0.3
+[bag play 종료 17:53:24] capture 대기 중...
+[variantA_calibR] wheel FN%=40.18% (GT통과가능 618378개 중 pipeline이 막힘판정 248439개, 미측정 1.5%)
+[variantA_calibR] leg FN%=25.48% (GT통과가능 618378개 중 pipeline이 막힘판정 157552개, 미측정 1.5%)
+[variantA_calibR] 저장: run_results/variantA_calibR_fn.json
+로그: /tmp/trav_fn_variantA_calibR   결과: run_results/variantA_calibR_fn.json

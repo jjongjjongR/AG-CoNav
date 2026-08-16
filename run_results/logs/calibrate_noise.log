@@ -1,0 +1,116 @@
+[INFO] [1786867277.027652924] [calibrate_noise]: --- 조건 d=20.0m angle=60.0deg -> sensor_pos=(-7.679491924311229, -100.0, 11.417700000000002) ---
+[WARN] [1786867289.495171374] [calibrate_noise]: 반경 0.5m에서도 0점 -- 다음 단계로 확대 시도
+[WARN] [1786867301.486281030] [calibrate_noise]: 반경 1.0m에서도 0점 -- 다음 단계로 확대 시도
+[INFO] [1786867311.848391427] [calibrate_noise]: --- 조건 d=20.0m angle=75.0deg -> sensor_pos=(-5.681483474218634, -100.0, 6.594080902050415) ---
+[WARN] [1786867325.764115191] [calibrate_noise]: 반경 0.5m에서도 0점 -- 다음 단계로 확대 시도
+[WARN] [1786867339.326413882] [calibrate_noise]: 반경 1.0m에서도 0점 -- 다음 단계로 확대 시도
+[WARN] [1786867352.574690475] [calibrate_noise]: 반경 2.0m에서도 0점 -- 다음 단계로 확대 시도
+[WARN] [1786867362.808048960] [calibrate_noise]: 반경 3.0m에서도 0점 -- 다음 단계로 확대 시도
+[INFO] [1786867362.809084779] [calibrate_noise]: --- 조건 d=50.0m angle=60.0deg -> sensor_pos=(18.30127018922193, -100.0, 26.417700000000007) ---
+[WARN] [1786867376.912168918] [calibrate_noise]: 반경 0.5m에서도 0점 -- 다음 단계로 확대 시도
+[WARN] [1786867386.410938828] [calibrate_noise]: 반경 1.0m에서도 0점 -- 다음 단계로 확대 시도
+[INFO] [1786867397.010661342] [calibrate_noise]: --- 조건 d=50.0m angle=75.0deg -> sensor_pos=(23.296291314453413, -100.0, 14.358652255126037) ---
+[WARN] [1786867410.976808965] [calibrate_noise]: 반경 0.5m에서도 0점 -- 다음 단계로 확대 시도
+[WARN] [1786867425.970285223] [calibrate_noise]: 반경 1.0m에서도 0점 -- 다음 단계로 확대 시도
+[WARN] [1786867440.552384703] [calibrate_noise]: 반경 2.0m에서도 0점 -- 다음 단계로 확대 시도
+[WARN] [1786867452.856536058] [calibrate_noise]: 반경 3.0m에서도 0점 -- 다음 단계로 확대 시도
+[INFO] [1786867452.857763069] [calibrate_noise]: --- 조건 d=84.0m angle=60.0deg -> sensor_pos=(47.74613391789285, -100.0, 43.41770000000001) ---
+[WARN] [1786867466.030207098] [calibrate_noise]: 반경 0.5m에서도 0점 -- 다음 단계로 확대 시도
+[WARN] [1786867477.561301301] [calibrate_noise]: 반경 1.0m에서도 0점 -- 다음 단계로 확대 시도
+[INFO] [1786867490.030717666] [calibrate_noise]: --- 조건 d=84.0m angle=75.0deg -> sensor_pos=(56.13776940828174, -100.0, 23.158499788611742) ---
+[WARN] [1786867502.072287249] [calibrate_noise]: 반경 0.5m에서도 0점 -- 다음 단계로 확대 시도
+[WARN] [1786867511.173451422] [calibrate_noise]: 반경 1.0m에서도 0점 -- 다음 단계로 확대 시도
+[WARN] [1786867523.161781204] [calibrate_noise]: 반경 2.0m에서도 0점 -- 다음 단계로 확대 시도
+--- 조건 d=5.0m angle=0.0deg: 기존 결과 재사용(스킵) ---
+--- 조건 d=5.0m angle=60.0deg: 기존 결과 재사용(스킵) ---
+--- 조건 d=5.0m angle=75.0deg: 기존 결과 재사용(스킵) ---
+--- 조건 d=20.0m angle=0.0deg: 기존 결과 재사용(스킵) ---
+{
+  "distance_nominal": 20.0,
+  "angle_nominal_deg": 60.0,
+  "n_scans_ok": 44,
+  "n_points": 263,
+  "target_radius_used_m": 2.0,
+  "range_mean": 21.177108300502763,
+  "range_std": 0.21536950864641327,
+  "incidence_mean_deg": 62.68158486143143,
+  "incidence_std_deg": 0.27216023725918026,
+  "height_error_mean_m": 0.006583559760479978,
+  "height_error_std_m": 0.04590403942440869,
+  "height_error_min_m": -0.07020010212709593,
+  "height_error_max_m": 0.0956373013671552
+}
+{
+  "distance_nominal": 20.0,
+  "angle_nominal_deg": 75.0,
+  "n_scans_ok": 0,
+  "n_points": 0,
+  "error": "NO_POINTS_NEAR_TARGET",
+  "target_radius_tried_m": [
+    0.5,
+    1.0,
+    2.0,
+    3.0
+  ]
+}
+--- 조건 d=50.0m angle=0.0deg: 기존 결과 재사용(스킵) ---
+{
+  "distance_nominal": 50.0,
+  "angle_nominal_deg": 60.0,
+  "n_scans_ok": 31,
+  "n_points": 138,
+  "target_radius_used_m": 2.0,
+  "range_mean": 50.95024238807568,
+  "range_std": 0.32167653769652943,
+  "incidence_mean_deg": 60.87767026047597,
+  "incidence_std_deg": 0.2040416069021741,
+  "height_error_mean_m": -0.03451910644552485,
+  "height_error_std_m": 0.09027495789689118,
+  "height_error_min_m": -0.16173847380151685,
+  "height_error_max_m": 0.13203921989628142
+}
+{
+  "distance_nominal": 50.0,
+  "angle_nominal_deg": 75.0,
+  "n_scans_ok": 0,
+  "n_points": 0,
+  "error": "NO_POINTS_NEAR_TARGET",
+  "target_radius_tried_m": [
+    0.5,
+    1.0,
+    2.0,
+    3.0
+  ]
+}
+--- 조건 d=84.0m angle=0.0deg: 기존 결과 재사용(스킵) ---
+{
+  "distance_nominal": 84.0,
+  "angle_nominal_deg": 60.0,
+  "n_scans_ok": 24,
+  "n_points": 69,
+  "target_radius_used_m": 2.0,
+  "range_mean": 84.79676409735195,
+  "range_std": 0.36994982731746756,
+  "incidence_mean_deg": 60.38269959797961,
+  "incidence_std_deg": 0.14267686316146633,
+  "height_error_mean_m": -0.05687492720275615,
+  "height_error_std_m": 0.1465046308337327,
+  "height_error_min_m": -0.2606217195731979,
+  "height_error_max_m": 0.19829050959345906
+}
+{
+  "distance_nominal": 84.0,
+  "angle_nominal_deg": 75.0,
+  "n_scans_ok": 42,
+  "n_points": 241,
+  "target_radius_used_m": 3.0,
+  "range_mean": 85.47152833424168,
+  "range_std": 0.305292020876772,
+  "incidence_mean_deg": 76.77410458508601,
+  "incidence_std_deg": 0.4419712982171006,
+  "height_error_mean_m": 2.167175488396723,
+  "height_error_std_m": 0.66073321364727,
+  "height_error_min_m": 0.5878811256379315,
+  "height_error_max_m": 3.3303178841886307
+}
+저장: run_results/calib_summary.json

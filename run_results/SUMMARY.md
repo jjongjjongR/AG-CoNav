@@ -1,3 +1,82 @@
+# SUMMARY — ①실측R보정 + ④디스큐 변형 A/B/C 실험 (2026-08-16, 신규 세션)
+
+**세션**: 2026-08-16, 브랜치 `test_main_brian`(작업 폴더
+`~/AG-CoNav-test_main`), 사용자 취침 중 자율 진행(전체 타임아웃 3시간).
+전 단계 상세 근거는 `run_results/PROGRESS.md`("[새 세션] R보정(①)+디스큐(④)
+변형 A/B/C 작업 시작" 이하)에, R 보정 상세는
+`run_results/calibrated_noise_table.md`에 전부 기록.
+
+## 목표
+
+직전 실험(#5, 5m AGL/4m간격/5m/s/velocity/칼만필터+이상치방어, wheel FN%
+10.91%/leg FN% 8.03%) 위에 두 가지 개선을 각각·함께 시도:
+- **①** 정지비행(teleport) 실측으로 측정노이즈(R) 구간표를 보정
+- **④** 스캔 내 시간왜곡(모션 블러) 보정(디스큐)
+
+## 무엇을 했나
+
+1. **재개 확인**: 크래시로 끊긴 이전 세션이 `run_results/calibrate_noise.py`
+   (①용 신규 스크립트)와 `--pilot`(조건 1개) 결과만 남긴 채 중단돼 있었음.
+   `bags/velocity_4m_5mps_attempt1`(#5의 원본 22GB bag) 무결성 확인 →
+   재비행 불필요.
+2. **① 실측 보정 중 버그 발견·수정**: 정지비행 teleport 첫 호출이 DDS
+   디스커버리 레이스로 씹혀 드론이 엉뚱한 위치(84m 상공)에서 스캔한
+   오염된 pilot 데이터를 발견 → `calibrate_noise.py`에 TF 기반 도착
+   확인을 추가해 수정. 12조건(거리4×입사각3) 재실측 완료, 6개는 반경
+   0.5m에서 바로 성공, 6개는 빔 간격이 넓어져 반경을 2~3m로 확대
+   (그 중 1개는 지형 혼입으로 폐기, 2개는 끝내 측정 불가로 모델에서
+   제외). 실측 결과 이 무노이즈 결정론적 시뮬레이터의 σ는 거리·입사각에
+   거의 무관하게 0.006~0.009m로 평탄 — 기존 이론표(0.007→0.050m,
+   `1/cos²θ`)보다 훨씬 작음. 새 R표
+   `[20,50,90,170]m→[0.008,0.009,0.010,0.012]m`,
+   입사각 지수 2.0→0.3(신규 파라미터화)을 도출.
+3. **④ 디스큐 구현**: `/drone/points`에 점별 타임스탬프 필드가 없음을
+   실측 확인(x,y,z,intensity,ring만) → organized cloud(32ring×1024azimuth)의
+   column index를 발사 순서 근사치로 써서, 스캔을 12구간으로 쪼개
+   구간별 TF를 따로 조회·적용하도록 `drone_elevation_mapper.py`에
+   `deskew_enabled`(기본 false) 경로 추가. 리팩터링 중 버그(`msg` 미정의
+   NameError) 1건을 스모크테스트로 잡아 즉시 수정.
+4. **A/B/C 재처리**: 기존 칼만필터 bag재처리 스크립트
+   (`run_bag_replay_kalman.sh`)를 일반화한 `run_variant_replay.sh`로,
+   #5의 원본 bag을 파라미터만 바꿔 3회 재생(각 ~38분, rate=1.0, #5와
+   동일 조건 유지) — 재비행 없음.
+5. **채점**: 기존 `capture_nav_fn.py`(무수정)로 동일 정의(GT 통과가능
+   셀 중 파이프라인이 "막힘"으로 오판한 비율) 채점.
+
+## 결과
+
+| # | 고도 | 속도 | 간격 | 위치정합 | 지도생성방식 | wheel FN% | leg FN% | 비고 |
+|---|---|---|---|---|---|---|---|---|
+| 5 | 5m AGL | 5m/s | 4m | GT만 | 칼만필터(이상치방어) | **10.91%** | **8.03%** | 기준(#5) |
+| A | 5m AGL | 5m/s | 4m | GT만 | +①실측R보정 | **40.18%** | **25.48%** | ① 단독 — 큰 폭 악화 |
+| B | 5m AGL | 5m/s | 4m | GT만 | +④디스큐 | **15.00%** | **7.53%** | ④ 단독 — wheel 악화, leg 소폭 개선 |
+| C | 5m AGL | 5m/s | 4m | GT만 | +①+④ | **27.44%** | **14.48%** | 둘 다 — A보다 낫지만 기준 미달 |
+
+**핵심 발견**: ①(정지비행 실측 R)을 등속비행(모션 블러 존재) 데이터에
+디스큐 없이 그대로 적용하면 칼만필터가 노이즈를 과소평가해 지도가 오히려
+크게 거칠어진다(wheel FN% +268%, leg FN% +217% 상대 악화) — **기존
+이론 기반 R표의 큰 σ가 "정지 실측 vs 실제 비행" 간극에 대한 암묵적
+안전마진 역할을 하고 있었다는 뜻**. ④를 더하면 이 손상이 상당 부분
+줄어들지만(C가 A보다 wheel -12.7pp·leg -11.0pp 개선) 완전히 사라지지
+않고, ④ 자체도 버킷별 TF 조회 실패로 추정되는 커버리지 손실(unknown
+1.5%→9.5%) 부작용이 있어 단독으로도 기준을 못 넘는다. **결론: ①·④·둘
+다 모두 이번 조건에서는 #5 기준보다 나쁘며 채택 비권고.** 상세 분석은
+`run_results/PROGRESS.md` "5단계 — 비교표 및 분석" 절 참고.
+
+## 산출물
+
+- `run_results/calibrate_noise.py`, `calib_summary.json`,
+  `calibrated_noise_table.md` — ① 실측·분석·최종 R 모델.
+- `run_results/diag_probe.py` — teleport 버그 진단용 1회성 스크립트.
+- `run_results/run_variant_replay.sh` — A/B/C 공통 재처리 스크립트.
+- `run_results/variantA_calibR_fn.json`, `variantB_deskew_fn.json`,
+  `variantC_calibR_deskew_fn.json` — 채점 결과.
+- `src/agconav_drone/agconav_drone/drone_elevation_mapper.py`,
+  `config/drone_elevation_mapper.yaml` — ①④ 파라미터화(기본값은 #5와
+  동일하게 유지, 옵트인 방식).
+
+---
+
 # SUMMARY — 5m AGL 칼만필터(Module A 이식 + 이상치 방어) 실험 + 5개 결과 종합비교
 
 **세션**: 2026-08-16, 브랜치 `test_main_brian`(작업 폴더

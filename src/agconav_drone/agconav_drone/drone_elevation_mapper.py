@@ -135,8 +135,22 @@ class DroneElevationMapper(Node):
         self.declare_parameter(
             'measurement_noise_sigmas', [0.007, 0.010, 0.020, 0.050])
         # cos(80°) ≈ 0.17 -- grazing angle(입사각이 90°에 가까워질 때) 근처에서
-        # R_point가 1/cos_theta**2로 발산하는 것을 막는 하한. Module D와 동일.
+        # R_point가 1/cos_theta**exponent로 발산하는 것을 막는 하한. Module D와 동일.
         self.declare_parameter('incidence_cos_floor', 0.17)
+        # 입사각 보정 지수. 기본값 2.0은 실물 Ouster OS1-32 기준 이론값(1/cos²θ)
+        # 그대로 유지 -- 기존 동작과 완전히 동일. run_results/calibrated_noise_table.md의
+        # 실측 보정(①)을 적용하는 실행에서만 launch 파라미터로 더 작은 값(예: 0.3)을
+        # 덮어쓴다 -- 이 시뮬레이터(무노이즈 gpu_lidar)에서는 실측 입사각 의존성이
+        # 이론보다 한 자릿수 약했다(문서 4-2절 근거).
+        self.declare_parameter('measurement_noise_incidence_exponent', 2.0)
+        # ④ 디스큐(스캔 내 시간왜곡 보정). 기본 False -- 기존 동작(스캔 전체를
+        # 하나의 TF로 일괄 변환) 그대로 유지. /drone/points에 점별 타임스탬프
+        # 필드가 없음을 실측 확인했다(x,y,z,intensity,ring뿐 -- 아래
+        # _accumulate_deskewed docstring 참고) -- 그래서 organized cloud의
+        # column index(=스캔 내 발사 순서)로 방위각 기반 근사 시각을 쓴다.
+        self.declare_parameter('deskew_enabled', False)
+        self.declare_parameter('deskew_num_buckets', 12)
+        self.declare_parameter('deskew_scan_period_sec', 0.1)
         # 카이제곱분포 자유도 1, 유의수준 약 0.27%(대략 3-시그마)에 해당하는
         # 표준 게이팅 임계값 (Bar-Shalom, "Estimation with Applications to
         # Tracking and Navigation"). Module D와 동일.
@@ -176,6 +190,12 @@ class DroneElevationMapper(Node):
                 'measurement_noise_max_distances must be strictly increasing, got '
                 f'{self._measurement_noise_max_distances.tolist()}')
         self._incidence_cos_floor = float(self.get_parameter('incidence_cos_floor').value)
+        self._measurement_noise_incidence_exponent = float(
+            self.get_parameter('measurement_noise_incidence_exponent').value)
+        self._deskew_enabled = bool(self.get_parameter('deskew_enabled').value)
+        self._deskew_num_buckets = int(self.get_parameter('deskew_num_buckets').value)
+        self._deskew_scan_period_sec = float(
+            self.get_parameter('deskew_scan_period_sec').value)
         self._innovation_gate_threshold = float(
             self.get_parameter('innovation_gate_threshold').value)
         self._max_sensor_range = float(self.get_parameter('max_sensor_range').value)
@@ -248,6 +268,10 @@ class DroneElevationMapper(Node):
         self._last_received = self.get_clock().now()
 
         source_frame = self._target_source_frame or msg.header.frame_id
+        if self._deskew_enabled:
+            self._accumulate_deskewed(msg, source_frame)
+            return
+
         try:
             # ground_elevation_mapper와 동일: cloud 자체의 측정 시점(stamp)으로
             # TF를 조회한다. wait timeout 없이 즉시 조회하고, 아직 없으면
@@ -262,6 +286,93 @@ class DroneElevationMapper(Node):
             return
 
         self._accumulate(msg, transform.transform)
+
+    def _accumulate_deskewed(self, msg, source_frame):
+        """④ 디스큐: 스캔을 통째로 하나의 TF로 옮기지 않고, 각도(azimuth) 구간
+        여러 개로 쪼개 구간마다 대표 시각의 TF를 따로 조회해 적용한다.
+
+        `/drone/points`(gz gpu_lidar) 필드를 실측 확인한 결과 x/y/z/intensity/
+        ring뿐, 점별 타임스탬프 필드가 없다(top-of-file 참고). 대신 이 cloud는
+        organized(height=32 채널 x width=1024 방위각 발사)라서, column index가
+        곧 한 스캔 안에서의 발사 순서를 그대로 나타낸다 -- 그래서 atan2 기반
+        방위각 계산 없이 column index로 바로 "이 점은 스캔 안에서 몇 번째
+        타이밍에 찍혔는가"를 근사한다:
+            t(col) = header.stamp + (col / width) * deskew_scan_period_sec
+        구간(bucket) 수는 deskew_num_buckets(기본 12, 8~16 권장 범위) -- 너무
+        잘게 쪼개면 TF 조회 횟수가 늘어 콜백 처리 시간이 커지고(이전에
+        np.gradient 전체 배열 최적화로 겪은 것과 같은 종류의 성능 문제 재발
+        위험), 너무 성기면 디스큐 효과가 줄어드는 트레이드오프가 있다.
+        """
+        width = int(msg.width)
+        height = int(msg.height)
+        if width <= 1 or height <= 0:
+            # organized cloud가 아니면(비정상 메시지) 디스큐를 적용할 기준이
+            # 없다 -- 기존(스캔 전체 단일 TF) 방식으로 안전하게 폴백한다.
+            try:
+                transform = self._tf_buffer.lookup_transform(
+                    self._target_frame, source_frame, Time.from_msg(msg.header.stamp))
+            except TransformException as ex:
+                self.get_logger().warn(
+                    f'TF lookup failed (deskew 폴백) for "{source_frame}" -> '
+                    f'"{self._target_frame}": {ex}')
+                return
+            self._accumulate(msg, transform.transform)
+            return
+
+        points = read_points_numpy(msg, field_names=('x', 'y', 'z'), skip_nans=False)
+        # organized cloud는 row-major(행=채널, 열=방위각)로 평탄화돼 있으므로
+        # (row_step = point_step * width), 같은 순서로 만든 column index가
+        # 그대로 대응한다.
+        col_idx = np.tile(np.arange(width), height)
+
+        finite = np.isfinite(points).all(axis=1)
+        points = points[finite]
+        col_idx = col_idx[finite]
+        if points.shape[0] == 0:
+            return
+
+        # 기체 자기 반사 제거 -- transform 전, 센서 로컬 좌표계 기준으로
+        # 걸러야 한다(_accumulate와 동일 이유, top-of-file 9번 항목).
+        if self._min_range > 0.0:
+            ranges = np.linalg.norm(points, axis=1)
+            keep = ranges >= self._min_range
+            points = points[keep]
+            col_idx = col_idx[keep]
+            if points.shape[0] == 0:
+                return
+
+        n_buckets = max(1, self._deskew_num_buckets)
+        bucket_idx = np.clip((col_idx.astype(np.int64) * n_buckets) // width, 0, n_buckets - 1)
+
+        stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        transformed_chunks = []
+        last_transform = None
+        for b in range(n_buckets):
+            sel = bucket_idx == b
+            if not np.any(sel):
+                continue
+            t_offset = (b + 0.5) / n_buckets * self._deskew_scan_period_sec
+            bucket_stamp = Time(seconds=stamp_sec + t_offset)
+            try:
+                tf = self._tf_buffer.lookup_transform(
+                    self._target_frame, source_frame, bucket_stamp)
+            except TransformException as ex:
+                self.get_logger().debug(
+                    f'deskew 구간 {b}/{n_buckets} TF 조회 실패(이 구간만 버림): {ex}')
+                continue
+            last_transform = tf.transform
+            transformed_chunks.append(transform_points(points[sel], tf.transform))
+
+        if not transformed_chunks:
+            return
+        points_map = np.concatenate(transformed_chunks, axis=0)
+        # sensor_origin(R 계산의 거리항에만 쓰임, _measurement_noise 참고)은
+        # 이 스캔의 마지막 구간 위치로 근사한다 -- 스캔 1회 동안 드론 이동거리
+        # (예: 5m/s x 0.1s = 0.5m)가 R 구간표 폭(수십 m)에 비해 작아 이
+        # 근사가 R 값에 미치는 영향은 무시할 수 있는 수준이다. 점 자체의
+        # 좌표(위치 정확도, 디스큐의 본래 목적)는 이미 구간별로 정확히
+        # 변환됐으므로 이 근사와 무관하다.
+        self._accumulate_common(points_map, last_transform, msg.header.stamp)
 
     def _accumulate(self, msg, transform):
         # ground_elevation_mapper는 여기서 tf2_sensor_msgs.do_transform_cloud로
@@ -299,7 +410,13 @@ class DroneElevationMapper(Node):
                 return
 
         points = transform_points(points, transform)
+        self._accumulate_common(points, transform, msg.header.stamp)
 
+    def _accumulate_common(self, points, transform, stamp):
+        """map 프레임으로 이미 변환된 점들을 받아 사거리 상한 필터링부터 칼만
+        갱신까지 처리한다. 디스큐(_accumulate_deskewed) 경로와 비-디스큐
+        (_accumulate) 경로가 여기서부터 로직을 공유한다.
+        """
         # 1겹 방어(top-of-file 8번 항목, Module D와 동일 설계): np.isfinite로는
         # 못 거르는, 유한하지만 물리적으로 말이 안 되게 먼 점을 센서 원점 기준
         # 거리로 걸러낸다. transform.translation은 source_frame(센서) 원점의
@@ -362,7 +479,7 @@ class DroneElevationMapper(Node):
             counts, sensor_origin_xyz)
         self._kalman_update_cells(touched_rows, touched_cols, batch_mean_z, r_eff)
 
-        self._last_stamp = msg.header.stamp
+        self._last_stamp = stamp
 
     def _measurement_noise(
             self, rows, cols, mean_x, mean_y, mean_z, counts, sensor_origin):
@@ -446,7 +563,7 @@ class DroneElevationMapper(Node):
         sigma_distance = self._measurement_noise_sigmas[idx]
         r_distance = sigma_distance ** 2
 
-        r_point = r_distance / cos_theta ** 2
+        r_point = r_distance / cos_theta ** self._measurement_noise_incidence_exponent
         return r_point / counts
 
     def _kalman_update_cells(self, rows, cols, batch_mean, r_eff):

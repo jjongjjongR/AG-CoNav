@@ -1,0 +1,6 @@
+[18:31:52] variant=variantC_calibR_deskew extra_params=-p measurement_noise_max_distances:=[20.0,50.0,90.0,170.0] -p measurement_noise_sigmas:=[0.008,0.009,0.010,0.012] -p measurement_noise_incidence_exponent:=0.3 -p deskew_enabled:=true
+[bag play 종료 19:09:39] capture 대기 중...
+[variantC_calibR_deskew] wheel FN%=27.44% (GT통과가능 618378개 중 pipeline이 막힘판정 169676개, 미측정 9.3%)
+[variantC_calibR_deskew] leg FN%=14.48% (GT통과가능 618378개 중 pipeline이 막힘판정 89551개, 미측정 9.3%)
+[variantC_calibR_deskew] 저장: run_results/variantC_calibR_deskew_fn.json
+로그: /tmp/trav_fn_variantC_calibR_deskew   결과: run_results/variantC_calibR_deskew_fn.json
