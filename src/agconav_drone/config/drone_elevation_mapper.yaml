@@ -32,6 +32,10 @@
     deskew_enabled: false
     deskew_num_buckets: 12
     deskew_scan_period_sec: 0.1
+    # bag 재처리 전용 근본 수정(기본 빈 문자열=꺼짐). 켜는 실행에서만 원본
+    # bag 경로를 넘겨 노드 시작 시 그 bag의 /tf+/tf_static을 통째로 미리
+    # 읽는다 -- run_results/PROGRESS.md ④번 커버리지 손실 수정 절 참고.
+    deskew_tf_preload_bag_path: ""
     innovation_gate_threshold: 9.0
     # 1겹 방어: 유한하지만 물리적으로 말이 안 되게 먼 점을 센서 원점 기준
     # 거리로 걸러낸다. Module D(ground_elevation_mapper)와 같은 기본값.

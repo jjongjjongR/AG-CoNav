@@ -151,6 +151,15 @@ class DroneElevationMapper(Node):
         self.declare_parameter('deskew_enabled', False)
         self.declare_parameter('deskew_num_buckets', 12)
         self.declare_parameter('deskew_scan_period_sec', 0.1)
+        # bag 재처리 전용 근본 수정(top-of-file 참고, 실측 원인:
+        # ExtrapolationException "Lookup would require extrapolation into the
+        # future" -- 라이브 /tf 구독으로는 한 스캔 뒷부분 버킷이 요구하는
+        # 시각의 TF가 그 시점까지 아직 재생/도착하지 않아 실패했다). 이
+        # 파라미터에 원본 bag 경로를 주면, 노드 시작 시 그 bag의 /tf+/tf_static을
+        # 전부 먼저 읽어 self._tf_buffer를 완전히 채운 뒤 정상 구동한다 --
+        # 실시간 운영이 아니라 이미 녹화가 끝난 bag을 재처리하는 상황이라
+        # 가능한 근본 해결(라이브 순서를 안 따라도 됨).
+        self.declare_parameter('deskew_tf_preload_bag_path', '')
         # 카이제곱분포 자유도 1, 유의수준 약 0.27%(대략 3-시그마)에 해당하는
         # 표준 게이팅 임계값 (Bar-Shalom, "Estimation with Applications to
         # Tracking and Navigation"). Module D와 동일.
@@ -196,13 +205,27 @@ class DroneElevationMapper(Node):
         self._deskew_num_buckets = int(self.get_parameter('deskew_num_buckets').value)
         self._deskew_scan_period_sec = float(
             self.get_parameter('deskew_scan_period_sec').value)
+        self._deskew_tf_preload_bag_path = str(
+            self.get_parameter('deskew_tf_preload_bag_path').value)
         self._innovation_gate_threshold = float(
             self.get_parameter('innovation_gate_threshold').value)
         self._max_sensor_range = float(self.get_parameter('max_sensor_range').value)
         self._max_grid_cells = int(self.get_parameter('max_grid_cells').value)
 
-        self._tf_buffer = Buffer()
+        # 기본 cache_time(tf2 기본 10초, cache_time=None이면 그 기본값 그대로
+        # 씀 -- 기존 동작 불변)으로는 bag 전체를 미리 채워도 앞부분이 금방
+        # 밀려나 사라진다 -- preload를 쓰는 경우에만 bag 전체 길이를 커버할
+        # 만큼 넉넉히 늘린다(라이브/비-preload 경로는 cache_time=None 그대로
+        # 유지해 기존 동작에 영향 없음).
+        # deskew_enabled=False면 preload 경로가 주어져도 무시한다 -- 디스큐를
+        # 안 쓰는 실행(기준/①만)에서 불필요하게 bag 전체 /tf(수십만 건)를
+        # 읽는 시작 지연을 피한다.
+        want_preload = self._deskew_enabled and bool(self._deskew_tf_preload_bag_path)
+        buffer_cache_time = Duration(seconds=3600.0) if want_preload else None
+        self._tf_buffer = Buffer(cache_time=buffer_cache_time)
         self._tf_listener = TransformListener(self._tf_buffer, self)
+        if want_preload:
+            self._preload_tf_from_bag(self._deskew_tf_preload_bag_path)
 
         # Grid state, in OUR OWN convention (not grid_map's wire convention,
         # see _build_grid_map_message): (row, col) = (0, 0) is the min-x/
@@ -263,6 +286,72 @@ class DroneElevationMapper(Node):
             '밀도가 훨씬 낮을 수 있음 - resolution=0.10m 기준으로 count==0인 '
             '빈 셀(NaN)이 많이 남는지, 콜드스타트/cos_theta=1.0 폴백 비율이 '
             '높은지 실측 필요 (top-of-file 7번 항목 참고).')
+
+    def _preload_tf_from_bag(self, bag_path):
+        """`deskew_tf_preload_bag_path` 설정 시, 그 bag의 /tf·/tf_static을
+        전부 먼저 읽어 self._tf_buffer를 채운다(top-of-file 참고, 실측
+        원인: 라이브 /tf 구독으로는 한 스캔 뒷부분 버킷이 요구하는 미래
+        시각의 TF가 그 시점까지 아직 재생/도착하지 않아
+        ExtrapolationException이 났었다 -- run_results/PROGRESS.md에 실제
+        에러 메시지 기록). bag 재처리는 실시간 운영이 아니므로 이렇게
+        미리 다 읽어도 안전하다.
+
+        실측(PROGRESS.md 참고): 이 bag은 22GB에 mcap summary/인덱스가 없어
+        (storage_mcap이 "no message index" 경고를 내며 순차 전체 스캔으로
+        폴백) 여기서 전체를 한 번 훑는 것 자체가 수십 초 걸린다. 매번 이
+        비용을 감수하지 않도록, 처음 preload할 때 `/tf`+`/tf_static`만
+        추린 작은 pickle 캐시(`<bag_path>_tf_cache.pkl`, 수 MB대)를
+        만들어두고, 다음 실행부터는 그 캐시만 읽는다(캐시가 22GB 원본보다
+        훨씬 작아 디스크 I/O 부담이 크게 준다).
+        """
+        import os
+        import pickle
+        from tf2_msgs.msg import TFMessage
+
+        cache_path = bag_path.rstrip('/') + '_tf_cache.pkl'
+        if os.path.exists(cache_path):
+            with open(cache_path, 'rb') as f:
+                tf_list, static_list = pickle.load(f)
+            for tr in static_list:
+                self._tf_buffer.set_transform_static(tr, 'bag_preload_cache')
+            for tr in tf_list:
+                self._tf_buffer.set_transform(tr, 'bag_preload_cache')
+            self.get_logger().info(
+                f'deskew TF 캐시 사용(bag 재스캔 생략): {cache_path}, '
+                f'/tf {len(tf_list)}건, /tf_static {len(static_list)}건')
+            return
+
+        import rosbag2_py
+        from rclpy.serialization import deserialize_message
+
+        reader = rosbag2_py.SequentialReader()
+        storage_options = rosbag2_py.StorageOptions(uri=bag_path, storage_id='mcap')
+        converter_options = rosbag2_py.ConverterOptions('', '')
+        reader.open(storage_options, converter_options)
+        reader.set_filter(rosbag2_py.StorageFilter(topics=['/tf', '/tf_static']))
+
+        tf_list = []
+        static_list = []
+        while reader.has_next():
+            topic, data, _t = reader.read_next()
+            msg = deserialize_message(data, TFMessage)
+            if topic == '/tf_static':
+                static_list.extend(msg.transforms)
+            else:
+                tf_list.extend(msg.transforms)
+        for tr in static_list:
+            self._tf_buffer.set_transform_static(tr, 'bag_preload')
+        for tr in tf_list:
+            self._tf_buffer.set_transform(tr, 'bag_preload')
+        self.get_logger().info(
+            f'deskew TF 사전로드 완료: bag="{bag_path}", /tf {len(tf_list)}건, '
+            f'/tf_static {len(static_list)}건')
+        try:
+            with open(cache_path, 'wb') as f:
+                pickle.dump((tf_list, static_list), f)
+            self.get_logger().info(f'deskew TF 캐시 저장 완료(다음 실행부터 재사용): {cache_path}')
+        except Exception as ex:
+            self.get_logger().warn(f'deskew TF 캐시 저장 실패(무시하고 계속): {ex}')
 
     def _points_callback(self, msg):
         self._last_received = self.get_clock().now()

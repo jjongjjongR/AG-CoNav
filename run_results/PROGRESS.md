@@ -1,6 +1,187 @@
 # PROGRESS — 5m AGL 방법B 경로 실험 (2~5단계)
 
-## 🟡 진행 중 — 5m AGL, 스트립간격 4m, 속도 5m/s 실험 (신규 세션, 사용자 취침 중 자율 진행)
+## [새 세션] ④ 디스큐 커버리지 손실 버그 수정 + B' 재측정
+
+**전체 타임아웃 2시간(재비행 없음, 재처리만).** 판단 지점은 확인 없이
+스스로 진행, 근거는 이 문서에 기록.
+
+### 0. 재개 확인
+`pgrep -af "ros2|gz sim|docker"` → dockerd 데몬 외 잔여 없음(깨끗).
+`df -h ~` → 69%/24G 여유, 안전. `git status` → 이전 세션이 남긴
+`src/agconav_test_worlds/config/path_calib_dummy.yaml`(이번 작업과 무관,
+건드리지 않음) 외 깨끗. `git log` HEAD가 직전 세션 커밋(`78db75a`)과
+일치 — 이번 작업(④ 재수정)은 전혀 시작 안 된 상태에서 재개.
+
+### 1. 원인 진단 (추측 아님, 실측)
+`ros2 run agconav_drone drone_elevation_mapper --ros-args ... -p
+deskew_enabled:=true --log-level drone_elevation_mapper:=debug`로 짧은
+bag 슬라이스(5x 재생, 진단 목적)를 흘려보내 DEBUG 로그를 직접 수집했다.
+실제 에러 메시지(예시):
+
+```
+[DEBUG] ... deskew 구간 8/12 TF 조회 실패(이 구간만 버림):
+Lookup would require extrapolation into the future.
+Requested time 8.270833 but the latest data is at time 8.180000,
+when looking up transform from frame [drone/os1_lidar] to frame [map]
+```
+
+`tf2_ros.TransformException`의 구체 타입은 extrapolation(미래 시각 요청)
+— 정확히 예상한 그 원인이 맞았다. 실패 버킷 분포(진단 세션 전체
+1170건 집계): `8/12`(354), `7/12`(340), `6/12`(305), `5/12`(69),
+`9/12`(48), `4/12`(27), `3/12`(18), `2/12`(9) — **버킷 6~9(스캔
+중후반부)에 압도적으로 집중**, 0/1/10/11은 전무. 원본 가설("맨 끝
+버킷만 실패")과는 분포가 다소 다르지만("끝에서 두 번째 근방이 최다"),
+근본 원인(요청 시각이 그 순간 TF 버퍼의 최신 시각보다 미래)은 동일하게
+확인됨 — 라이브 `/tf` 구독은 point cloud 콜백이 도착한 시점까지 아직
+재생되지 않은 미래의 TF를 절대 가질 수 없으므로, 버킷이 늦을수록(스캔
+후반부일수록) 실패 확률이 커지는 것은 구조적으로 당연하다(맨 끝 버킷
+0/1이 전무한 것은 5x 재생이라는 진단 조건의 타이밍 특성으로 보이며,
+근본 원인 해석에는 영향 없음 — 아래 2번 수정으로 애초에 이 문제 자체가
+사라지므로 정밀 재현은 생략).
+
+### 2. 수정 — bag 전체 TF 사전 로드
+`src/agconav_drone/agconav_drone/drone_elevation_mapper.py`에
+`deskew_tf_preload_bag_path` 파라미터(기본 빈 문자열=꺼짐, 기존 동작
+불변) 추가: 값이 있으면 노드 시작 시(`__init__`, spin 전) `rosbag2_py`로
+그 bag의 `/tf`+`/tf_static`만 필터링해 전부 읽어
+`self._tf_buffer.set_transform()`/`set_transform_static()`으로 채운다.
+`tf2_ros.Buffer`의 `cache_time` 기본(10초)으로는 bag 전체(2258.8s)를
+미리 채워도 앞부분이 금방 밀려나므로, preload를 쓸 때만
+`cache_time=Duration(seconds=3600.0)`로 늘림(비-preload 경로는
+`cache_time=None`으로 기존 tf2 기본값 그대로 유지 — 동작 불변 확인
+목적으로 `py_compile`만 하고 별도 회귀 테스트는 안 함, 코드 변경이
+조건부 분기라 명백함).
+
+`run_results/run_variant_replay.sh`에 `<bag_dir>`을 인자로 받아
+`deskew_tf_preload_bag_path`를 자동으로 넘기도록 소폭 수정(변형B'
+실행에서만 실질적 영향 — A/기준 경로는 이 파라미터 자체를 안 씀,
+`deskew_enabled=False`면 preload 자체를 건너뛰도록 코드에서도 가드함).
+preload가 bag 전체 `/tf`(수십만 건)를 다 읽느라 노드 시작이 늦어질 수
+있어, bag play 시작 전 "Accumulating..." 로그(=preload 포함 `__init__`
+완료 신호)가 뜰 때까지 최대 60초 대기하도록 스크립트에 추가.
+
+### 3. 검증 (본 실행 전 스모크테스트)
+같은 bag으로 짧은 구간(5x 재생, DEBUG 로그) 스모크테스트:
+- preload 완료 로그: `deskew TF 사전로드 완료: bag="...", /tf 111598건,
+  /tf_static 1건` — bag 전체(`ros2 bag info` 기준 `/tf` 카운트와 정확히
+  일치) 로드 확인.
+- 그 후 point cloud를 흘려보내며 20초 이상 관찰 — **"deskew 구간 ... TF
+  조회 실패" 로그 0건** (수정 전 진단에서는 훨씬 짧은 구간에서도 1170건
+  발생했음). extrapolation 에러가 완전히 사라진 것을 확인 — 근본 수정
+  성공.
+### 3-1. B' 1차 본 실행 — 시간초과, 재진단
+1차 `run_variant_replay.sh`(deskew_enabled만) 실행이 `capture_nav_fn.py`
+타임아웃(CAP_TIMEOUT=3000s=50분)으로 "missing"(결과 못 받음) 처리됨.
+크래시 로그는 없었음 — `A.log`가 4번째 "no point cloud received yet"
+경고(스캔 시작 직후) 이후 **47.7분 동안 아무 로그도 없다가** stall 경고가
+찍힘. 처음엔 "디스큐 콜백이 멈췄다"로 의심했으나, 실제로는 아니었다:
+
+- ptrace 권한이 없어(`strace`/`gdb` 붙이기 `Operation not permitted`)
+  `faulthandler.register(SIGUSR1)`을 임시로 심은 재현 스크립트
+  (`/tmp/hang_diag.py`, 소스코드 미변경 — 별도 스크립트로 노드를 직접
+  띄운 것)로 정체 구간에 SIGUSR1을 보내 스택을 덤프 → 노드는
+  `rclpy.spin` 안의 정상적인 `_wait_for_ready_callbacks`(새 메시지
+  대기)에 있었다. **콜백이 도는 게 아니라 메시지가 안 오길 기다리는
+  정상 상태** — 무한루프/데드락이 아니었음.
+- `ros2 topic hz /drone/points`로 확인한 결과, **매퍼를 아예 안 띄우고
+  bag만 재생해도** `/drone/points` 순간 발행률이 2~7Hz로 들쭉날쭉함
+  (평균 기대치 9.9Hz=22319건/2258.8s에 훨씬 못 미침, burst 패턴 — 반면
+  `/tf`는 49~50Hz로 항상 안정적). **디스큐/preload 코드와 무관하게 이
+  bag(22GB, mcap summary/인덱스 없음 — "attempted to read in receive
+  timestamp order with no message index" 경고, 순차 전체 스캔으로
+  폴백) 자체의 재생 성능이 원래 불안정하다**는 것을 실측으로 확인.
+- 결론: ExtrapolationException 버그(1~3번)는 확실히 고쳤지만, **이번
+  타임아웃은 별개의 원인** — preload(bag 전체 22GB 순차 스캔, ~수십초)
+  + 디스큐(스캔당 최대 12회 TF 조회)가 원래도 불안정한 이 bag의 재생
+  여유를 더 깎아, 50분 타임아웃 안에 전체(22319개 스캔)를 못 끝낸
+  것으로 판단(F.log에 "지형 특성 계산 완료"가 뒤늦게 찍힌 것도 파이프라인
+  자체는 끝까지 진행 중이었다는 근거).
+
+### 3-2. 추가 개선 — TF preload를 작은 pickle 캐시로
+`_preload_tf_from_bag`가 매번 22GB bag을 처음부터 순차 스캔하는 비용을
+줄이기 위해, 최초 1회만 bag에서 읽고 `/tf`+`/tf_static`만 추린 작은
+pickle 캐시(`<bag_path>_tf_cache.pkl`, TransformStamped는 pickle
+가능함을 실측 확인)를 만들어 다음 실행부터는 그것만 읽도록 수정.
+
+### 3-3. B' 2차 실행 — 대기 로직 버그(내 실수, 진짜 hang 아니었음)
+2차 실행에서 "52초 만에 완료"로 보였으나, 이는 **내 대기 스크립트의 버그**
+였다: `[ -f 결과.json ]`으로만 완료를 판정했는데, 1차 실행이 남긴
+"missing" 내용의 결과 파일이 이미 그 경로에 있었고, 2차 실행이 그 파일을
+아직 안 건드린 시점에 내가 존재 여부만 확인해 즉시(잘못) "완료"로
+오판함. **실제로는 2차 실행도 계속 정상 진행 중**이었음(모든 프로세스
+생존 확인). mtime 기준 대기로 바꿔 재확인.
+
+### 3-4. B' 재현 진단 — "hang"의 정체를 여러 각도로 조사
+mtime 기준으로 다시 지켜보니 19.5분째 `A.log`가 12초 시점에서 전혀 안
+늘어나 진짜 정체로 의심, 아래 순서로 원인을 좁혀갔다(전부 실측, 추측
+아님):
+1. ptrace 권한 없음(`strace`/`gdb attach` 전부 `Operation not
+   permitted` — 샌드박스 제약) → `/tmp/hang_diag.py`(faulthandler로
+   SIGUSR1 스택 덤프 등록, 소스코드 미변경) 재현 스크립트로 우회.
+2. 첫 스택: `rclpy.spin` 안의 정상적인 `_wait_for_ready_callbacks`
+   (콜백 무한루프 아님).
+3. `ros2 topic hz /drone/points`로 확인 — **매퍼 없이 bag만 재생해도**
+   순간 발행률이 2~7Hz로 불안정(평균 기대 9.9Hz에 못 미침, burst
+   패턴). `/tf`는 항상 49~50Hz로 안정 — 디스큐/preload와 무관한 이
+   bag(22GB, mcap 인덱스 없음) 고유의 재생 특성으로 잠정 결론 → 오판.
+4. 실제 콜백 로직을 bag 메시지로 직접 재현(`/tmp/hang_diag2.py`,
+   `DroneElevationMapper._points_callback`을 함수로 직접 호출) —
+   15개 메시지 전부 4.7~10.7ms, grid_shape도 정상(177x412~429, 폭주
+   없음). **콜백 로직 자체는 전혀 문제없음.**
+5. 메모리/스왑 10분 추적 — 2.3~2.5GB 사용, 여유(avail) 3.4~3.6GB로
+   항상 안정, 스왑도 370MB에서 고정. **메모리 압박도 원인 아님.**
+6. `ros2 topic info -v /drone/points` — publisher(rosbag2_player)
+   1개, subscriber(drone_elevation_mapper) 1개, RELIABLE
+   publisher+BEST_EFFORT subscriber로 QoS 호환. **discovery도 정상.**
+7. faulthandler로 5회 연속(2초 간격) 스택 확인 — 4회는
+   `_wait_for_ready_callbacks`, **1회는 `_make_handler`**(막 도착한
+   콜백을 처리하려는 순간)를 잡음 → 완전히 죽은 게 아니라 이벤트가
+   드물게라도 들어오고 있다는 뜻.
+8. QoS를 임시로 BEST_EFFORT→RELIABLE로 바꿔 재현 — **효과 없음**(여전히
+   정체 패턴), 원복.
+9. **결정적 재확인**: `_check_data_received`(1Hz 체크 타이머) 코드를
+   다시 읽어보니, `elapsed > data_timeout_sec(기본 2.0s)`일 때만
+   경고를 찍고 **그 이하면 아무 로그도 안 남기는 설계**였다. 즉
+   "no point cloud received yet"이 4번 뒤로 안 뜨는 것은 "타이머가
+   멎었다"는 증거가 아니라 **"point cloud를 계속 정상 수신 중이라
+   찍을 게 없다"는 뜻일 수 있다** — 지금까지의 "hang" 진단 전제 자체가
+   틀렸을 가능성. 게다가 `drone_elevation_mapper`는
+   `/drone/path_status`(bag 맨 끝에 딱 1건)를 받아야만 지도를 1회
+   발행하는 설계라, bag 재생이 (3번에서 실측한 burst 패턴 때문에)
+   rate=1.0인데도 예상(37.6분)보다 몇 배 느려지면 그만큼 늦게 끝나는
+   것이지 실제 hang이 아닐 수 있다.
+
+**결론(잠정)**: 진짜 데드락/무한루프라는 증거는 끝내 못 찾았고(콜백은
+빠름, discovery 정상, 메모리 정상, QoS 무관), 오히려 "정상이지만
+느리다"는 가설과 부합하는 정황(로그 설계, 1회성 발행 설계, burst
+재생)이 더 많다. **CAP_TIMEOUT을 3000→6000→10800s(3시간)로 늘려 마지막
+검증 실행 중**(`run_results/logs/variantBprime_run.log`,
+`/tmp/trav_fn_variantBprime_deskew_fixed/`). 이번에도 3시간 안에
+`bag play 종료` 로그가 안 뜨면(=play.log에 그 문구가 없으면) 그때는
+정말 재생 자체가 비정상적으로(3시간 이상) 느려지는 것이니 별도 원인을
+더 파야 한다.
+
+### 진행 중 체크인 (세션 시간 예산 소진 임박)
+이번 세션 타임아웃(2시간)을 이미 초과했거나 임박한 시점에서, 위 검증
+실행을 백그라운드에 걸어두고 문서화로 전환한다(사용자가 실시간으로
+응답할 수 없는 세션이라 "돌려놓고 다음 세션이 확인" 전략).
+**다음 세션이 이어받을 때**:
+1. `pgrep -af "drone_elevation_mapper|ros2 bag play"`로 위 실행이 아직
+   살아있는지 확인.
+2. 살아있으면: `cat run_results/variantBprime_deskew_fixed_fn.json`과
+   `tail /tmp/trav_fn_variantBprime_deskew_fixed/play.log`로 진행
+   상황(파일 mtime, "bag play 종료" 문구 유무) 확인 후 계속 대기하거나,
+   너무 오래(예: 4시간+) 걸리면 진짜 원인 재조사 필요.
+3. 죽어있고 결과 JSON이 정상(에러/missing 아님)이면 5번(비교표)·6번
+   (저장/커밋/푸시)으로 바로 진행.
+4. 죽어있고 여전히 missing/에러면, 위 1~9번 조사를 이어받아 실제
+   `_grow_to_fit`(그리드 확장 방어)이나 `_kalman_update_cells`(이노베이션
+   게이팅) 경로에서 디스큐 특유의 입력(여러 버킷에서 온, 서로 다른
+   sensor_origin 근사를 쓰는 점들)이 극단적인 케이스를 만드는지 남은
+   가설로 확인.
+- 진단용 임시 파일(`/tmp/hang_diag*.py`, `/tmp/tf_perf_test*.py`)은
+  `/tmp`라 세션 종료 시 자동 정리 대상 — 재현 필요하면 이 문서의 방법
+  설명을 참고해 다시 작성.
 
 **전체 타임아웃: 4.5시간(사용자가 3시간→4.5시간으로 변경 지시, 세션 중 반영).**
 판단이 필요한 지점은 확인받지 않고 안전한 기본값으로 스스로 진행, 근거는 이
