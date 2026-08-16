@@ -83,6 +83,24 @@ class GroundElevationMapper(Node):
         # 최대 0.256초 뒤처져서 점군 1354개를 통째로 버렸다. 0.3초면 leg 최대
         # 지연까지 덮는다. 0으로 두면 기다리지 않고 바로 버린다(원래 동작).
         self.declare_parameter('tf_timeout_sec', 0.3)
+        # !! OOM 방지 !! _grow_to_fit 은 관측된 점을 전부 담도록 격자를 무제한
+        # 으로 키운다. 셀당 float64 2개(_sum/_count)라 16바이트씩 붙는다.
+        # 실제 사고: 전체 맵 종단 실행 26분째에 이 노드가 RSS 29 GB 까지 커져
+        # OOM 킬러에 죽었고(커널 로그 "Killed process ... (ground_elevatio)
+        # anon-rss:29035964kB") 시뮬레이션 전체가 함께 날아갔다. 29 GB 는 18억
+        # 셀 = 0.1 m 격자로 4.3 km 사방이다. 정렬 월드는 578 x 482 m
+        # (2790만 셀, 446 MB)이므로 65배 넘게 벗어난 값이다.
+        #
+        # 두 겹으로 막는다.
+        #  1) max_point_range_m: 센서 원점에서 이만큼 넘게 떨어진 점을 버린다.
+        #     라이다 최대 사거리는 Go2 4D 30 m / velodyne 131 m / OS1 170 m 라
+        #     200 m 를 넘는 반사는 물리적으로 나올 수 없다. 즉 수치 이상이다.
+        #  2) max_cells: 그래도 격자가 이 한도를 넘기려 하면 그 점군을 통째로
+        #     버린다. 센서 자체가 먼 좌표로 튀면 (1)로는 못 막기 때문이다.
+        #     6000만 셀 = 약 960 MB, 정렬 월드의 2.2배 여유다.
+        # 0 으로 두면 각각 끈다.
+        self.declare_parameter('max_point_range_m', 200.0)
+        self.declare_parameter('max_cells', 60_000_000)
 
         points_topic = self.get_parameter('points_topic').value
         elevation_map_topic = self.get_parameter('elevation_map_topic').value
@@ -102,6 +120,8 @@ class GroundElevationMapper(Node):
         self._tf_listener = TransformListener(self._tf_buffer, self, spin_thread=True)
         self._tf_timeout = Duration(
             seconds=float(self.get_parameter('tf_timeout_sec').value))
+        self._max_point_range = float(self.get_parameter('max_point_range_m').value)
+        self._max_cells = int(self.get_parameter('max_cells').value)
 
         # Grid state, in OUR OWN convention (not grid_map's wire convention,
         # see _build_grid_map_message): (row, col) = (0, 0) is the min-x/
@@ -194,10 +214,34 @@ class GroundElevationMapper(Node):
             return
 
         points = transform_points(points, transform)
+
+        # 센서에서 너무 먼 점을 버린다 (위 max_point_range_m 주석 참고).
+        # 변환 뒤에 재는 이유는 센서 좌표계 거리가 아니라 격자를 키우는 원인인
+        # map 좌표계 위치가 문제이기 때문이다. 둘은 강체변환이라 거리는 같지만,
+        # 변환 자체가 깨진 경우(회전에 NaN/거대값)는 변환 후에만 잡힌다.
+        if self._max_point_range > 0.0:
+            t = transform.translation
+            d2 = ((points[:, 0] - t.x) ** 2 + (points[:, 1] - t.y) ** 2
+                  + (points[:, 2] - t.z) ** 2)
+            keep = np.isfinite(d2) & (d2 <= self._max_point_range ** 2)
+            if not keep.all():
+                self.get_logger().warn(
+                    '센서에서 %.0f m 를 넘는 점 %d/%d개를 버렸다 (최대 %.1f m). '
+                    '라이다 사거리로는 나올 수 없는 값이라 수치 이상으로 본다.'
+                    % (self._max_point_range, int((~keep).sum()), keep.size,
+                       float(np.sqrt(np.nanmax(d2))) if np.isfinite(d2).any() else float('inf')),
+                    throttle_duration_sec=5.0)
+                points = points[keep]
+                if points.shape[0] == 0:
+                    return
+
         xs, ys, zs = points[:, 0], points[:, 1], points[:, 2]
         row_idx = np.floor((xs - self._origin_x) / self._resolution).astype(np.int64)
         col_idx = np.floor((ys - self._origin_y) / self._resolution).astype(np.int64)
-        row_idx, col_idx = self._grow_to_fit(row_idx, col_idx)
+        grown = self._grow_to_fit(row_idx, col_idx)
+        if grown is None:      # 셀 한도 초과 -- 이 점군은 통째로 버린다
+            return
+        row_idx, col_idx = grown
 
         # design.md 3/4-1: bin points into cells and accumulate ("누적") a
         # running average height per cell, vectorized via bincount.
@@ -216,10 +260,15 @@ class GroundElevationMapper(Node):
 
         README 3.3: the map only grows to cover what has actually been
         observed, it is never pre-sized.
+
+        단, max_cells 를 넘기게 되면 키우지 않고 None 을 돌려준다 -- 호출부는
+        그 점군을 버린다. 무제한 확장이 실제로 OOM 을 냈다(생성자 주석 참고).
         """
         if self._sum is None:
             min_row, max_row = int(row_idx.min()), int(row_idx.max())
             min_col, max_col = int(col_idx.min()), int(col_idx.max())
+            if not self._fits(max_row - min_row + 1, max_col - min_col + 1):
+                return None
             self._sum = np.zeros((max_row - min_row + 1, max_col - min_col + 1))
             self._count = np.zeros_like(self._sum)
             self._origin_x += min_row * self._resolution
@@ -233,6 +282,9 @@ class GroundElevationMapper(Node):
         pad_after_col = max(0, int(col_idx.max()) - (n_cols - 1))
 
         if pad_before_row or pad_after_row or pad_before_col or pad_after_col:
+            if not self._fits(n_rows + pad_before_row + pad_after_row,
+                              n_cols + pad_before_col + pad_after_col):
+                return None
             pad_width = ((pad_before_row, pad_after_row), (pad_before_col, pad_after_col))
             self._sum = np.pad(self._sum, pad_width)
             self._count = np.pad(self._count, pad_width)
@@ -242,6 +294,20 @@ class GroundElevationMapper(Node):
             col_idx = col_idx + pad_before_col
 
         return row_idx, col_idx
+
+    def _fits(self, n_rows, n_cols):
+        """격자를 (n_rows, n_cols) 로 키워도 되는지. 안 되면 경고하고 False."""
+        if self._max_cells <= 0:
+            return True
+        if n_rows * n_cols <= self._max_cells:
+            return True
+        self.get_logger().error(
+            '격자를 %d x %d = %.1f억 셀로 키우려 해서 이 점군을 버렸다 '
+            '(한도 %.1f억, 약 %.1f GB). 센서 위치나 TF 가 튀었을 가능성이 크다.'
+            % (n_rows, n_cols, n_rows * n_cols / 1e8, self._max_cells / 1e8,
+               self._max_cells * 16 / 1e9),
+            throttle_duration_sec=10.0)
+        return False
 
     def _navigation_status_callback(self, msg):
         # design.md 4-1 / 6-4 / 6-5: publish the accumulated map exactly once,

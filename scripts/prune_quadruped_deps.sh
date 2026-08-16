@@ -1,0 +1,49 @@
+#!/bin/bash
+# quadruped_ros2_control 을 vcs 로 받은 뒤 실행한다.
+#
+#   vcs import src < deps.repos
+#   ./scripts/prune_quadruped_deps.sh
+#   colcon build --symlink-install
+#
+# 왜 필요한가: 받은 그대로 빌드하면 **실패한다.**
+#   - ocs2_quadruped_controller 가 coal 과 hpp-fcl 을 동시에 끌어와 충돌한다.
+#   - hardware_unitree_sdk2 는 실물 Go2 전용이라 unitree_sdk2 가 있어야 빌드된다.
+#     우리는 Gazebo 로만 돌리므로 필요 없다.
+# 나머지 로봇(a1, aliengo, b2, go1, anybotics, deep_robotics 등)은 쓰지 않는데
+# 메시까지 딸려 있어 용량과 빌드 시간만 먹는다.
+#
+# 지우지 않고 COLCON_IGNORE 를 두는 방식을 쓴다. 원본을 보존하므로 나중에
+# 다른 로봇이 필요해지면 파일 하나만 지우면 되고, vcs 가 트리를 더럽혔다고
+# 보지도 않는다.
+set -e
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+Q="$ROOT/src/quadruped_ros2_control"
+[ -d "$Q" ] || { echo "없음: $Q  (먼저 vcs import src < deps.repos)"; exit 1; }
+
+IGNORE=(
+  "controllers/ocs2_quadruped_controller"   # coal/hpp-fcl 충돌 — 빌드 실패
+  "libraries/qpoases_colcon"                # 위 컨트롤러 전용
+  "hardwares/hardware_unitree_sdk2"         # 실물 전용, unitree_sdk2 필요
+  "commands/unitree_joystick_input"         # 실물 조이스틱 전용
+  "descriptions/anybotics"
+  "descriptions/deep_robotics"
+  "descriptions/magiclab&xiaomi"
+  "descriptions/unitree/a1_description"
+  "descriptions/unitree/aliengo_description"
+  "descriptions/unitree/b2_description"
+  "descriptions/unitree/go1_description"
+)
+for d in "${IGNORE[@]}"; do
+  if [ -d "$Q/$d" ]; then
+    touch "$Q/$d/COLCON_IGNORE"
+    echo "  건너뜀: $d"
+  fi
+done
+
+# 우리가 쓰는 것: rl_quadruped_controller(RL 정책) + go2_description + gz 하드웨어.
+# 정책 가중치는 descriptions/unitree/go2_description/config/robot_lab/policy.pt 이고
+# 런치에서 model_folder:=robot_lab 로 고른다(config_folder 아니다 — 자주 헷갈린다).
+echo
+echo "확인: $(ls "$Q/descriptions/unitree/go2_description/config/robot_lab/policy.pt" 2>/dev/null && echo 'RL 정책 있음' || echo '!! RL 정책 없음')"
+echo "libtorch 도 있어야 rl_quadruped_controller 가 빌드된다:"
+echo "  export CMAKE_PREFIX_PATH=\$HOME/libtorch:\$CMAKE_PREFIX_PATH"

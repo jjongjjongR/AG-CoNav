@@ -45,10 +45,14 @@
                 <update_rate>100</update_rate>
                 <always_on>1</always_on>
             </sensor>
-            <!-- drone_pose_controller가 SetEntityPose로 순간이동시키는 kinematic 운용 방식이라
-                 (README 3.1), 모터 플러그인이 힘을 안 주는 동안 중력만으로 처지지 않도록 끈다.
-                 로터 관절/모터 플러그인은 그대로 유지 - 나중에 다른 기능에서 쓸 수 있다. -->
-            <gravity>0</gravity>
+            <!-- 실제 로터 추력으로 비행한다(MulticopterVelocityControl). 중력이 켜져
+                 있어야 컨트롤러가 무게를 받치며 자세를 잡는다 - 0으로 두면 추력을
+                 받칠 것이 없어 속도 제어 자체가 성립하지 않는다.
+                 예전에는 drone_pose_controller가 SetEntityPose로 순간이동시키는
+                 kinematic 방식이라 0이었다. 그 방식은 폐기했다 - 물리엔진이 운동을
+                 보지 못해 IMU가 죽고(실측 gyro 최대 0.0013 rad/s) 자세가 항상
+                 수평이라 스캔 시야가 연직으로만 고정됐다. -->
+            <gravity>1</gravity>
         </link>
         <link name="X3/rotor_0">
             <pose frame="">0.39 -0.66 0.069 0 -0 0</pose>
@@ -95,7 +99,7 @@
                     <specular>0.05 0.05 0.05 1</specular>
                 </material>
             </visual>
-            <gravity>0</gravity>
+            <gravity>1</gravity>
             <velocity_decay/>
         </link>
         <joint name="X3/rotor_0_joint" type="revolute">
@@ -159,7 +163,7 @@
                     <specular>0.05 0.05 0.05 1</specular>
                 </material>
             </visual>
-            <gravity>0</gravity>
+            <gravity>1</gravity>
             <velocity_decay/>
         </link>
         <joint name="X3/rotor_1_joint" type="revolute">
@@ -223,7 +227,7 @@
                     <specular>0.05 0.05 0.05 1</specular>
                 </material>
             </visual>
-            <gravity>0</gravity>
+            <gravity>1</gravity>
             <velocity_decay/>
         </link>
         <joint name="X3/rotor_2_joint" type="revolute">
@@ -287,7 +291,7 @@
                     <specular>0.05 0.05 0.05 1</specular>
                 </material>
             </visual>
-            <gravity>0</gravity>
+            <gravity>1</gravity>
             <velocity_decay/>
         </link>
         <joint name="X3/rotor_3_joint" type="revolute">
@@ -330,7 +334,7 @@
                     </cylinder>
                 </geometry>
             </visual>
-            <gravity>0</gravity>
+            <gravity>1</gravity>
         </link>
         <joint name="os1_lidar_mount_joint" type="fixed">
             <parent>X3/base_link</parent>
@@ -358,10 +362,10 @@
                 <lidar>
                     <scan>
                         <horizontal>
-                            <samples>1024</samples>
+                            <samples>256</samples>
                             <resolution>1</resolution>
-                            <min_angle>-3.141593</min_angle>
-                            <max_angle>3.141593</max_angle>
+                            <min_angle>-0.785398</min_angle>
+                            <max_angle>0.785398</max_angle>
                         </horizontal>
                         <vertical>
                             <samples>32</samples>
@@ -377,7 +381,7 @@
                     </range>
                 </lidar>
             </sensor>
-            <gravity>0</gravity>
+            <gravity>1</gravity>
         </link>
         <joint name="os1_lidar_joint" type="fixed">
             <parent>os1_lidar_mount</parent>
@@ -411,7 +415,7 @@
                 <update_rate>10</update_rate>
                 <always_on>1</always_on>
             </sensor>
-            <gravity>0</gravity>
+            <gravity>1</gravity>
         </link>
         <joint name="gps_joint" type="fixed">
             <parent>X3/base_link</parent>

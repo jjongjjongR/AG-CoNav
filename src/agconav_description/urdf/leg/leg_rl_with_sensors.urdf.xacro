@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<!--
+  Go2(leg) — quadruped_ros2_control 판 모델 + 우리 센서 오버레이.
+
+  왜 파일이 따로인가: Go2 모델이 두 개다.
+    - unitree_go2_description/urdf/unitree_go2_robot.xacro : CHAMP 용.
+      베이스 링크가 base_link. leg_with_sensors.urdf.xacro 가 이걸 쓴다.
+    - go2_description/xacro/robot.xacro                    : RL 컨트롤러 용.
+      베이스 링크가 base + trunk 이고 base_link 가 없다. ros2_control 인터페이스도
+      kp/kd 를 포함해 다르다.
+  `11. 컨트롤러 실험 — 경사와 속도.md` 에서 RL(robot_lab)이 CHAMP 대비 평지
+  6.9배 / 경사 24~29배로 확정돼 후자로 갈아탄다. 센서(OS1 라이다·IMU·GPS)는
+  모듈 B/C 가 쓰므로 그대로 얹어야 한다.
+
+  센서는 trunk 에 붙인다. RL 모델에는 base_link 가 없고 trunk 가 동체다.
+-->
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="go2">
+
+  <!-- GAZEBO:=true 로 처리해야 gz_quadruped_hardware 플러그인이 들어간다.
+       이게 있어야 controller_manager 가 뜨고 RL 컨트롤러를 올릴 수 있다. -->
+  <xacro:arg name="GAZEBO" default="true"/>
+  <xacro:include filename="$(find go2_description)/xacro/robot.xacro"/>
+
+  <xacro:include filename="$(find agconav_description)/urdf/leg/leg_sensors.xacro"/>
+  <xacro:leg_sensors parent="trunk" ns="leg"/>
+
+  <!-- !! base_link / base_footprint 별칭 !!
+       이 모델에는 base_link 가 없다(base + trunk). 그런데 우리 스택은 곳곳에서
+       base_link 를 전제한다:
+         - nav2_common.yaml : robot_base_frame = <ns>/base_link
+         - 모듈 B/C         : 지면 분할·지도 누적이 base_link 기준
+       없으면 Nav2 가 로봇 위치를 못 잡고 목표를 받자마자 이렇게 끝난다:
+         [bt_navigator]: Initial robot pose is not available.
+       그래서 trunk 에 고정으로 별칭을 단다. CHAMP 판 모델과 프레임 이름을
+       맞추는 것이기도 하다.
+       base_footprint 는 지면 투영(z=0) 프레임이다. nominal_height 0.30 은
+       RL 컨트롤러의 기립 높이 실측(0.281~0.286)에 맞춘 값이다. -->
+  <link name="base_link"/>
+  <joint name="trunk_to_base_link" type="fixed">
+    <parent link="trunk"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_footprint"/>
+  <joint name="base_link_to_base_footprint" type="fixed">
+    <parent link="base_link"/>
+    <child link="base_footprint"/>
+    <origin xyz="0 0 -0.30" rpy="0 0 0"/>
+  </joint>
+
+  <!-- !! odom -> base_link TF 를 낼 주체가 필요하다 !!
+       CHAMP 스택은 champ_base 의 state_estimation_node + EKF 두 개가 이 체인을
+       만들어 줬다. RL 컨트롤러에는 그런 상태추정이 없어서, 빼고 띄웠더니
+         Tf has two or more unconnected trees
+       로 map -> leg/base_link 조회가 전부 실패하고 Nav2 가 로봇 위치를 못 잡았다.
+       시뮬에서는 Gazebo 의 OdometryPublisher 로 직접 내는 것이 가장 확실하다.
+       (실기로 갈 때는 여기 대신 실제 상태추정기를 물려야 한다.)
+       odom_frame/robot_base_frame 은 접두어 없는 이름을 쓴다 — leg 스택 내부는
+       접두어 없이 돌고, 전역 /tf 에는 tf_prefix_relay 가 leg/ 를 붙여 낸다. -->
+       !! xyz_offset 은 넣지 말 것 !!
+       이 발행기는 여기서 이미 **월드 절대 좌표**로 낸다(실측 /leg/odom 이
+       스폰 좌표와 일치). wheel 의 clearpath odom 과 같은 규약이다.
+       스폰 좌표를 xyz_offset 으로 한 번 더 더했더니 -387.4, 162.5 로 정확히
+       두 배가 됐고, EKF 가 그걸 상쇄하려 map -> leg/odom 을 (399.5, -127.7) 로
+       밀어 결국 로봇이 맵 원점에 있는 것으로 잡혔다. -->
+  <gazebo>
+    <plugin filename="gz-sim-odometry-publisher-system"
+            name="gz::sim::systems::OdometryPublisher">
+      <odom_frame>odom</odom_frame>
+      <robot_base_frame>base_link</robot_base_frame>
+      <odom_publish_frequency>50</odom_publish_frequency>
+      <tf_topic>/tf</tf_topic>
+      <odom_topic>/odom</odom_topic>
+    </plugin>
+  </gazebo>
+
+</robot>

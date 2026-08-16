@@ -1,90 +1,52 @@
-# agconav_test_worlds
+# agconav_test_worlds — 실험 기록
 
-Small worlds carved out of the full AG-CoNav worlds, for experiments where
-loading the entire Seongdong-gu terrain is wasted time — bag recording, SLAM
-runs (GLIM), quick physics checks.
+**이 패키지에는 실험 기록(.md)만 있다. 실행되는 코드는 없다.**
 
-**Only the map and the scan's pose range are specific to a test world.** Every
-flight module is agconav_drone's, unmodified — `drone_path_player`,
-`drone_pose_controller` and their yaml — so altitude, cruise speed, strip
-spacing and turn behaviour are identical to a full-world run and the same setup
-points back at the full world unchanged.
+실험으로 확정된 것은 전부 운용 패키지로 옮겼다. 월드와 설정을 여기 남겨 두면
+"실제로 쓰는 것"과 "실험용"이 섞여 어느 쪽이 진짜인지 알 수 없게 된다.
 
-## Seongdong_gu_100x100
-
-A 100 x 100 m block taken from `agconav_worlds`' `Seongdong_gu.world`.
-
-| | |
+| 확정된 것 | 옮겨간 곳 |
 |---|---|
-| box | x `[-38.6, 61.4]`, y `[-166.1, -66.1]` (centre `11.4, -116.1`) |
-| terrain | 257 x 257 heightmap (0.391 m/px), elevation 1.202 .. 6.452 m, relief 5.25 m |
-| buildings | 20, 288 triangles, tallest 8.8 m — all fully inside the box |
-| dropped | 8 buildings that straddled the boundary, 77 out-of-box includes |
-| spawn clearing | `(-8.60, -86.10)`, 13.5 m from the nearest building, local std 0.076 m |
+| 정렬 월드 (전체 맵, 축 정렬) | `agconav_worlds/worlds/Seongdong_gu_aligned/` |
+| 전체 맵 스캔 경로 (간격 3 m) | `agconav_drone/config/scan_path_fullmap.yaml` |
+| 주행성 지도 평가 도구 | `agconav_traversability/scripts/` |
+| 스캔 경로 생성기 | `agconav_drone/scripts/make_strip_path.py` |
+| 정렬 월드 생성기 | `agconav_worlds/scripts/make_aligned_world.py` |
 
-Terrain was verified in-sim against the source heightmap at 10 points: all
-within **0.01 m**.
+실험 전용 월드(축소 맵·경사·단차)와 그 시험 하네스는 지웠다. 무엇을 어떻게
+쟀고 결과가 무엇이었는지는 아래 문서에 그대로 남아 있다.
 
-Robot spawns keep the relative layout and ground clearances they have in
-`agconav_sim.launch.py`; only the clearing moved. The generator prints the
-arguments to pass:
+## 실험 문서 번호
 
-```
-wheel_x:=-8.6000 wheel_y:=-86.1000 wheel_z:=2.2363 wheel_yaw:=-0.4349
-leg_x:=-7.7890  leg_y:=-82.8070  leg_z:=2.3025  leg_yaw:=-0.4613
-```
+| 번호 | 문서 |
+|---:|---|
+| 1 | `1. 핵심 문제 찾기 RESULTS.md` |
+| 2 | `2. 최적 라이다 센서 조합 실험.md` |
+| 3 | `3. 최적 드론 움직임.md` |
+| 4 | `4. 최적 드론 속도 실험.md` |
+| 5 | `5. 최적 드론 스트립 간격 실험.md` |
+| 6 | `6. 최소 람다 확정.md` |
+| 7 | `7. 거리 게이팅.md` |
+| 8 | `8. 방위각 윈도우.md` |
+| 9 | `9. 람다 재실험.md` |
+| 10 | `10. 종단 테스트 — 전체 맵 주행 검증.md` |
+| 11 | `11. 컨트롤러 실험 — 경사와 속도.md` |
+| 12 | `12. A300 지형 주파 한계 — 경사와 단차.md` |
 
-The drone (`X3`) is relocated inside the world file itself, to `(-5.398,
--85.458, 2.150)`. The `<world name>` is still `Seongdong_gu`, so
-`world:=Seongdong_gu` keeps working.
+`1~9. 실험 총정리 — 방향과 근거.md`는 별도의 실험이 아니라 **1~9번을 묶은
+종합 문서**다. `10~11. 실험 요약 이어쓰기.md`는 그 뒤에 추가된 10~11번의
+요약이다.
 
-### Running the scan
+## 문서 안의 경로는 당시 기준이다
 
-```bash
-ros2 launch agconav_test_worlds scan.launch.py
-ros2 launch agconav_test_worlds scan.launch.py record:=false headless:=true
-```
+문서들은 실험 시점의 기록이라 `scripts/run_lambda_matrix.sh` 처럼 지금은
+없는 파일을 가리키기도 한다. 결과와 근거를 읽는 데는 문제가 없지만, 그 경로를
+그대로 실행할 수는 없다. 지금 실행 가능한 도구는 위 표의 옮겨간 곳에 있다.
 
-Records `/drone/points`, `/drone/imu`, `/tf`, `/tf_static` and `/ground_truth/tf`
-to `bags/drone_scan_100x100`. Note this is the *input* a SLAM system needs — raw
-scans — not the elevation-map output the existing `maps/` bags hold.
+## 다른 방식(SLAM 등)과 비교할 때
 
-### Regenerating
-
-```bash
-python3 scripts/generate_test_world.py --center 11.4 -116.1 --size 100 \
-        --output worlds/Seongdong_gu_100x100
-python3 scripts/generate_scan_path.py       # waypoints for whatever world it points at
-```
-
-`generate_scan_path.py` is a wrapper: it loads agconav_drone's
-`generate_path.py` and only redirects its input world and output file, so the
-flight parameters live in exactly one place.
-
-## Things worth knowing before editing the generator
-
-**Heightmap normalisation.** gz-common's `ImageHeightmap` scales terrain by the
-*brightest pixel present in the image*, not by the full 16-bit range. Copying a
-crop's pixels through unchanged therefore inflates it: a 4.2 .. 7.0 m patch came
-out at 11.97 .. 18.40 m, because the crop's peak pixel was 28493 where the
-source's is 65474. The generator re-stretches the crop over the full 16-bit
-range and writes `size.z`/`pos.z` to match its true span and floor.
-
-**Sampling resolution.** The heightmap side is chosen so a crop is never sampled
-coarser than the source (0.701 m/px). A 120 m box at 129 px would be 0.93 m/px,
-which flattens peaks by over a metre.
-
-**Buildings are kept or dropped whole.** A sliced building is a hollow shell the
-LiDAR sees through. `--buildings inside` (default) keeps only those fully within
-the box; `--buildings touching` keeps any that reach in, which is how a 50 m
-world ended up dominated by an 80 m tower whose footprint hung far past the
-terrain edge.
-
-**Verifying terrain by dropping things.** Don't. A sphere released from 10 m
-tunnels straight through the DART heightfield — in the *original* world too, at
-the very spots the robots stand on. Every "landing" in such a test is a building
-roof. Set a 0.6 m cube 0.1 m above its expected height instead and check it
-stays there. And build the probe world **inside the world's own directory**: a
-probe written to a scratch dir resolves `mesh/height_map.png` against whatever
-happens to be there, which silently measured a stale world through two rounds of
-false diagnosis.
+숫자가 같은 기준으로 나오려면 `agconav_traversability/scripts/` 의 평가
+도구를 그대로 써야 한다. 판정 지표는 `eval_connectivity.py` 가 내는
+**최대 연결덩어리** 다 — 자유 셀을 로봇 반지름(wheel 0.55 m, leg 0.40 m)
+원판으로 침식한 뒤 가장 큰 연결 성분이 평가 영역에서 차지하는 비율이다.
+FN 은 순서를 매기는 데는 쓸 수 있어도 크기를 재는 데는 맞지 않는다.

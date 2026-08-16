@@ -19,7 +19,17 @@ bt_navigator:
     robot_base_frame: $(var namespace)/base_link
     odom_topic: odometry/filtered
     bt_loop_duration: 10
-    default_server_timeout: 20
+    # planner_server 가 목표 접수를 응답하기까지 기다리는 시간 [ms].
+    # 기본 20 ms 는 코스트맵이 작다는 전제다. 정렬 월드 전체를 0.10 m 격자로
+    # 깔면 2,808만 칸이고, 여기에 static_layer + inflation(0.55 m)을 한 번
+    # 도는 동안 planner_server 가 통째로 막힌다. 그 사이 들어온 목표는
+    # 응답조차 못 받고 이렇게 끝난다(종단 2단계 실측):
+    #   Timed out while waiting for action server to acknowledge goal request
+    #     for compute_path_to_pose
+    #   [navigate_to_pose] [ActionServer] Aborting handle. / Goal failed
+    # planner_server 의 costmap_update_timeout(15초)보다 넉넉히 크게 준다.
+    # 안 그러면 "경로가 없다"는 진짜 결과 대신 이 시간초과만 보게 된다.
+    default_server_timeout: 20000
     # Nav2 기본 BT xml 사용
     navigators: ["navigate_to_pose", "navigate_through_poses"]
     navigate_to_pose:
@@ -61,15 +71,37 @@ controller_server:
       debug_trajectory_details: true
       min_vel_x: 0.0
       min_vel_y: 0.0
-      max_vel_x: 0.3
+      # 0.3 -> 1.2 m/s. 근거를 전부 실제 상한에서 역산했다.
+      #  - A300 하드웨어(config/clearpath_a300/platform/config/control.yaml):
+      #    linear.x.max_velocity 2.0, max_acceleration 2.0, max_deceleration -4.0,
+      #    angular.z.max_velocity 2.0, max_acceleration 4.0
+      #  - Clearpath 자체 텔레옵(clearpath_control/config/a300/teleop_joy.yaml):
+      #    평시 0.4, **터보 1.5** m/s -> 제조사가 보는 안전 상한이 1.5다
+      #  - DWB 는 sim_time(1.7초)만큼 앞을 시뮬해 궤적을 고른다.
+      #    1.2 x 1.7 = 2.04 m 로 voxel_layer 의 obstacle_max_range 2.5 m 안이다.
+      #    이 범위를 넘기면 장애물이 안 찍히는 곳까지 궤적을 그려놓고 달리게 된다.
+      #  - 정지 거리 v^2/(2a) = 1.2^2/(2*2.0) = 0.36 m
+      # 즉 터보의 80%, 하드웨어 상한의 60%. 지역 코스트맵도 3 -> 6 m 로 키웠다
+      # (반폭 3 m > 궤적 2.04 m + 로봇 반지름 0.55 m).
+      #
+      # !! max_speed_xy 도 같이 올려야 한다 !! 이 값이 남아 있으면 병진 속도가
+      # 여기서 다시 잘린다. max_vel_x 만 고치는 실수를 하기 쉽다.
+      #
+      # !! velocity_smoother 도 같이 올려야 한다 !! 그쪽 기본값이
+      # max_velocity [0.5, 0.0, 2.0] 이라, 안 고치면 DWB 가 1.2 를 내도
+      # 로봇에는 0.5 만 나간다(파일 아래쪽 velocity_smoother 항목 참고).
+      max_vel_x: 1.2
       max_vel_y: 0.0
-      max_vel_theta: 1.0
+      max_vel_theta: 1.5
       min_speed_xy: 0.0
-      max_speed_xy: 0.3
+      max_speed_xy: 1.2
       min_speed_theta: 0.0
-      acc_lim_x: 2.5
+      # 2.5 는 하드웨어 max_acceleration(2.0)을 넘는 값이었다. 낼 수 없는 가속을
+      # 전제로 궤적을 고르면 실제 거동이 예측과 어긋난다. 실제 값에 맞춘다.
+      acc_lim_x: 2.0
       acc_lim_y: 0.0
       acc_lim_theta: 3.2
+      # 감속은 하드웨어가 -4.0 까지 되지만 승차감/여유를 위해 -2.5 유지.
       decel_lim_x: -2.5
       decel_lim_y: 0.0
       decel_lim_theta: -3.2
@@ -98,6 +130,14 @@ planner_server:
   ros__parameters:
     use_sim_time: true
     expected_planner_frequency: 20.0
+    # 전역 코스트맵이 갱신되기를 이만큼 기다린다(기본 1.0초).
+    # 정렬 월드 전체를 0.10 m 격자로 깔면 5785 x 4855 = 2,808만 칸이고,
+    # static_layer + inflation(0.55 m = 5.5칸)을 그 위에 한 번 도는 데
+    # 1초로는 턱없이 모자랐다. 종단 2단계 실측: 계획 실패 17건 중 10건이
+    # "Costmap timed out waiting for update" 였다(나머지 7건은 경로 부재).
+    # leg 은 지도 연결성에 문제가 없는데도 이것 때문에 출발하지 못했다.
+    # 2,800만 칸 1회성 정적 지도라 여유를 크게 준다.
+    costmap_update_timeout: 15.0
     planner_plugins: ["GridBased"]
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
@@ -125,8 +165,16 @@ local_costmap:
       global_frame: $(var namespace)/odom
       robot_base_frame: $(var namespace)/base_link
       rolling_window: true
-      width: 3
-      height: 3
+      # 3 x 3 -> 6 x 6 m. 속도를 0.3 -> 1.2 m/s 로 올리면서 같이 키웠다.
+      # DWB 는 sim_time 1.7초만큼 앞을 시뮬하므로 1.2 m/s 에서 궤적이 2.04 m
+      # 뻗는다. 반폭이 1.5 m 면 궤적 끝이 창 밖으로 나가 그 구간의 장애물
+      # 비용을 못 본 채로 궤적을 고르게 된다. 반폭 3 m 면
+      # 2.04 m + 로봇 반지름 0.55 m = 2.59 m 를 담는다.
+      # voxel_layer 의 obstacle_max_range 2.5 m 와도 맞는 크기다(그보다 더
+      # 키워봐야 장애물이 안 찍히므로 계산만 늘어난다).
+      # 비용: 900 -> 3,600 칸. 롤링 창이라 부담은 크지 않다.
+      width: 6
+      height: 6
       resolution: 0.10
       # README §4: Voxel Layer로 PointCloud2 직접 (LaserScan 없음)
       plugins: ["voxel_layer", "inflation_layer"]
@@ -282,3 +330,14 @@ velocity_smoother:
     use_sim_time: true
     enable_stamped_cmd_vel: false   # _nav2_for()가 로봇별로 덮어쓴다
     odom_topic: odometry/filtered
+    # !! 이걸 안 적어두면 Nav2 기본값 max_velocity [0.5, 0.0, 2.0] 이 걸린다 !!
+    # 평활기는 controller_server 와 로봇 사이에 있으므로, DWB 에서 1.2 m/s 를
+    # 내도 여기서 0.5 로 잘려 로봇에는 0.5 만 나간다. 실제로 이 함정을 만났다
+    # (DWB 0.3 일 때는 0.5 아래라 드러나지 않았다).
+    # DWB 의 max_vel_x/max_vel_theta 와 같은 값으로 맞춘다.
+    # 순서는 [x, y, theta].
+    max_velocity: [1.2, 0.0, 1.5]
+    min_velocity: [-1.2, 0.0, -1.5]
+    # 가속은 A300 하드웨어 값(linear 2.0 / angular 4.0) 이내로 둔다.
+    max_accel: [2.0, 0.0, 3.2]
+    max_decel: [-2.5, 0.0, -3.2]

@@ -3,3 +3,7 @@ repositories:
     type: git
     url: https://github.com/RobInLabUJI/unitree_go2_ros2_jazzy.git
     version: edfb18772c12a159915770d057f0c82d3bb30e16
+  quadruped_ros2_control:
+    type: git
+    url: https://github.com/legubiao/quadruped_ros2_control.git
+    version: 5434c5810d1a7fe223bcfd04550e9d3bfdd4b458

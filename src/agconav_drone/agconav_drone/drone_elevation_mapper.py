@@ -86,6 +86,21 @@ class DroneElevationMapper(Node):
         # 0으로 두면 끈다. 스캔 고도 84 m에서 실제 지형까지는 최소 75 m라
         # 2.5 m는 실제 반사를 하나도 건드리지 않는다.
         self.declare_parameter('min_range_m', 2.5)
+        # 이 거리(센서 기준 m)보다 먼 반사를 버린다. 0이면 끈다. 높이 오차가
+        # 센서 거리에 비례해서(80~88 m σ 0.076 vs 115~130 m σ 0.149, 상관 +0.278)
+        # 먼 점을 버리면 지도가 좋아질 수 있는지 보려고 넣은 손잡이다.
+        # min_range_m 과 같은 자리에서 같은 방식으로 적용된다.
+        self.declare_parameter('max_range_m', 0.0)
+        # 방위각 윈도우(센서 프레임, atan2(y, x) 도). 두 값이 같으면 끈다.
+        # 실제 OS1 의 azimuth window 에 대응한다 -- 각해상도는 그대로 두고
+        # 쓸모없는 방향의 출력만 버린다.
+        self.declare_parameter('azimuth_min_deg', 0.0)
+        self.declare_parameter('azimuth_max_deg', 0.0)
+        # 들어오는 점군 중 이 비율만 누적에 쓴다(1.0 = 전부). 점의 개수(λ)만
+        # 줄이고 **시점 분포는 그대로** 두려는 것이다 -- 같은 비행 데이터로
+        # "점이 적어서 나쁜가, 시점이 몰려서 나쁜가"를 가르는 데 쓴다.
+        # 균등하게 솎는다: n 번째 점군은 int(n*r) > int((n-1)*r) 일 때만 쓴다.
+        self.declare_parameter('cloud_keep_ratio', 1.0)
 
         points_topic = self.get_parameter('points_topic').value
         elevation_map_topic = self.get_parameter('elevation_map_topic').value
@@ -95,6 +110,11 @@ class DroneElevationMapper(Node):
         self._resolution = float(self.get_parameter('resolution').value)
         self._frame_id = self.get_parameter('frame_id').value
         self._min_range = float(self.get_parameter('min_range_m').value)
+        self._max_range = float(self.get_parameter('max_range_m').value)
+        self._az_min = float(self.get_parameter('azimuth_min_deg').value)
+        self._az_max = float(self.get_parameter('azimuth_max_deg').value)
+        self._keep_ratio = float(self.get_parameter('cloud_keep_ratio').value)
+        self._seen_clouds = 0
         self._data_timeout = Duration(
             seconds=self.get_parameter('data_timeout_sec').value)
 
@@ -113,6 +133,8 @@ class DroneElevationMapper(Node):
         self._last_stamp = None
         self._last_received = None
         self._published = False
+        self._n_clouds = 0
+        self._n_points = 0
 
         # design.md 7-1과 동일: raw sensor cloud는 best effort / volatile /
         # keep last / depth 5.
@@ -155,6 +177,13 @@ class DroneElevationMapper(Node):
 
     def _points_callback(self, msg):
         self._last_received = self.get_clock().now()
+
+        # 균등 솎기. 시점 분포는 그대로 두고 개수만 줄인다.
+        if self._keep_ratio < 1.0:
+            n = self._seen_clouds
+            self._seen_clouds = n + 1
+            if int((n + 1) * self._keep_ratio) == int(n * self._keep_ratio):
+                return
 
         source_frame = self._target_source_frame or msg.header.frame_id
         try:
@@ -204,9 +233,29 @@ class DroneElevationMapper(Node):
         # 75 m)이었다. 이 2점/스캔이 비행 내내 쌓여 저장된 지도에서 80 m대
         # 셀 220개가 됐고, RViz 색상 눈금이 1~84 m로 늘어나 지면이 전부 한 색으로
         # 뭉갰다. 더 중요한 건 모듈 F가 그 셀 주변까지 급경사=주행불가로 본다는 점.
-        if self._min_range > 0.0:
+        #
+        # max_range_m 은 그 대칭이다. 오차가 센서 거리에 비례하므로(§8) 먼 점을
+        # 잘라내면 남은 점의 품질이 올라간다 -- 대신 커버리지와 밀도를 잃는다.
+        if self._min_range > 0.0 or self._max_range > 0.0:
             ranges = np.linalg.norm(points, axis=1)
-            points = points[ranges >= self._min_range]
+            keep = np.ones(points.shape[0], dtype=bool)
+            if self._min_range > 0.0:
+                keep &= ranges >= self._min_range
+            if self._max_range > 0.0:
+                keep &= ranges <= self._max_range
+            points = points[keep]
+            if points.shape[0] == 0:
+                return
+
+        # 방위각 윈도우. 센서 프레임에서 atan2(y, x)로 방향을 재고 창 밖을 버린다.
+        # 창이 -180/+180 을 감싸는 경우도 처리한다.
+        if self._az_min != self._az_max:
+            az = np.degrees(np.arctan2(points[:, 1], points[:, 0]))
+            if self._az_min <= self._az_max:
+                keep = (az >= self._az_min) & (az <= self._az_max)
+            else:
+                keep = (az >= self._az_min) | (az <= self._az_max)
+            points = points[keep]
             if points.shape[0] == 0:
                 return
 
@@ -216,16 +265,26 @@ class DroneElevationMapper(Node):
         col_idx = np.floor((ys - self._origin_y) / self._resolution).astype(np.int64)
         row_idx, col_idx = self._grow_to_fit(row_idx, col_idx)
 
-        # 셀별로 점을 비닝해서 running average height를 bincount로 벡터화 누적.
+        # 셀별로 점을 비닝해서 running average height를 누적. **이번 점군이
+        # 실제로 닿은 셀만** 건드린다.
+        #
+        # 예전에는 np.bincount(flat_idx, minlength=지도전체) 로 지도 크기의
+        # 배열을 만들어 통째로 더했다. 결과는 아래와 완전히 같지만(합성 데이터
+        # 80회 누적으로 점유셀·누적점 일치 확인) 비용이 점 개수가 아니라 지도
+        # 크기에 비례한다. 본 맵(5,010만 셀)에서는 점군당 351 ms 가 들어
+        # 10 Hz 를 감당할 수 없다. 방문 셀만 쓰면 20 ms 다.
         n_rows, n_cols = self._sum.shape
-        cell_count = n_rows * n_cols
         flat_idx = row_idx * n_cols + col_idx
-        self._sum += np.bincount(
-            flat_idx, weights=zs, minlength=cell_count).reshape(n_rows, n_cols)
-        self._count += np.bincount(
-            flat_idx, minlength=cell_count).reshape(n_rows, n_cols)
+        uniq, inv = np.unique(flat_idx, return_inverse=True)
+        self._sum.reshape(-1)[uniq] += np.bincount(inv, weights=zs)
+        self._count.reshape(-1)[uniq] += np.bincount(inv)
 
         self._last_stamp = msg.header.stamp
+        # 실제로 누적에 들어간 점군/점의 개수. 지도만 봐서는 알 수 없고,
+        # 필터 실험에서 셀당 점 개수(λ)와 "조건들이 정말 같은 입력을 받았는가"를
+        # 확인하는 데 쓴다.
+        self._n_clouds += 1
+        self._n_points += int(zs.size)
 
     def _grow_to_fit(self, row_idx, col_idx):
         """Pad the grid so row_idx/col_idx fit, remapped into the new array.
@@ -271,6 +330,11 @@ class DroneElevationMapper(Node):
                 'path_status가 완료를 알렸지만 누적된 점이 없어 발행할 지도가 '
                 '없음.')
             return
+        cells = int((self._count > 0).sum())
+        self.get_logger().info(
+            '누적 요약: 점군 %d개, 점 %d개, 점유 셀 %d개, 셀당 %.2f점'
+            % (self._n_clouds, self._n_points, cells,
+               self._n_points / max(1, cells)))
         self._elevation_map_pub.publish(self._build_grid_map_message())
         self._published = True
 

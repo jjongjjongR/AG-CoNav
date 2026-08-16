@@ -40,8 +40,9 @@ def generate_launch_description():
     nav2_bringup_share = get_package_share_directory("nav2_bringup")
 
     # 실행할 공용 Gazebo 월드 (성동구 실지형 heightmap).
-    # world_file 인자로 다른 월드를 지정할 수 있다 — 테스트용으로 잘라낸 축소
-    # 월드(agconav_test_worlds)에서 전체 스택을 돌릴 때 쓴다. 빈 값이면 기본값.
+    # world_file 인자로 다른 월드를 지정할 수 있다. 종단 검증에 쓴 것은
+    # agconav_worlds/worlds/Seongdong_gu_aligned (축에 맞춰 회전시킨 전체 맵)로,
+    # agconav_all.launch.py 가 그걸 기본값으로 쓴다. 빈 값이면 여기 기본값.
     # <world name>은 그대로 "Seongdong_gu"를 유지해야 clearpath spawn의
     # world:=Seongdong_gu 인자와 set_pose 서비스 경로가 그대로 맞는다.
     default_world_path = os.path.join(
@@ -67,7 +68,17 @@ def generate_launch_description():
         "robot_spawn.launch.py",
     )
 
+    # leg 보행 컨트롤러. 기본은 RL(quadruped_ros2_control + robot_lab 정책)이다.
+    # 근거는 `11. 컨트롤러 실험 — 경사와 속도.md`:
+    #   평지 1.11 vs CHAMP 0.162 m/s (6.9배), 경사 5도 29배 / 10도 24배,
+    #   안정 최대 1.045 vs 0.266 m/s (3.9배), 등판 성공은 RL 뿐.
+    # leg_controller:=champ 로 옛 CHAMP 스택으로 되돌릴 수 있다(비교·회귀 확인용).
     go2_spawn_launch_path = os.path.join(
+        agconav_bringup_share,
+        "launch",
+        "go2_rl_spawn.launch.py",
+    )
+    go2_champ_spawn_launch_path = os.path.join(
         agconav_bringup_share,
         "launch",
         "go2_spawn.launch.py",
@@ -89,8 +100,7 @@ def generate_launch_description():
         "model_path",
         default_value="",
         description="GZ_SIM_RESOURCE_PATH 앞에 덧붙일 모델 폴더. world_file이 "
-        "기본 월드에 없는 model://을 참조할 때 필요하다 "
-        "(예: 방식 4 월드의 agconav_drone_dynamic).",
+        "기본 월드에 없는 model://을 참조할 때 필요하다.",
     )
     declare_use_sim_time = DeclareLaunchArgument(
         "use_sim_time",
@@ -113,6 +123,14 @@ def generate_launch_description():
         ("leg_y", "150.8310", "Go2(leg) 스폰 y [m]"),
         ("leg_z", "6.1500", "Go2(leg) 스폰 z [m] — 지면 5.85 + 0.30 (기립 높이)"),
         ("leg_yaw", "-0.4613", "Go2(leg) 스폰 heading [rad]"),
+        # leg 보행 컨트롤러 선택. 기본 rl = quadruped_ros2_control 의
+        # rl_quadruped_controller. champ 로 두면 옛 CHAMP 스택을 쓴다.
+        ("leg_controller", "rl", "leg 보행 컨트롤러 (rl | champ)"),
+        # RL 정책 폴더. 7번 실험에서 robot_lab 만 실제로 걷고 등판했다
+        # (legged_gym·himloco 는 평지에서도 전복).
+        ("leg_policy", "robot_lab", "RL 정책 폴더 (robot_lab | legged_gym | himloco)"),
+        # 7번 실험 §6 의 안정 최대. 1.5 를 주면 오히려 느려진다(0.697 m/s).
+        ("leg_max_speed", "1.0", "leg 명령 속도 상한 [m/s]"),
     )
     declare_spawn_args = [
         DeclareLaunchArgument(name, default_value=default, description=desc)
@@ -173,6 +191,19 @@ def generate_launch_description():
         description="Common Nav2 params for both ground robots (module C; required when use_nav2=true)",
     )
 
+    # !! libtorch 경로는 Gazebo 프로세스에 들어가야 한다 !!
+    # rl_quadruped_controller 는 libtorch(C++)를 링크하는데, 그 컨트롤러를 여는
+    # controller_manager 는 **Gazebo 프로세스 안**에서 돈다(gz_quadruped_hardware
+    # 플러그인). 그래서 leg 스폰 그룹에만 환경변수를 걸면 소용이 없다.
+    # 실제 증상:
+    #   dlopen error: libc10.so: cannot open shared object file
+    #   -> Failed loading controller rl_quadruped_controller
+    # 최상위에서 설정해 Gazebo 를 포함한 모든 하위 프로세스가 물려받게 한다.
+    _torch_lib = os.path.join(os.path.expanduser("~"), "libtorch", "lib")
+    _ld = os.environ.get("LD_LIBRARY_PATH", "")
+    set_torch_lib_path = SetEnvironmentVariable(
+        "LD_LIBRARY_PATH", _torch_lib + (":" + _ld if _ld else ""))
+
     # Gazebo와 공용 월드는 여기서 한 번만 실행한다.
     # 로컬 모델(agconav_drone) 탐색 경로를 Gazebo에 알려준다.
     # ROS 2 Jazzy는 Gazebo Harmonic(gz-sim8)과 페어링되며, gz sim은
@@ -188,11 +219,11 @@ def generate_launch_description():
     if _existing_gz_resource_path:
         _gz_models_dirs.append(_existing_gz_resource_path)
     # world_file로 다른 월드를 띄울 때, 그 월드가 참조하는 모델이 위 두 경로에
-    # 없을 수 있다. 예: 방식 4(velocity)용 Seongdong_gu_100x100_dynamic 은
-    # model://agconav_drone_dynamic 을 참조하는데 그건 agconav_test_worlds/models
-    # 에 있다. 경로에 없으면 Gazebo가 월드 로드 자체를 실패하고
-    #   [Err] Error Code 14 ... Unable to find uri[model://agconav_drone_dynamic]
+    # 없을 수 있다. 경로에 없으면 Gazebo가 월드 로드 자체를 실패하고
+    #   [Err] Error Code 14 ... Unable to find uri[model://<이름>]
     # 가 뜬 뒤, 월드가 안 떠서 wait_for_world가 죽고 모듈 A~F가 전부 연쇄로 죽는다.
+    # 기본 월드와 정렬 월드가 쓰는 모델(agconav_drone, ramp_*, bump_*)은 위 두
+    # 경로에 다 있으므로 model_path 없이도 뜬다.
     # world_file은 LaunchConfiguration이라 여기서 경로를 유추할 수 없으므로
     # 부르는 쪽이 model_path로 알려준다.
     set_gz_resource_path = SetEnvironmentVariable(
@@ -391,10 +422,27 @@ def generate_launch_description():
 
     # Go2 원본 launch도 Gazebo와 spawn을 동시에 시작하는 구조다.
     # spawn-only 복사본이 기존 Gazebo의 create 서비스를 사용한다.
-    spawn_leg = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            go2_spawn_launch_path
-        ),
+    # RL 판 (기본). 인자 구성이 CHAMP 판과 달라 따로 만든다.
+    spawn_leg_rl = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(go2_spawn_launch_path),
+        launch_arguments={
+            "use_sim_time": use_sim_time,
+            "robot_name": "leg",
+            "world_init_x": LaunchConfiguration("leg_x"),
+            "world_init_y": LaunchConfiguration("leg_y"),
+            "world_init_z": LaunchConfiguration("leg_z"),
+            "world_init_heading": LaunchConfiguration("leg_yaw"),
+            "model_folder": LaunchConfiguration("leg_policy"),
+            "max_linear": LaunchConfiguration("leg_max_speed"),
+        }.items(),
+        condition=UnlessCondition(
+            PythonExpression(["'", LaunchConfiguration("leg_controller"),
+                              "' == 'champ'"])),
+    )
+
+    # CHAMP 판 (leg_controller:=champ 일 때만).
+    spawn_leg_champ = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(go2_champ_spawn_launch_path),
         launch_arguments={
             "use_sim_time": use_sim_time,
             "use_localization": use_localization,
@@ -410,7 +458,11 @@ def generate_launch_description():
                 "leg_controllers.yaml",
             ),
         }.items(),
+        condition=IfCondition(
+            PythonExpression(["'", LaunchConfiguration("leg_controller"),
+                              "' == 'champ'"])),
     )
+    spawn_leg = GroupAction([spawn_leg_rl, spawn_leg_champ])
 
     # 월드 로드 완료를 기다렸다가 spawn을 시작한다.
     # 성동구 월드는 heightmap과 건물 메시가 커서 로드가 오래 걸리는데,
@@ -607,7 +659,24 @@ def generate_launch_description():
             # 다만 너무 늦추면 모듈 C(지면 분할)도 같이 늦어져 점검 시점에
             # points_filtered가 비어 있는다 — wait_ready.py가 그것까지
             # 기다리도록 해서 시점 의존을 없앴다.
-            TimerAction(period=40.0, actions=[nav2_wheel, nav2_leg]),
+            #
+            # !! leg 가 RL 컨트롤러일 때는 Nav2를 늦춰야 한다 !!
+            # Nav2 2벌이 2,808만 칸 전역 코스트맵을 초기화하는 동안 Gazebo
+            # 프로세스가 CPU를 100% 쓰는데, RL 컨트롤러를 여는 controller_manager
+            # 가 바로 그 프로세스 안에서 돈다. 그 경합 때문에 spawner가
+            #   waiting for service /controller_manager/list_controllers
+            # 에서 멈춰 rl_quadruped_controller가 올라오지 못한다(실행마다
+            # 되기도 하고 안 되기도 했다 — 이것이 원인이었다).
+            # RL 컨트롤러는 120초, 기립은 150초에 끝나므로 그 뒤에 띄운다.
+            # CHAMP일 때는 그런 부하가 없어 기존 40초를 유지한다.
+            TimerAction(
+                period=170.0, actions=[nav2_wheel, nav2_leg],
+                condition=UnlessCondition(PythonExpression(
+                    ["'", LaunchConfiguration("leg_controller"), "' == 'champ'"]))),
+            TimerAction(
+                period=40.0, actions=[nav2_wheel, nav2_leg],
+                condition=IfCondition(PythonExpression(
+                    ["'", LaunchConfiguration("leg_controller"), "' == 'champ'"]))),
         ]
 
     return LaunchDescription(
@@ -622,6 +691,7 @@ def generate_launch_description():
             declare_nav2_params_file,
             *declare_spawn_args,
             set_gz_resource_path,
+            set_torch_lib_path,
             # 처음에 띄우는 것은 Gazebo와 "월드 로드 대기" 둘뿐이다.
             # 나머지는 전부 _on_world_wait_exit에서 시작한다(위 주석 참고).
             gazebo,

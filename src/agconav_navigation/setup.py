@@ -22,7 +22,8 @@ setup(
         'console_scripts': [
             'ground_segmentation_node = agconav_navigation.ground_segmentation_node:main',
             'navigation_complete_node = agconav_navigation.navigation_complete_node:main',
-            'mock_publisher = agconav_navigation.mock_publisher:main'
+            'mock_publisher = agconav_navigation.mock_publisher:main',
+            'cmd_vel_to_control_input = agconav_navigation.cmd_vel_to_control_input:main'
         ],
     },
 )

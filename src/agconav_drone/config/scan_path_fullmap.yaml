@@ -1,0 +1,2891 @@
+# 정렬 월드 **전체 맵** 스캔. 간격 3.0 m, 고도 84 m.
+# 간격 3 m 를 고른 근거: 밴드 실험에서 자유 공간이 단일 덩어리로
+# 이어지는 가장 싼 간격이다(단일성 99.1%). 2.5 m 와 4 m 는 자유 공간
+# 양은 비슷한데 잘게 쪼개진다(단일성 36~38%). 2 m 는 +2.6시간에
+# +5.72 %p 뿐이라 1,636 초/%p 로 비싸다.
+# x -288.9 ~ 288.9 (577.9 m), y -238.5 ~ 238.5 (160줄)
+frame_id: map
+altitude: 84.0
+strip_spacing: 3.0
+num_waypoints: 320
+waypoints:
+- position:
+    x: -288.9415
+    y: -238.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -238.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -235.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -235.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -232.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -232.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -229.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -229.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -226.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -226.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -223.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -223.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -220.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -220.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -217.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -217.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -214.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -214.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -211.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -211.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -208.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -208.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -205.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -205.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -202.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -202.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -199.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -199.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -196.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -196.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -193.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -193.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -190.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -190.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -187.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -187.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -184.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -184.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -181.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -181.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -178.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -178.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -175.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -175.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -172.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -172.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -169.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -169.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -166.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -166.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -163.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -163.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -160.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -160.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -157.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -157.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -154.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -154.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -151.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -151.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -148.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -148.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -145.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -145.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -142.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -142.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -139.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -139.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -136.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -136.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -133.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -133.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -130.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -130.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -127.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -127.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -124.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -124.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -121.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -121.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -118.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -118.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -115.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -115.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -112.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -112.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -109.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -109.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -106.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -106.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -103.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -103.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -100.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -100.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -97.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -97.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -94.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -94.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -91.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -91.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -88.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -88.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -85.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -85.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -82.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -82.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -79.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -79.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -76.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -76.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -73.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -73.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -70.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -70.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -67.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -67.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -64.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -64.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -61.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -61.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -58.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -58.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -55.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -55.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -52.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -52.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -49.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -49.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -46.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -46.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -43.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -43.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -40.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -40.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -37.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -37.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -34.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -34.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -31.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -31.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -28.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -28.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -25.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -25.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -22.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -22.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -19.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -19.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -16.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -16.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -13.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -13.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -10.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -10.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -7.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -7.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -4.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -4.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: -1.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: -1.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 1.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 1.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 4.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 4.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 7.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 7.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 10.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 10.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 13.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 13.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 16.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 16.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 19.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 19.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 22.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 22.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 25.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 25.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 28.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 28.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 31.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 31.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 34.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 34.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 37.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 37.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 40.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 40.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 43.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 43.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 46.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 46.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 49.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 49.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 52.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 52.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 55.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 55.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 58.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 58.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 61.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 61.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 64.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 64.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 67.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 67.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 70.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 70.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 73.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 73.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 76.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 76.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 79.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 79.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 82.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 82.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 85.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 85.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 88.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 88.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 91.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 91.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 94.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 94.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 97.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 97.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 100.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 100.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 103.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 103.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 106.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 106.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 109.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 109.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 112.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 112.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 115.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 115.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 118.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 118.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 121.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 121.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 124.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 124.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 127.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 127.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 130.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 130.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 133.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 133.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 136.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 136.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 139.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 139.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 142.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 142.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 145.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 145.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 148.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 148.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 151.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 151.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 154.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 154.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 157.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 157.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 160.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 160.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 163.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 163.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 166.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 166.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 169.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 169.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 172.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 172.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 175.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 175.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 178.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 178.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 181.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 181.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 184.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 184.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 187.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 187.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 190.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 190.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 193.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 193.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 196.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 196.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 199.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 199.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 202.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 202.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 205.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 205.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 208.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 208.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 211.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 211.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 214.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 214.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 217.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 217.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 220.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 220.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 223.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 223.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 226.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 226.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 229.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 229.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 232.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 232.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 235.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 235.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+- position:
+    x: 288.9415
+    y: 238.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
+- position:
+    x: -288.9415
+    y: 238.5
+    z: 84.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 1.0
+    w: 6.123233995736766e-17
