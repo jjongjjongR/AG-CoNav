@@ -29,6 +29,10 @@ TF_HZ_STALL_CHECKS=3  # /tf가 3회(=3분) 연속 0Hz면 TF 동결로 판단
 
 : > "$STATUS_LOG"
 rm -rf "$BAG_DIR"
+# 이전 실행의 stale <TAG>_result.txt가 남아있으면 감시 루프가 시작하자마자
+# "이미 완료됨"으로 오판한다(이번 세션에 실제로 겪은 버그) -- BAG_DIR과
+# 동일하게 매 실행 시작 시 지운다.
+rm -f "run_results/logs/velocity_4m_5mps_${TAG}_result.txt"
 
 ros2 launch agconav_test_worlds experiment.launch.py \
   flight:=velocity \
@@ -45,12 +49,17 @@ shutdown_launch() {
   local reason="$1"
   echo "[$(date '+%F %T')] SHUTDOWN 시작 — 사유: $reason" | tee -a "$STATUS_LOG"
   kill -INT "$LPID" 2>/dev/null
-  for i in $(seq 1 15); do
+  # ros2 bag record는 launch 파일에서 sigterm_timeout=60/sigkill_timeout=30로
+  # 최대 90초의 graceful shutdown 유예를 받는다(대용량 bag의 metadata.yaml
+  # flush 시간 확보 -- experiment.launch.py 참고). 여기서 그보다 먼저
+  # $LPID에 SIGTERM(=두 번째 시그널)을 보내면 launch가 즉시 더 거친 종료로
+  # 넘어가 그 유예를 무력화하므로, 최소 100초는 기다린 뒤에만 에스컬레이션한다.
+  for i in $(seq 1 50); do
     kill -0 "$LPID" 2>/dev/null || break
     sleep 2
   done
   if kill -0 "$LPID" 2>/dev/null; then
-    echo "[$(date '+%F %T')] SIGINT로 안 죽어서 SIGTERM 에스컬레이션" | tee -a "$STATUS_LOG"
+    echo "[$(date '+%F %T')] SIGINT로 100초 내 안 죽어서 SIGTERM 에스컬레이션" | tee -a "$STATUS_LOG"
     kill -TERM "$LPID" 2>/dev/null
     sleep 5
   fi

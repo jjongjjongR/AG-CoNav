@@ -211,6 +211,14 @@ def generate_launch_description():
              '/drone/elevation_map', '/drone/path_status',
              '/terrain/features', '/wheel/nav_map', '/leg/nav_map',
              '/wheel/nav_map_status', '/leg/nav_map_status'],
+        # sigterm_timeout/sigkill_timeout 기본값(5s/5s)이 SIGINT 후 5초 만에
+        # SIGTERM을, 10초 만에 SIGKILL을 보낸다. 장시간 비행으로 --max-bag-size
+        # 분할이 여러 개(수십 GB) 쌓인 상태에서 SIGINT를 받으면 마지막 청크
+        # flush + metadata.yaml 작성에 10초 이상 걸릴 수 있고, 그 전에 강제
+        # 종료되면 metadata.yaml이 안 써져 재생이 불가능해진다(실측: 22GB/12
+        # 청크 bag에서 재현, ros2 bag reindex로 복구했던 사례). graceful
+        # shutdown에 충분한 여유를 준다.
+        sigterm_timeout='60', sigkill_timeout='30',
         output='log')
 
     rviz = Node(
