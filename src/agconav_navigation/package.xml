@@ -16,6 +16,10 @@
   <depend>action_msgs</depend>
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>nav2_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>lifecycle_msgs</depend>
   <!-- quadruped_ros2_control 의 RL 컨트롤러 입력 타입 -->
   <depend>control_input_msgs</depend>
   <exec_depend>python3-numpy</exec_depend>

@@ -88,13 +88,14 @@ def generate_launch_description():
     # 예외로 **launch 전체가 즉시 종료**된다. 원래 Go2 xacro에 우연히 그런
     # 문자열이 없어 통과하고 있었을 뿐이라, URDF에 주석 한 줄만 추가해도
     # 시뮬이 통째로 안 뜨는 지뢰였다(실측: 미사용 센서 비활성화 주석에서 발생).
+    robot_description_command = Command([
+        "xacro ",
+        LaunchConfiguration("unitree_go2_description_path"),
+        " ros_control_file:=",
+        LaunchConfiguration("ros_control_file"),
+    ])
     robot_description_content = ParameterValue(
-        Command([
-            "xacro ",
-            LaunchConfiguration("unitree_go2_description_path"),
-            " ros_control_file:=",
-            LaunchConfiguration("ros_control_file"),
-        ]),
+        robot_description_command,
         value_type=str,
     )
     robot_description = {"robot_description": robot_description_content}
@@ -247,7 +248,10 @@ def generate_launch_description():
         output='screen',
         arguments=[
             '-name', LaunchConfiguration('robot_name'),
-            '-topic', 'robot_description',
+            # RL 판과 마찬가지로 대용량 transient-local 토픽을 기다리지 않고
+            # xacro 결과를 직접 전달한다. 기동 부하 때의 간헐적 spawn 정지를
+            # 없앤다.
+            '-string', robot_description_command,
             '-x', LaunchConfiguration('world_init_x'),
             '-y', LaunchConfiguration('world_init_y'),
             '-z', LaunchConfiguration('world_init_z'),

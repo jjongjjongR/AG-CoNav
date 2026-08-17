@@ -14,6 +14,13 @@ install(
 # launch, 파라미터)을 런타임에 다시 만들지 않는다. 따라서 robot.yaml만 설치하면
 # 나머지가 낡은 채로 남아 소스 수정이 반영되지 않는다(LiDAR 스펙 변경 등).
 # 디렉터리 전체를 설치한다.
+#
+# !! 생성 산출물을 저장소에 넣어 두는 데는 대가가 있다 !!
+# clearpath 생성기는 platform/launch/platform-service.launch.py 의 setup_path 에
+# **생성한 PC 의 절대경로**를 박아 넣는다. 그대로 커밋하면 다른 PC 에서 없는
+# 경로를 가리키는데, setup_simulation.sh 는 그 파일이 있으면 부트스트랩을
+# 건너뛰므로 스스로 고쳐지지도 않는다. 그래서 그 한 줄을 FindPackageShare 로
+# 바꿔 두었다. robot.yaml 을 고쳐 다시 생성하면 그 수정이 덮이니 확인할 것.
 install(
   DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../config/clearpath_a300
   DESTINATION share/${PROJECT_NAME}/config

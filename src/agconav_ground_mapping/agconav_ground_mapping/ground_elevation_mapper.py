@@ -38,6 +38,7 @@ from geometry_msgs.msg import Pose
 from grid_map_msgs.msg import GridMap, GridMapInfo
 import numpy as np
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
@@ -60,6 +61,7 @@ class GroundElevationMapper(Node):
         self.declare_parameter('points_topic', 'points')
         self.declare_parameter('elevation_map_topic', 'elevation_map')
         self.declare_parameter('navigation_status_topic', 'navigation_status')
+        self.declare_parameter('mapping_active_topic', 'mapping_active')
         # README 3.1: single global frame `map`.
         self.declare_parameter('target_frame', 'map')
         # 변경사항 5 검토 결과: /wheel/points, /leg/points의 실제 header.frame_id가
@@ -83,6 +85,11 @@ class GroundElevationMapper(Node):
         # 최대 0.256초 뒤처져서 점군 1354개를 통째로 버렸다. 0.3초면 leg 최대
         # 지연까지 덮는다. 0으로 두면 기다리지 않고 바로 버린다(원래 동작).
         self.declare_parameter('tf_timeout_sec', 0.3)
+        # 전체 스택 기동처럼 CPU가 잠시 포화되면 점군이 TF보다 먼저 전달될 수
+        # 있다. 정확한 측정 시각 TF를 우선하되, 그것만 미래 외삽으로 실패하면
+        # 제한된 나이의 최신 TF를 사용한다. 상한을 넘은 좌표는 지도 왜곡을
+        # 막기 위해 여전히 폐기한다.
+        self.declare_parameter('max_latest_tf_age_sec', 5.0)
         # !! OOM 방지 !! _grow_to_fit 은 관측된 점을 전부 담도록 격자를 무제한
         # 으로 키운다. 셀당 float64 2개(_sum/_count)라 16바이트씩 붙는다.
         # 실제 사고: 전체 맵 종단 실행 26분째에 이 노드가 RSS 29 GB 까지 커져
@@ -105,6 +112,7 @@ class GroundElevationMapper(Node):
         points_topic = self.get_parameter('points_topic').value
         elevation_map_topic = self.get_parameter('elevation_map_topic').value
         navigation_status_topic = self.get_parameter('navigation_status_topic').value
+        mapping_active_topic = self.get_parameter('mapping_active_topic').value
         self._target_frame = self.get_parameter('target_frame').value
         self._target_source_frame = self.get_parameter('target_source_frame').value
         self._resolution = float(self.get_parameter('resolution').value)
@@ -120,6 +128,8 @@ class GroundElevationMapper(Node):
         self._tf_listener = TransformListener(self._tf_buffer, self, spin_thread=True)
         self._tf_timeout = Duration(
             seconds=float(self.get_parameter('tf_timeout_sec').value))
+        self._max_latest_tf_age = float(
+            self.get_parameter('max_latest_tf_age_sec').value)
         self._max_point_range = float(self.get_parameter('max_point_range_m').value)
         self._max_cells = int(self.get_parameter('max_cells').value)
 
@@ -135,6 +145,7 @@ class GroundElevationMapper(Node):
         self._last_stamp = None
         self._last_received = None
         self._published = False
+        self._mapping_active = False
 
         # design.md 7-1: raw sensor cloud is best effort / volatile /
         # keep last / depth 5.
@@ -156,8 +167,14 @@ class GroundElevationMapper(Node):
             depth=1,
         )
 
-        self._points_sub = self.create_subscription(
-            PointCloud2, points_topic, self._points_callback, points_qos)
+        # Keep the raw-cloud subscription physically absent while the robot is
+        # waiting.  Together with ros_gz_bridge's lazy mode this prevents the
+        # bridge from waking the Gazebo LiDAR merely because Module D exists.
+        self._points_topic = points_topic
+        self._points_qos = points_qos
+        self._points_sub = None
+        self._mapping_active_sub = self.create_subscription(
+            Bool, mapping_active_topic, self._mapping_active_callback, latched_qos)
         self._navigation_status_sub = self.create_subscription(
             Bool, navigation_status_topic, self._navigation_status_callback, latched_qos)
         self._elevation_map_pub = self.create_publisher(
@@ -168,12 +185,36 @@ class GroundElevationMapper(Node):
             check_period, self._check_data_received)
 
         self.get_logger().info(
-            f'Accumulating "{points_topic}" -> "{elevation_map_topic}" '
+            f'Waiting for "{mapping_active_topic}"; then accumulating '
+            f'"{points_topic}" -> "{elevation_map_topic}" '
             f'(resolution={self._resolution} m/cell, target_frame='
             f'"{self._target_frame}"), publishing once on '
             f'"{navigation_status_topic}"')
 
+    def _mapping_active_callback(self, msg):
+        active = bool(msg.data) and not self._published
+        if active == self._mapping_active:
+            return
+        self._mapping_active = active
+        if active:
+            self._points_sub = self.create_subscription(
+                PointCloud2, self._points_topic,
+                self._points_callback, self._points_qos)
+            self.get_logger().info(
+                'mapping_active=True: 주행 점군 누적을 시작합니다.')
+        else:
+            self._stop_point_collection()
+            self.get_logger().info(
+                'mapping_active=False: 주행 점군 누적을 중지합니다.')
+
+    def _stop_point_collection(self):
+        if self._points_sub is not None:
+            self.destroy_subscription(self._points_sub)
+            self._points_sub = None
+
     def _points_callback(self, msg):
+        if not self._mapping_active or self._published:
+            return
         self._last_received = self.get_clock().now()
 
         source_frame = self._target_source_frame or msg.header.frame_id
@@ -185,12 +226,31 @@ class GroundElevationMapper(Node):
             transform = self._tf_buffer.lookup_transform(
                 self._target_frame, source_frame, Time.from_msg(msg.header.stamp),
                 timeout=self._tf_timeout)
-        except TransformException as ex:
+        except TransformException as exact_ex:
+            try:
+                transform = self._tf_buffer.lookup_transform(
+                    self._target_frame, source_frame, Time(),
+                    timeout=self._tf_timeout)
+            except TransformException as latest_ex:
+                self.get_logger().warn(
+                    f'TF lookup failed for "{source_frame}" -> '
+                    f'"{self._target_frame}", dropping cloud: exact={exact_ex}; '
+                    f'latest={latest_ex}', throttle_duration_sec=5.0)
+                return
+
+            cloud_time = Time.from_msg(msg.header.stamp)
+            tf_time = Time.from_msg(transform.header.stamp)
+            age_sec = (cloud_time - tf_time).nanoseconds / 1e9
+            if age_sec < 0.0 or age_sec > self._max_latest_tf_age:
+                self.get_logger().warn(
+                    'Exact-time TF unavailable and latest TF is %.3fs old '
+                    '(limit %.3fs), dropping cloud: %s'
+                    % (age_sec, self._max_latest_tf_age, exact_ex),
+                    throttle_duration_sec=5.0)
+                return
             self.get_logger().warn(
-                f'TF lookup failed for "{source_frame}" -> '
-                f'"{self._target_frame}" at {msg.header.stamp.sec}.'
-                f'{msg.header.stamp.nanosec:09d}s, dropping cloud: {ex}')
-            return
+                'Exact-time TF unavailable; using latest TF (%.3fs old).'
+                % age_sec, throttle_duration_sec=5.0)
 
         self._accumulate(msg, transform.transform)
 
@@ -320,10 +380,18 @@ class GroundElevationMapper(Node):
                 'navigation_status reported complete but no points were '
                 'accumulated yet, nothing to publish.')
             return
+        occupied_cells = int((self._count > 0).sum())
+        self.get_logger().info(
+            'navigation 완료: 주행 중 관측 셀 %d개, 격자 %d x %d를 발행합니다.'
+            % (occupied_cells, self._sum.shape[0], self._sum.shape[1]))
         self._elevation_map_pub.publish(self._build_grid_map_message())
         self._published = True
+        self._mapping_active = False
+        self._stop_point_collection()
 
     def _check_data_received(self):
+        if not self._mapping_active or self._published:
+            return
         if self._last_received is None:
             self.get_logger().warn('no point cloud received yet.')
             return
@@ -393,11 +461,12 @@ def main(args=None):
     node = GroundElevationMapper()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

@@ -25,6 +25,12 @@ IGNORE=(
   "libraries/qpoases_colcon"                # 위 컨트롤러 전용
   "hardwares/hardware_unitree_sdk2"         # 실물 전용, unitree_sdk2 필요
   "commands/unitree_joystick_input"         # 실물 조이스틱 전용
+  # 아래 넷은 빌드는 되지만 아무도 안 쓴다. 우리 코드에서 참조가 0 이고
+  # 다른 패키지가 depend 하지도 않는다. 되살리려면 COLCON_IGNORE 만 지우면 된다.
+  "libraries/gz_quadruped_playground"       # 이 저장소 자체 데모용 월드
+  "commands/joystick_input"                 # 조이스틱 — 우리는 cmd_vel_to_control_input 을 쓴다
+  "commands/keyboard_input"                 # 키보드 수동 조작 — 필요하면 되살릴 것
+  "controllers/unitree_guide_controller"    # 컨트롤러 실험에서 탈락(docs/11)
   "descriptions/anybotics"
   "descriptions/deep_robotics"
   "descriptions/magiclab&xiaomi"

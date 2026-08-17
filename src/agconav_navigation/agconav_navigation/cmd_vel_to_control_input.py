@@ -16,7 +16,7 @@ StateRL.cpp 에서 확인했다.
 m/s·rad/s 단위의 명령과 1:1 로 대응한다.
 
 **FSM 도 이 노드가 몰아 준다.** RL 컨트롤러는 기동 직후 PASSIVE 상태이고
-    PASSIVE --(2)--> FIXEDDOWN --(2)--> FIXEDSTAND --(3)--> RL
+    PASSIVE --(2)--> FIXEDDOWN --(4)--> FIXEDSTAND --(3)--> RL
 순서로만 보행 모드에 들어간다. 각 상태는 percent_ > 1.5, 즉 900스텝/200 Hz =
 4.5초를 채워야 다음 명령을 받는다(그전 명령은 조용히 무시된다). 문서에 없어
 소스에서 읽은 규칙이라 여기 적어 둔다.
@@ -27,14 +27,17 @@ m/s·rad/s 단위의 명령과 1:1 로 대응한다.
 (`10. 종단 테스트 — 전체 맵 주행 검증.md` §7).
 """
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from control_input_msgs.msg import Inputs
 from geometry_msgs.msg import Twist
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from std_msgs.msg import Bool
 
 CMD_PASSIVE_TO_DOWN = 2
-CMD_DOWN_TO_STAND = 2
+CMD_DOWN_TO_STAND = 4
 CMD_STAND_TO_RL = 3
-STATE_DWELL_SEC = 6.0     # FSM 최소 체류 4.5초 + 여유
+STAGE_PUBLISH_COUNT = 100  # 각 전환 명령을 실제 콜백 100회 동안 유지
 
 
 class CmdVelToControlInput(Node):
@@ -50,6 +53,12 @@ class CmdVelToControlInput(Node):
 
         self._out = self.create_publisher(
             Inputs, self.get_parameter('output_topic').value, 10)
+        ready_qos = QoSProfile(depth=1)
+        ready_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
+        ready_qos.reliability = ReliabilityPolicy.RELIABLE
+        self._ready_out = self.create_publisher(
+            Bool, '/leg/controller_ready', ready_qos)
+        self._ready_out.publish(Bool(data=False))
         self.create_subscription(
             Twist, self.get_parameter('cmd_vel_topic').value, self._on_cmd, 10)
 
@@ -62,8 +71,11 @@ class CmdVelToControlInput(Node):
         self._vy = 0.0
         self._wz = 0.0
         self._last_cmd = None
-        self._t0 = self.get_clock().now()
-        self._stage = 0 if self.get_parameter('auto_stand').value else 3
+        # 단계: 0 FIXEDDOWN / 1 FIXEDSTAND / 2 서서 대기 / 3 RL 진입 / 4 중계.
+        # auto_stand=false 면 기립을 남이 시킨다는 뜻이므로 곧장 중계(4)로 간다.
+        self._stage = 0 if self.get_parameter('auto_stand').value else 4
+        self._stage_publish_count = 0
+        self._ready_sent = False
 
         self.create_timer(1.0 / self._rate, self._tick)
         self.get_logger().info(
@@ -88,27 +100,57 @@ class CmdVelToControlInput(Node):
 
     def _tick(self):
         now = self.get_clock().now()
-        elapsed = (now - self._t0).nanoseconds / 1e9
 
-        # 기립 시퀀스. 각 단계는 STATE_DWELL_SEC 을 채운 뒤 다음으로 간다.
+        # 기립 시퀀스. 시뮬레이션이 과부하되면 /clock 이 크게 건너뛰므로
+        # 경과시간이 아니라 실제 timer callback 횟수로 단계를 진행한다.
         if self._stage == 0:
-            self._send(CMD_PASSIVE_TO_DOWN if elapsed < 1.0 else 0)
-            if elapsed > STATE_DWELL_SEC:
+            # 상태 전환 명령을 짧은 펄스로 보내면 대형 맵 초기화 중 타이머가
+            # 밀릴 때 컨트롤러가 그 한 번을 놓칠 수 있다. 각 단계에 서로 다른
+            # 명령을 사용하므로 체류 시간 내내 안전하게 유지할 수 있다.
+            self._send(CMD_PASSIVE_TO_DOWN)
+            self._stage_publish_count += 1
+            if self._stage_publish_count >= STAGE_PUBLISH_COUNT:
                 self._stage = 1
-                self._t0 = now
+                self._stage_publish_count = 0
                 self.get_logger().info('FIXEDDOWN 완료 -> 기립 명령')
             return
         if self._stage == 1:
-            self._send(CMD_DOWN_TO_STAND if elapsed < 1.0 else 0)
-            if elapsed > STATE_DWELL_SEC:
+            self._send(CMD_DOWN_TO_STAND)
+            self._stage_publish_count += 1
+            if self._stage_publish_count >= STAGE_PUBLISH_COUNT:
                 self._stage = 2
-                self._t0 = now
+                self._stage_publish_count = 0
                 self.get_logger().info('FIXEDSTAND 완료 -> RL 모드 진입')
             return
         if self._stage == 2:
-            self._send(CMD_STAND_TO_RL if elapsed < 1.0 else 0)
-            if elapsed > 3.0:
-                self._stage = 3
+            # !! 여기서 바로 RL 로 넘어가면 안 된다 !!
+            # RL 정책은 명령이 0 이어도 가만히 서 있지 않는다. 실측하면 명령
+            # 0 인 상태로 요가 계속 틀어져 제자리에서 빙글빙글 돈다. 모듈 F
+            # 지도 생성과 Nav2 활성화까지 몇 분이 걸리므로, 그 동안 로봇이
+            # 스폰 지점에서 벗어나고 방향도 엉망이 된 채로 목표를 받게 된다.
+            # FIXEDSTAND 는 관절 위치를 잡아 두는 상태라 드리프트가 없다.
+            # 그래서 서 있는 채로 기다리다가 **첫 주행 명령이 올 때** RL 로
+            # 들어간다. controller_ready 는 지금 올려야 목표 전송이 풀린다
+            # (그래야 cmd_vel 이 오고, 그때 RL 로 넘어간다).
+            if not self._ready_sent:
+                self._ready_out.publish(Bool(data=True))
+                self._ready_sent = True
+                self.get_logger().info(
+                    'FIXEDSTAND 유지 — 첫 주행 명령까지 서서 대기')
+            moving = (self._last_cmd is not None
+                      and max(abs(self._vx), abs(self._vy), abs(self._wz)) > 1e-3)
+            if not moving:
+                self._send(0)      # 0 = 상태 전환 명령 없음. 그대로 서 있는다.
+                return
+            self._stage = 3
+            self._stage_publish_count = 0
+            self.get_logger().info('주행 명령 수신 -> RL 모드 진입')
+            return
+        if self._stage == 3:
+            self._send(CMD_STAND_TO_RL)
+            self._stage_publish_count += 1
+            if self._stage_publish_count >= STAGE_PUBLISH_COUNT:
+                self._stage = 4
                 self.get_logger().info('RL 보행 모드. cmd_vel 중계 시작')
             return
 
@@ -129,7 +171,7 @@ def main(args=None):
     node = CmdVelToControlInput()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         node.destroy_node()

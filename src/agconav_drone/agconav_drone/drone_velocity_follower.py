@@ -7,7 +7,7 @@ drone_pose_controller의 SetEntityPose 순간이동을 대체한다. 순간이�
 근거리 반사를 더 얻어 지도가 좋아진다.
 
 파라미터의 확정값과 근거는
-agconav_test_worlds/3. 최적 드론 움직임.md 를 따른다. 요지는 이 플러그인이 속도
+docs/3. 최적 드론 움직임.md 를 따른다. 요지는 이 플러그인이 속도
 지령을 지수 감쇠로 따라간다는 것(수평 tau 5.9 s, 수직 3.3 s)이고, 여기서
   - 제동 거리는 tau x 속도차 (등감속 v^2/(2a) 가 아니다)
   - 제동은 계단으로 (램프는 기체 한계의 54% 밖에 못 쓴다)
@@ -38,6 +38,7 @@ from __future__ import annotations
 import math
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 import yaml
 from geometry_msgs.msg import Twist
 from rclpy.node import Node
@@ -585,7 +586,7 @@ def main(args=None):
     node = DroneVelocityFollower()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         node.destroy_node()

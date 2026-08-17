@@ -1,3 +1,4 @@
+import math
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -9,6 +10,7 @@ from launch.actions import (
     IncludeLaunchDescription,
     GroupAction,
     LogInfo,
+    OpaqueFunction,
     RegisterEventHandler,
     Shutdown,
     TimerAction,
@@ -29,6 +31,8 @@ def generate_launch_description():
     clearpath_setup_path = LaunchConfiguration("clearpath_setup_path")
     use_nav2 = LaunchConfiguration("use_nav2")
     use_localization = LaunchConfiguration("use_localization")
+    sequential_pipeline = LaunchConfiguration("sequential_pipeline")
+    spawn_ground_early = LaunchConfiguration("spawn_ground_early")
     nav2_params_file = LaunchConfiguration("nav2_params_file")
     headless = LaunchConfiguration("headless")
 
@@ -121,7 +125,7 @@ def generate_launch_description():
         ("wheel_yaw", "-0.4349", "A300(wheel) 스폰 heading [rad]"),
         ("leg_x", "-158.8710", "Go2(leg) 스폰 x [m]"),
         ("leg_y", "150.8310", "Go2(leg) 스폰 y [m]"),
-        ("leg_z", "6.1500", "Go2(leg) 스폰 z [m] — 지면 5.85 + 0.30 (기립 높이)"),
+        ("leg_z", "6.2500", "Go2(leg) 스폰 z [m] — 지면 5.85 + 0.40 (RL 원본 스폰 높이)"),
         ("leg_yaw", "-0.4613", "Go2(leg) 스폰 heading [rad]"),
         # leg 보행 컨트롤러 선택. 기본 rl = quadruped_ros2_control 의
         # rl_quadruped_controller. champ 로 두면 옛 CHAMP 스택을 쓴다.
@@ -130,7 +134,10 @@ def generate_launch_description():
         # (legged_gym·himloco 는 평지에서도 전복).
         ("leg_policy", "robot_lab", "RL 정책 폴더 (robot_lab | legged_gym | himloco)"),
         # 7번 실험 §6 의 안정 최대. 1.5 를 주면 오히려 느려진다(0.697 m/s).
-        ("leg_max_speed", "1.0", "leg 명령 속도 상한 [m/s]"),
+        # 실험 확정값. 명령 1.0 -> 실제 1.045 m/s (달성률 105%, 최대 기울기 18.7°).
+        # 1.5 를 주면 오히려 0.697 m/s 로 느려진다 — 정책이 학습된 명령 범위를
+        # 벗어나면 걸음이 무너진다. 근거: docs/11 §6.
+        ("leg_max_speed", "1.0", "leg 명령 속도 상한 [m/s] — 실측 안정 최대"),
     )
     declare_spawn_args = [
         DeclareLaunchArgument(name, default_value=default, description=desc)
@@ -171,6 +178,20 @@ def generate_launch_description():
         "use_nav2",
         default_value="true",
         description="Launch Nav2 for wheel/leg (needs /X/nav_map and localization TF)"
+    )
+    declare_sequential_pipeline = DeclareLaunchArgument(
+        "sequential_pipeline",
+        default_value="false",
+        description=(
+            "A→F 통합 실행에서는 Module F 완료 전까지 지상 로봇·B·C를 "
+            "시작하지 않아 CPU 경합을 막는다."),
+    )
+    declare_spawn_ground_early = DeclareLaunchArgument(
+        "spawn_ground_early",
+        default_value="false",
+        description=(
+            "지상 로봇 물리 모델과 센서는 A 단계부터 월드에 올리되, "
+            "Module B/C와 Nav2는 sequential_pipeline 단계 게이트 뒤에 시작한다."),
     )
 
     declare_use_localization = DeclareLaunchArgument(
@@ -462,6 +483,8 @@ def generate_launch_description():
             PythonExpression(["'", LaunchConfiguration("leg_controller"),
                               "' == 'champ'"])),
     )
+    # gz_quadruped_hardware가 자기 모델의 설정된 센서만 읽도록 수정했으므로
+    # RL/CHAMP 모두 같은 시점에 안전하게 스폰할 수 있다.
     spawn_leg = GroupAction([spawn_leg_rl, spawn_leg_champ])
 
     # 월드 로드 완료를 기다렸다가 spawn을 시작한다.
@@ -509,8 +532,25 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(sensor_bridge_launch_path),
     )
 
+    # leg 모델은 월드 준비 뒤에도 15초 늦게 생성된다. 공통 브리지를 그보다
+    # 먼저 시작하면 Gazebo에는 아직 /leg/points/points가 없어서 Jazzy의
+    # parameter_bridge가 해당 PointCloud2 연결을 만들지 못하는 실행이 있다.
+    # 모델 생성 뒤 전용 브리지를 한 번 더 시작해 /leg/points 계약을 보장한다.
+    leg_lidar_bridge_after_spawn = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="leg_lidar_bridge_after_spawn",
+        output="screen",
+        parameters=[{
+            "use_sim_time": True,
+            "config_file": os.path.join(
+                get_package_share_directory("agconav_gz_bridge"),
+                "config", "leg_lidar_lazy_bridge.yaml"),
+        }],
+    )
+
     # 지상 로봇 공통 Nav2, 설정은 하나, 로봇별 차이는 namespace, footprint뿐(README 4참고)
-    def _nav2_for(namespace, stamped_cmd_vel):
+    def _nav2_for(namespace, stamped_cmd_vel, extra_rewrites=None):
         # 설정 파일은 하나(nav2_common.yaml)를 공유하되, cmd_vel 메시지 타입만
         # 로봇별로 덮어쓴다. Nav2의 TwistPublisher/TwistSubscriber는 노드
         # 파라미터 enable_stamped_cmd_vel로 Twist / TwistStamped를 고르는데,
@@ -519,7 +559,10 @@ def generate_launch_description():
         robot_params = RewrittenYaml(
             source_file=nav2_params_file,
             root_key='',
-            param_rewrites={'enable_stamped_cmd_vel': stamped_cmd_vel},
+            param_rewrites={
+                'enable_stamped_cmd_vel': stamped_cmd_vel,
+                **(extra_rewrites or {}),
+            },
             convert_types=True,
         )
         return GroupAction(
@@ -584,7 +627,65 @@ def generate_launch_description():
     # wheel: twist_mux -> diff_drive_controller가 TwistStamped 전용.
     # leg  : CHAMP quadruped_controller가 Twist를 구독.
     nav2_wheel = _nav2_for("wheel", "true")
-    nav2_leg = _nav2_for("leg", "false")
+    nav2_leg = _nav2_for("leg", "false", {
+        # !! leg 속도 상한을 wheel 과 분리한다 !!
+        # nav2_common.yaml 은 wheel 기준(max_vel_x 1.2)인데 Go2 의 실측 안정
+        # 최대는 1.0 m/s 다(docs/11 §6). 그대로 두면 DWB 가 1.2 로 궤적을
+        # 평가하고 leg_max_speed(1.0)에서 잘려, 계획한 속도와 실제 속도가
+        # 어긋나 진행 없음 판정과 복구가 잦아진다.
+        # max_vel_x 만 고치면 max_speed_xy 에서 다시 잘리므로 함께 내린다.
+        'max_vel_x': '1.0',
+        'max_speed_xy': '1.0',
+        # Go2는 제자리 최종 회전에서 위치를 다시 벗어나는 경향이 있다.
+        # 모듈 D에는 도착 위치가 중요하고 최종 heading은 중요하지 않다.
+        'yaw_goal_tolerance': '3.14',
+        'xy_goal_tolerance': '0.35',
+        # 보행 로봇은 제자리 방향 전환만으로도 wheel보다 오래 걸린다.
+        # 기본 10초/0.5m 판정은 정상 회전 중에도 "진행 없음"으로 복구를
+        # 시작하므로, 작은 보행을 진행으로 인정하고 회전 시간을 확보한다.
+        'movement_time_allowance': '30.0',
+        'required_movement_radius': '0.1',
+    })
+
+    nav2_wheel_recover = Node(
+        package="agconav_navigation",
+        executable="nav2_lifecycle_recover",
+        name="wheel_nav2_lifecycle_recover",
+        parameters=[{"target_namespace": "wheel"}],
+        output="screen",
+        condition=IfCondition(use_nav2),
+    )
+    nav2_leg_recover = Node(
+        package="agconav_navigation",
+        executable="nav2_lifecycle_recover",
+        name="leg_nav2_lifecycle_recover",
+        parameters=[{"target_namespace": "leg"}],
+        output="screen",
+        condition=IfCondition(use_nav2),
+    )
+
+    def _reset_early_leg(context):
+        """Stand an early-spawned leg robot upright just before B/C start."""
+        x = float(LaunchConfiguration("leg_x").perform(context))
+        y = float(LaunchConfiguration("leg_y").perform(context))
+        z = float(LaunchConfiguration("leg_z").perform(context))
+        yaw = float(LaunchConfiguration("leg_yaw").perform(context))
+        request = (
+            f'name: "leg", position: {{x: {x}, y: {y}, z: {z}}}, '
+            'orientation: {x: 0, y: 0, '
+            f'z: {math.sin(yaw / 2.0)}, w: {math.cos(yaw / 2.0)}}}'
+        )
+        return [ExecuteProcess(
+            cmd=[
+                "gz", "service", "-s", "/world/Seongdong_gu/set_pose",
+                "--reqtype", "gz.msgs.Pose",
+                "--reptype", "gz.msgs.Boolean",
+                "--timeout", "5000", "--req", request,
+            ],
+            output="screen",
+        )]
+
+    reset_early_leg = OpaqueFunction(function=_reset_early_leg)
 
     # Localization (EKF + navsat) for ground robots — Module B
     # localization.launch.py가 map→odom TF를 /{ns}/tf에 발행한다.
@@ -611,6 +712,76 @@ def generate_launch_description():
     localization_leg = _localization_for("leg", "/leg/odom")
 
 
+    def _ground_models():
+        """지상 로봇 물리 모델, 제어기, 센서 브리지."""
+        return [
+            *wheel_frame_alias,
+            spawn_wheel,
+            TimerAction(period=15.0, actions=[spawn_leg]),
+            TimerAction(period=22.0, actions=[leg_lidar_bridge_after_spawn]),
+            TimerAction(period=25.0, actions=[wheel_controller_retry]),
+        ]
+
+    def _ground_autonomy():
+        """Module B 위치추정과 Module C/Nav2."""
+        return [
+            # A의 전체 500x500m 비행 동안 물리 모델을 함께 둔 경우, 낮은
+            # real-time factor에서 CHAMP가 쓰러질 수 있다. F 완료 후 위치추정이
+            # 시작되기 전에 원래 스폰 자세로 한 번 세우고 충분히 안정시킨다.
+            TimerAction(
+                period=2.0,
+                actions=[reset_early_leg],
+                condition=IfCondition(spawn_ground_early),
+            ),
+            TimerAction(period=30.0, actions=[
+                localization_wheel,
+                localization_leg,
+            ]),
+            TimerAction(
+                period=170.0, actions=[nav2_wheel],
+                condition=UnlessCondition(PythonExpression(
+                    ["'", LaunchConfiguration("leg_controller"), "' == 'champ'"]))),
+            TimerAction(
+                period=190.0, actions=[nav2_leg],
+                condition=UnlessCondition(PythonExpression(
+                    ["'", LaunchConfiguration("leg_controller"), "' == 'champ'"]))),
+            TimerAction(period=240.0, actions=[nav2_wheel_recover]),
+            TimerAction(period=270.0, actions=[nav2_leg_recover]),
+            TimerAction(
+                period=40.0, actions=[nav2_wheel],
+                condition=IfCondition(PythonExpression(
+                    ["'", LaunchConfiguration("leg_controller"), "' == 'champ'"]))),
+            TimerAction(
+                period=55.0, actions=[nav2_leg],
+                condition=IfCondition(PythonExpression(
+                    ["'", LaunchConfiguration("leg_controller"), "' == 'champ'"]))),
+        ]
+
+    def _ground_stack():
+        return [*_ground_models(), *_ground_autonomy()]
+
+    stage_gate = Node(
+        package="agconav_navigation",
+        executable="pipeline_stage_gate",
+        name="simulation_stage_gate",
+        output="screen",
+        condition=IfCondition(sequential_pipeline),
+    )
+
+    def _on_stage_gate_exit(event, context):  # noqa: ARG001
+        if event.returncode == 0:
+            actions = [LogInfo(msg='[agconav_sim] Module F 완료 — B와 C를 시작합니다.')]
+            if context.perform_substitution(spawn_ground_early).lower() not in ('true', '1', 'yes'):
+                actions.extend(_ground_models())
+            actions.extend(_ground_autonomy())
+            return actions
+        return [Shutdown(reason='pipeline stage gate failed')]
+
+    ground_after_stage_gate = RegisterEventHandler(
+        OnProcessExit(target_action=stage_gate, on_exit=_on_stage_gate_exit),
+        condition=IfCondition(sequential_pipeline),
+    )
+
     def _rest_of_stack():
         """월드가 뜬 뒤에 시작할 것들.
 
@@ -636,47 +807,24 @@ def generate_launch_description():
             drone_cmd_vel_bridge,
             drone_tf_bridge,
             *drone_sensor_tf,
-            *wheel_frame_alias,
-            # wheel 스택을 가장 먼저, 혼자 올린다.
-            # clearpath의 ros2_control spawner 2개는 락 하나를 공유하고,
-            # 락을 잡은 쪽이 /wheel/controller_manager를 최대 60초 기다린다.
-            # 그 60초 안에 CM이 못 뜨면
-            #   [FATAL] Could not contact service /wheel/controller_manager/list_controllers
-            # 로 죽고, 락을 못 잡은 나머지도 같이 무너진다. 그러면
-            # /wheel/joint_states가 없어 wheel/base_link TF가 통째로 사라진다.
-            # CM은 A300 모델이 Gazebo에 스폰되고 robot_description을 받은 뒤에야
-            # 뜨므로, 그 구간에 다른 스택이 CPU를 뺏지 않게 하는 것이 핵심이다.
-            spawn_wheel,
-            TimerAction(period=15.0, actions=[spawn_leg]),
-            # clearpath spawner가 60초에 죽고 난 뒤 우리 쪽이 이어받는다.
-            TimerAction(period=25.0, actions=[wheel_controller_retry]),
-            TimerAction(period=30.0, actions=[
-                sensor_bridge,
-                localization_wheel,
-                localization_leg,
-            ]),
-            # Nav2는 위치추정 TF가 있어야 costmap이 활성화되므로 마지막이다.
-            # 다만 너무 늦추면 모듈 C(지면 분할)도 같이 늦어져 점검 시점에
-            # points_filtered가 비어 있는다 — wait_ready.py가 그것까지
-            # 기다리도록 해서 시점 의존을 없앴다.
-            #
-            # !! leg 가 RL 컨트롤러일 때는 Nav2를 늦춰야 한다 !!
-            # Nav2 2벌이 2,808만 칸 전역 코스트맵을 초기화하는 동안 Gazebo
-            # 프로세스가 CPU를 100% 쓰는데, RL 컨트롤러를 여는 controller_manager
-            # 가 바로 그 프로세스 안에서 돈다. 그 경합 때문에 spawner가
-            #   waiting for service /controller_manager/list_controllers
-            # 에서 멈춰 rl_quadruped_controller가 올라오지 못한다(실행마다
-            # 되기도 하고 안 되기도 했다 — 이것이 원인이었다).
-            # RL 컨트롤러는 120초, 기립은 150초에 끝나므로 그 뒤에 띄운다.
-            # CHAMP일 때는 그런 부하가 없어 기존 40초를 유지한다.
-            TimerAction(
-                period=170.0, actions=[nav2_wheel, nav2_leg],
-                condition=UnlessCondition(PythonExpression(
-                    ["'", LaunchConfiguration("leg_controller"), "' == 'champ'"]))),
-            TimerAction(
-                period=40.0, actions=[nav2_wheel, nav2_leg],
-                condition=IfCondition(PythonExpression(
-                    ["'", LaunchConfiguration("leg_controller"), "' == 'champ'"]))),
+            # 하나의 bridge launch가 drone/wheel/leg 센서를 함께 정의한다.
+            # 드론 점군도 여기서 나오므로 A 단계부터 반드시 실행해야 한다.
+            # 지상 모델이 아직 없을 때의 wheel/leg bridge는 데이터가 없어
+            # 대기만 하므로 CPU 비용은 사실상 없다.
+            sensor_bridge,
+            GroupAction(
+                actions=_ground_models(),
+                condition=IfCondition(PythonExpression([
+                    "'", sequential_pipeline, "' == 'true' and '",
+                    spawn_ground_early, "' == 'true'",
+                ])),
+            ),
+            GroupAction(
+                actions=_ground_stack(),
+                condition=UnlessCondition(sequential_pipeline),
+            ),
+            stage_gate,
+            ground_after_stage_gate,
         ]
 
     return LaunchDescription(
@@ -687,6 +835,8 @@ def generate_launch_description():
             declare_clearpath_setup_path,
             declare_use_localization,
             declare_use_nav2,
+            declare_sequential_pipeline,
+            declare_spawn_ground_early,
             declare_headless,
             declare_nav2_params_file,
             *declare_spawn_args,

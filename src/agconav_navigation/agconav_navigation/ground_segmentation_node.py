@@ -6,7 +6,7 @@ import tf2_ros
 from tf2_ros import Buffer, TransformListener
 import tf2_geometry_msgs
 from tf2_sensor_msgs.tf2_sensor_msgs import transform_points
-from std_msgs.msg import Header
+from std_msgs.msg import Bool, Header
 import numpy as np
 import math
 
@@ -43,7 +43,8 @@ class GroundSegmentationNode(Node):
         # 전용 스레드가 무력화되므로 반드시 None으로 준다.
         self.tf_listener = TransformListener(self.tf_buffer, None, spin_thread=True)
 
-        from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+        from rclpy.qos import (
+            DurabilityPolicy, QoSProfile, ReliabilityPolicy, HistoryPolicy)
         
         qos_profile = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
@@ -51,15 +52,43 @@ class GroundSegmentationNode(Node):
             reliability=ReliabilityPolicy.BEST_EFFORT
         )
 
-        self.sub = self.create_subscription(
-            PointCloud2,
-            'points',
-            self.pointcloud_callback,
-            qos_profile
+        # Do not keep the Gazebo LiDAR alive while Nav2 is merely waiting for
+        # a goal.  pipeline_goal_sender latches mapping_active=True only after
+        # a goal is accepted; removing this subscription on False lets the
+        # lazy ros_gz_bridge detach from the expensive raw point cloud.
+        self._points_qos = qos_profile
+        self._mapping_active = False
+        self.sub = None
+        active_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
         )
+        self._mapping_active_sub = self.create_subscription(
+            Bool, 'mapping_active', self._mapping_active_callback, active_qos)
         self.pub = self.create_publisher(PointCloud2, 'points_filtered', 10)
 
+    def _mapping_active_callback(self, msg):
+        active = bool(msg.data)
+        if active == self._mapping_active:
+            return
+        self._mapping_active = active
+        if active:
+            self.sub = self.create_subscription(
+                PointCloud2, 'points', self.pointcloud_callback,
+                self._points_qos)
+            self.get_logger().info(
+                'mapping_active=True: 지면 분할용 LiDAR를 연결합니다.')
+        elif self.sub is not None:
+            self.destroy_subscription(self.sub)
+            self.sub = None
+            self.get_logger().info(
+                'mapping_active=False: 지면 분할용 LiDAR를 해제합니다.')
+
     def pointcloud_callback(self, msg: PointCloud2):
+        if not self._mapping_active:
+            return
         try:
             transform = self.tf_buffer.lookup_transform(
                 self.odom_frame,

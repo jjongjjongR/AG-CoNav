@@ -59,6 +59,10 @@ def generate_launch_description():
         parameters=[{
             'use_sim_time': True,
             'autostart': True,
+            # 5,817 x 4,855 대형 PGM 두 장을 순차 저장할 때 map_saver가
+            # 수 초간 디스크 쓰기에 묶인다. 기본 4초 bond timeout은 정상 저장을
+            # 서버 고장으로 오판하므로 충분한 여유를 둔다.
+            'bond_timeout': 30.0,
             'node_names': ['map_saver'],
         }],
     )

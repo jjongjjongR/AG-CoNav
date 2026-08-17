@@ -90,6 +90,12 @@ controller_server:
       # !! velocity_smoother 도 같이 올려야 한다 !! 그쪽 기본값이
       # max_velocity [0.5, 0.0, 2.0] 이라, 안 고치면 DWB 가 1.2 를 내도
       # 로봇에는 0.5 만 나간다(파일 아래쪽 velocity_smoother 항목 참고).
+      # wheel(A300) 기준값이다. 실측 안정 최대는 명령 1.6 -> 실제 1.387 m/s
+      # 이지만(docs/11 §6), 여기서는 1.2 를 쓴다 — 지역 코스트맵 6 x 6 m 창과
+      # DWB sim_time 1.7 초를 함께 보면 1.2 x 1.7 = 2.04 m 로 창 반폭 3 m 안에
+      # 들어오기 때문이다. 1.6 이면 2.72 m 로 여유가 거의 없다.
+      # leg 는 이 값을 그대로 쓰면 안 된다. Go2 실측 안정 최대가 1.0 이라
+      # agconav_sim.launch.py 의 nav2_leg 에서 1.0 으로 덮어쓴다.
       max_vel_x: 1.2
       max_vel_y: 0.0
       max_vel_theta: 1.5
@@ -111,7 +117,9 @@ controller_server:
       sim_time: 1.7
       linear_granularity: 0.05
       angular_granularity: 0.025
-      transform_tolerance: 0.2
+      # 전체 맵(2,808만 셀) 계획 중 TF가 실측 0.21초까지 늦어졌다.
+      # 0.2초 기본값은 11ms 초과만으로 정상 보행을 중단하므로 여유를 둔다.
+      transform_tolerance: 1.0
       xy_goal_tolerance: 0.25
       trans_stopped_velocity: 0.25
       short_circuit_trajectory_evaluation: true

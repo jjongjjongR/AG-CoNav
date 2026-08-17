@@ -23,11 +23,13 @@ wandb/
 *.mcap
 rosbag*/
 # 실험 원자료(json, png, 로그) 전체. 결론과 표는 전부
-# src/agconav_test_worlds/*.md 에 정리돼 있어 저장소에 둘 이유가 없다.
+# docs/*.md 에 정리돼 있어 저장소에 둘 이유가 없다.
 experiments/
-maps/
+# `maps/` 가 아니라 `maps/*` 여야 한다. 디렉터리째 배제하면 git 이 그 안으로
+# 들어가지 않아서 아래 `!maps/nav_map_v6s3/` 재포함이 통째로 무시된다.
+maps/*
 # 실험 산출물 — 재생성 가능하고 용량이 커서(bag 11 GB, 지도 수백 MB) 커밋하지 않는다.
-# 만드는 법은 src/agconav_test_worlds/README.md 와 RESULTS.md 에 적혀 있다.
+# 만드는 법은 docs/README.md 와 RESULTS.md 에 적혀 있다.
 bags/
 maps_*/
 
@@ -73,7 +75,6 @@ _probe*.world
 # !! RL 정책 가중치는 커밋해야 한다 !!
 # 위의 `*.pt` 규칙이 quadruped_ros2_control 의 Go2 정책까지 막는다.
 # 이 파일들이 없으면 rl_quadruped_controller 가 뜨지 않는다.
-!src/quadruped_ros2_control/descriptions/unitree/go2_description/config/**/*.pt
 
 # 실험 원본 rosbag / 중간 지도는 커밋하지 않는다 (합쳐서 9.5 GB).
 # 결과는 experiments/*.json 과 문서, maps/ 의 최종 지도로 남는다.
@@ -88,8 +89,14 @@ maps/drone_elevation_map/
 maps/merged_elevation_map/
 
 # !! 스캔 결과 지도는 커밋한다 !!
-# 위의 `maps/` 규칙이 전부를 막는다. 드론이 전체 맵을 v6 x 3 m 로 훑어 만든
-# 최종 주행성 지도만 예외로 남긴다(pgm 각 28 MB, git 압축 후 약 0.6 MB).
-# Nav2 map_server 로 그대로 다시 띄울 수 있는 형식이다.
+# 드론이 전체 맵을 v6 x 3 m 로 훑어 만든 최종 주행성 지도만 예외로 남긴다.
+# pgm 각 27 MB 지만 이진 격자라 git 압축 후 둘 합쳐 1.1 MB 다.
+# Nav2 map_server 로 그대로 다시 띄울 수 있는 형식이고, 191.5 m 종단 주행을
+# 검증한 바로 그 지도다(docs/10. 종단 테스트 — 전체 맵 주행 검증.md).
 !maps/nav_map_v6s3/
-!maps/nav_map_v6s3/**
+
+# 루트에 흘린 실행 부산물. 파이프라인을 손으로 돌릴 때 생긴다.
+*.pid
+/elevation_replay.log
+/module_f.log
+/results/

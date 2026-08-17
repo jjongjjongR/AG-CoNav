@@ -29,7 +29,11 @@ import os
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import (
+    DeclareLaunchArgument, IncludeLaunchDescription, LogInfo,
+    RegisterEventHandler, Shutdown,
+)
+from launch.event_handlers import OnProcessExit
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
@@ -43,6 +47,9 @@ def generate_launch_description():
     enable_mapping = LaunchConfiguration("enable_mapping")
     enable_fusion = LaunchConfiguration("enable_fusion")
     enable_traversability = LaunchConfiguration("enable_traversability")
+    auto_goals = LaunchConfiguration("auto_goals")
+    sequential_pipeline = LaunchConfiguration("sequential_pipeline")
+    spawn_ground_early = LaunchConfiguration("spawn_ground_early")
 
     bringup_share = get_package_share_directory("agconav_bringup")
 
@@ -63,7 +70,7 @@ def generate_launch_description():
         # 전체 맵 스캔 경로. 간격 3 m 는 실험으로 확정한 값이다 —
         # 자유 공간이 단일 덩어리로 이어지는 가장 싼 간격이고(단일성 99.1%),
         # 이 경로로 만든 지도에서 종단 주행이 191.5 m 완주했다.
-        # 근거: agconav_test_worlds/10~12 번 문서.
+        # 근거: docs/10~12 번 문서.
         DeclareLaunchArgument(
             "drone_path_file",
             default_value=os.path.join(
@@ -100,12 +107,27 @@ def generate_launch_description():
         DeclareLaunchArgument("wheel_yaw", default_value="-0.0503"),
         DeclareLaunchArgument("leg_x", default_value="-195.6963"),
         DeclareLaunchArgument("leg_y", default_value="76.3734"),
-        DeclareLaunchArgument("leg_z", default_value="6.1612"),
+        DeclareLaunchArgument("leg_z", default_value="6.2612"),
         DeclareLaunchArgument("leg_yaw", default_value="-0.0767"),
+        DeclareLaunchArgument(
+            "leg_controller", default_value="rl",
+            description="전체 파이프라인 leg 보행 컨트롤러 (안정성이 검증된 rl 기본)"),
         DeclareLaunchArgument("cruise_speed", default_value="10.0",
                               description="드론 순항 속도 [m/s]"),
         DeclareLaunchArgument("enable_traversability", default_value="true",
                               description="모듈 F (주행성 분석)"),
+        DeclareLaunchArgument(
+            "auto_goals", default_value="true",
+            description="모듈 F 지도 수신 뒤 wheel·leg 목표 자동 전송"),
+        DeclareLaunchArgument(
+            "simultaneous_goals", default_value="true",
+            description="true: wheel·leg 목표를 동시에 전송, false: wheel→leg 순차 전송"),
+        DeclareLaunchArgument(
+            "sequential_pipeline", default_value="true",
+            description="true: F 완료 후 지상 로봇 spawn, false: drone·wheel·leg를 월드에 함께 올림"),
+        DeclareLaunchArgument(
+            "spawn_ground_early", default_value="false",
+            description="지상 모델은 A부터 함께 두고 B/C만 F 뒤에 시작"),
     ]
 
     # ── 기반: 월드 + 로봇 3종 + 모듈 B ────────────────────────────────
@@ -115,6 +137,8 @@ def generate_launch_description():
         launch_arguments={
             "use_sim_time": use_sim_time,
             "use_nav2": use_nav2,
+            "sequential_pipeline": sequential_pipeline,
+            "spawn_ground_early": spawn_ground_early,
             "headless": LaunchConfiguration("headless"),
             # 축소 테스트 월드에서 전체 스택을 돌릴 때 쓴다. 빈 값이면 기본 월드.
             "world_file": LaunchConfiguration("world_file"),
@@ -127,6 +151,7 @@ def generate_launch_description():
             "leg_y": LaunchConfiguration("leg_y"),
             "leg_z": LaunchConfiguration("leg_z"),
             "leg_yaw": LaunchConfiguration("leg_yaw"),
+            "leg_controller": LaunchConfiguration("leg_controller"),
         }.items(),
     )
 
@@ -185,14 +210,46 @@ def generate_launch_description():
         condition=IfCondition(enable_traversability),
     )
 
+    automatic_goals = Node(
+        package="agconav_navigation",
+        executable="pipeline_goal_sender",
+        name="pipeline_goal_sender",
+        output="screen",
+        parameters=[{
+            "use_sim_time": use_sim_time,
+            "simultaneous": LaunchConfiguration("simultaneous_goals"),
+        }],
+        condition=IfCondition(auto_goals),
+    )
+
+    stage_gate = Node(
+        package="agconav_navigation",
+        executable="pipeline_stage_gate",
+        name="pipeline_stage_gate",
+        output="screen",
+    )
+
+    def _on_stage_gate_exit(event, context):  # noqa: ARG001
+        if event.returncode == 0:
+            return [
+                LogInfo(msg='[agconav_all] A→F 완료 — D, E와 자동 주행을 시작합니다.'),
+                module_d,
+                module_e,
+                automatic_goals,
+            ]
+        return [Shutdown(reason='pipeline stage gate failed')]
+
+    start_following_stages = RegisterEventHandler(
+        OnProcessExit(target_action=stage_gate, on_exit=_on_stage_gate_exit)
+    )
+
     return LaunchDescription(
         declares + [
             simulation,
             rviz,
             module_a,
-            module_d,
-            module_e,
             module_f,
+            stage_gate,
+            start_following_stages,
         ]
     )
-

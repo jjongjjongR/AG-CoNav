@@ -57,7 +57,7 @@
        시뮬에서는 Gazebo 의 OdometryPublisher 로 직접 내는 것이 가장 확실하다.
        (실기로 갈 때는 여기 대신 실제 상태추정기를 물려야 한다.)
        odom_frame/robot_base_frame 은 접두어 없는 이름을 쓴다 — leg 스택 내부는
-       접두어 없이 돌고, 전역 /tf 에는 tf_prefix_relay 가 leg/ 를 붙여 낸다. -->
+       접두어 없이 돌고, 전역 /tf 에는 tf_prefix_relay 가 leg/ 를 붙여 낸다.
        !! xyz_offset 은 넣지 말 것 !!
        이 발행기는 여기서 이미 **월드 절대 좌표**로 낸다(실측 /leg/odom 이
        스폰 좌표와 일치). wheel 의 clearpath odom 과 같은 규약이다.
@@ -68,7 +68,10 @@
     <plugin filename="gz-sim-odometry-publisher-system"
             name="gz::sim::systems::OdometryPublisher">
       <odom_frame>odom</odom_frame>
-      <robot_base_frame>base_link</robot_base_frame>
+      <!-- base_link는 trunk의 고정 자식이다. odom->base_link를 직접 내면 RSP의
+           trunk->base_link와 부모가 겹쳐 TF 트리가 갈라지므로 실제 루트인
+           trunk를 동적 odometry의 자식으로 사용한다. -->
+      <robot_base_frame>trunk</robot_base_frame>
       <odom_publish_frequency>50</odom_publish_frequency>
       <tf_topic>/tf</tf_topic>
       <odom_topic>/odom</odom_topic>

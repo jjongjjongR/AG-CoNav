@@ -23,7 +23,10 @@ setup(
             'ground_segmentation_node = agconav_navigation.ground_segmentation_node:main',
             'navigation_complete_node = agconav_navigation.navigation_complete_node:main',
             'mock_publisher = agconav_navigation.mock_publisher:main',
-            'cmd_vel_to_control_input = agconav_navigation.cmd_vel_to_control_input:main'
+            'cmd_vel_to_control_input = agconav_navigation.cmd_vel_to_control_input:main',
+            'nav2_lifecycle_recover = agconav_navigation.nav2_lifecycle_recover:main',
+            'pipeline_goal_sender = agconav_navigation.pipeline_goal_sender:main',
+            'pipeline_stage_gate = agconav_navigation.pipeline_stage_gate:main'
         ],
     },
 )

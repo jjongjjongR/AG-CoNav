@@ -157,7 +157,7 @@ def generate_launch_description():
     # 실제 로터 추력으로 경로를 난다. SetEntityPose 순간이동
     # (drone_path_player + drone_pose_controller) 은 폐기했다 — 물리엔진이 운동을
     # 보지 못해 IMU 가 죽고 자세가 항상 수평이라 스캔 시야가 고정됐다.
-    # 파라미터 확정값과 근거: agconav_test_worlds/3. 최적 드론 움직임.md
+    # 파라미터 확정값과 근거: docs/3. 최적 드론 움직임.md
     drone_velocity_follower = Node(
         package="agconav_drone",
         executable="drone_velocity_follower",

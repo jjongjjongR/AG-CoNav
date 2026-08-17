@@ -30,9 +30,79 @@ import xacro
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (DeclareLaunchArgument, GroupAction, OpaqueFunction,
-                            SetEnvironmentVariable, TimerAction)
+                            RegisterEventHandler, SetEnvironmentVariable)
+from launch.event_handlers import OnProcessExit
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node, SetRemap
+
+
+# gazebo.yaml 의 **rl_quadruped_controller** down_pos 를 관절 이름으로 풀어 쓴 것.
+# 그 값이 곧 컨트롤러의 FIXEDDOWN 목표라, 같은 자세로 생성해 두면 생성 직후부터
+# FIXEDDOWN 까지 자세가 끊기지 않는다.
+#
+# !! gazebo.yaml 안에 joints: 목록이 컨트롤러마다 따로 있고 순서가 다르다 !!
+#   unitree_guide_controller.joints = FL, FR, RL, RR
+#   rl_quadruped_controller.joints  = FR, FL, RR, RL   <- 우리가 쓰는 쪽
+#   gazebo.xacro 의 ros2_control    = FR, FL, RR, RL
+# down_pos 는 각 컨트롤러의 joints: 순서로 해석해야 한다. unitree_guide 쪽
+# 목록을 보고 RL 의 down_pos 를 읽으면 좌우가 뒤바뀌어 **hip 부호 4개가 전부
+# 반대로** 나온다. 실제로 그렇게 넣었더니 뒷다리가 반대로 벌어진 채 생성돼,
+# RL 모드로 넘어가는 순간 로봇이 제자리에서 도는 증상이 났다.
+# 값을 바꿀 일이 있으면 아래로 확인할 것:
+#   python3 -c "import yaml;p=yaml.safe_load(open(
+#     'src/quadruped_ros2_control/descriptions/unitree/go2_description/config/gazebo.yaml'
+#   ))['rl_quadruped_controller']['ros__parameters'];print(list(zip(p['joints'],p['down_pos'])))"
+_INITIAL_DOWN_POSITIONS = {
+    'FR_hip_joint': 0.01, 'FR_thigh_joint': 1.27, 'FR_calf_joint': -2.8,
+    'FL_hip_joint': -0.01, 'FL_thigh_joint': 1.27, 'FL_calf_joint': -2.8,
+    'RR_hip_joint': 0.3, 'RR_thigh_joint': 1.31, 'RR_calf_joint': -2.8,
+    'RL_hip_joint': -0.3, 'RL_thigh_joint': 1.31, 'RL_calf_joint': -2.8,
+}
+
+
+def _set_initial_value(document, interface, value):
+    """Write <param name="initial_value">value</param> into a state_interface.
+
+    !! 속성이 아니라 자식 <param> 이어야 한다 !!
+    ros2_control 의 URDF 파서는 initial_value 를 `<param>` 자식에서만 읽는다
+    (ur_description/urdf/inc/ur_joint_control.xacro 가 표준 예시다).
+    `interface.setAttribute('initial_value', ...)` 로 넣으면 파서가 조용히
+    무시한다 -- 오류도 경고도 없다. 그러면 12개 관절이 전부 0 으로 생성돼
+    Go2 가 다리를 쭉 편 채 떨어지고, libtorch 가 로드되는 동안 그대로
+    주저앉는다. 로그에서 확인하는 법: gz_quadruped_hardware 가 관절마다
+        [gz_quadruped_control]:      found initial value: 1.270000
+    을 찍는다. 이 줄이 0 건이면 시딩이 안 먹은 것이다.
+    """
+    for existing in interface.getElementsByTagName('param'):
+        if existing.getAttribute('name') == 'initial_value':
+            for child in list(existing.childNodes):
+                existing.removeChild(child)
+            existing.appendChild(document.createTextNode(str(value)))
+            return
+    param = document.createElement('param')
+    param.setAttribute('name', 'initial_value')
+    param.appendChild(document.createTextNode(str(value)))
+    interface.appendChild(param)
+
+
+def _seed_initial_joint_positions(document):
+    """Seed Gazebo joints before the heavyweight RL controller is loaded."""
+    found = set()
+    for control in document.getElementsByTagName('ros2_control'):
+        for joint in control.getElementsByTagName('joint'):
+            name = joint.getAttribute('name')
+            if name not in _INITIAL_DOWN_POSITIONS:
+                continue
+            for interface in joint.getElementsByTagName('state_interface'):
+                if interface.getAttribute('name') == 'position':
+                    _set_initial_value(
+                        document, interface, _INITIAL_DOWN_POSITIONS[name])
+                    found.add(name)
+                    break
+    missing = set(_INITIAL_DOWN_POSITIONS) - found
+    if missing:
+        raise RuntimeError(
+            'Go2 position state interfaces missing: ' + ', '.join(sorted(missing)))
 
 
 def _setup(context, *args, **kwargs):
@@ -42,18 +112,27 @@ def _setup(context, *args, **kwargs):
     max_lin = LaunchConfiguration('max_linear').perform(context)
 
     desc = get_package_share_directory('agconav_description')
-    robot_description = xacro.process_file(
+    robot_document = xacro.process_file(
         os.path.join(desc, 'urdf', 'leg', 'leg_rl_with_sensors.urdf.xacro'),
-        mappings={'GAZEBO': 'true'}).toxml()
+        mappings={'GAZEBO': 'true'})
+    # With no initial positions Gazebo creates all 12 joints at zero.  The
+    # model then collapses while libtorch loads, leaving visibly twisted legs
+    # before FIXEDDOWN can recover it.  Spawn directly in that stable pose.
+    _seed_initial_joint_positions(robot_document)
+    robot_description = robot_document.toxml()
 
     rsp = Node(package='robot_state_publisher', executable='robot_state_publisher',
                output='log',
                parameters=[{'use_sim_time': use_sim_time,
                             'robot_description': robot_description,
+                            'frame_prefix': f'{ns}/',
                             'publish_frequency': 50.0}])
 
+    # create가 robot_description 토픽의 1회성 대용량 샘플을 놓치면 모델이
+    # 영원히 생성되지 않는다. 이미 여기서 만든 34 KiB URDF를 직접 넘겨 DDS
+    # 전달 경로 자체를 없앤다(리눅스 ARG_MAX보다 충분히 작다).
     spawn = Node(package='ros_gz_sim', executable='create', output='screen',
-                 arguments=['-name', ns, '-topic', 'robot_description',
+                 arguments=['-name', ns, '-string', robot_description,
                             '-x', LaunchConfiguration('world_init_x'),
                             '-y', LaunchConfiguration('world_init_y'),
                             '-z', LaunchConfiguration('world_init_z'),
@@ -64,7 +143,7 @@ def _setup(context, *args, **kwargs):
                   parameters=[{'use_sim_time': use_sim_time}],
                   arguments=['/leg/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
                              '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
-                             '/odom@nav_msgs/msg/Odometry@gz.msgs.Odometry'])
+                             '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry'])
 
     def spawner(names, params=None):
         return Node(
@@ -110,26 +189,23 @@ def _setup(context, *args, **kwargs):
     torch_lib = os.path.join(os.path.expanduser('~'), 'libtorch', 'lib')
     ld = os.environ.get('LD_LIBRARY_PATH', '')
 
-    return [GroupAction([
+    # RSP는 처음부터 접두어가 붙은 프레임을 전역 TF에 낸다. 사설 TF를
+    # 리레이하면 정적 조인트 묶음이 누락될 때 센서 트리 전체가 끊어질 수 있다.
+    # 나머지 Gazebo/컨트롤러 토픽만 기존처럼 사설 TF에 격리한다.
+    return [rsp, GroupAction([
         SetEnvironmentVariable('LD_LIBRARY_PATH',
                                torch_lib + (':' + ld if ld else '')),
         SetRemap('/tf', '/leg/tf'),
         SetRemap('/tf_static', '/leg/tf_static'),
         SetRemap('/odom', '/leg/odom'),
-        rsp, spawn, bridge,
-        # 하드웨어 초기화가 끝날 즈음 올린다. 바로 부르면 gz 하드웨어가 관절
-        # 12개를 올리는 동안 controller_manager 가 서비스 콜백을 못 돌린다.
-        TimerAction(period=25.0, actions=[broadcasters]),
-        # !! RL 컨트롤러는 기동 폭풍이 지난 뒤에 올린다 !!
-        # 이 컨트롤러만 700 MB libtorch 를 dlopen 한다. 전체 스택(Nav2 2벌 +
-        # 2,808만 칸 코스트맵 초기화)이 도는 동안 Gazebo 프로세스는 CPU 99.9%
-        # 이고, 그 안에서 도는 controller_manager 가 서비스 콜백을 못 돌려
-        # spawner 가 list_controllers 대기에서 영영 멈춘다(실측).
-        # 브로드캐스터는 가벼워 25초에 올려도 통과한다 — 무거운 것만 미룬다.
-        TimerAction(period=120.0, actions=[controllers]),
-        # 컨트롤러가 active 된 뒤에 기립 시퀀스를 시작해야 한다.
-        # 컨트롤러가 active 된 뒤에 기립 시퀀스를 시작해야 한다.
-        TimerAction(period=150.0, actions=[relay]),
+        spawn, bridge,
+        # 모델을 무제어로 두면 몇 초 안에 바닥에 눕고 calf 관절이 한계에 걸린다.
+        # 추정 시간 대신 실제 완료 이벤트로 즉시 이어 붙인다.
+        broadcasters,
+        RegisterEventHandler(OnProcessExit(
+            target_action=broadcasters, on_exit=[controllers])),
+        RegisterEventHandler(OnProcessExit(
+            target_action=controllers, on_exit=[relay])),
     ])]
 
 
