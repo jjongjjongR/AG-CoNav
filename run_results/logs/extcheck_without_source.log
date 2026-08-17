@@ -1,0 +1,20 @@
+[2026-08-17 17:41:16.955] [glim] [info] config_path: /home/hyunwoo-chae/AG-CoNav-test_main/glim_config_extcheck
+[2026-08-17 17:41:16.956] [glim] [info] load libodometry_estimation_ct.so
+[2026-08-17 17:41:16.956] [glim] [info] load libsub_mapping_passthrough.so
+[2026-08-17 17:41:16.957] [glim] [info] load libglobal_mapping_pose_graph.so
+[2026-08-17 17:41:16.957] [glim] [warning] Extension modules are enabled!!
+[2026-08-17 17:41:16.957] [glim] [warning] You must carefully check and follow the licenses of ext modules
+[2026-08-17 17:41:16.958] [glim] [warning] glim_ext package path was not found!!
+[2026-08-17 17:41:16.958] [glim] [info] load libmemory_monitor.so
+[2026-08-17 17:41:16.959] [glim] [info] load librviz_viewer.so
+[2026-08-17 17:41:16.975] [glim] [info] load libimu_validator.so
+[2026-08-17 17:41:16.976] [glim] [warning] failed to open libimu_validator.so
+[2026-08-17 17:41:16.976] [glim] [warning] libimu_validator.so: cannot open shared object file: No such file or directory
+[2026-08-17 17:41:16.976] [glim] [error] failed to load libimu_validator.so
+[INFO] [1786956082.671497341] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[2026-08-17 17:41:22.672] [glim] [info] waiting for odometry estimation
+[2026-08-17 17:41:22.672] [glim] [info] waiting for local mapping
+[2026-08-17 17:41:22.678] [glim] [info] waiting for global mapping
+[2026-08-17 17:41:22.715] [global] [info] saving to /tmp/dump...
+[2026-08-17 17:41:22.715] [global] [info] serializing factor graph to /tmp/dump/graph.bin
+[2026-08-17 17:41:22.716] [global] [info] saved

@@ -1,0 +1,32 @@
+[WARN] [1786955137.331158466] [rosbag2_storage_mcap]: attempted to read in receive timestamp order with no message index
+=== bag: bags/velocity_4m_5mps_gps_attempt2 ===
+t0 (first header.stamp, epoch) = 8.810000
+
+--- /drone/points ---
+  n=22508, mean_dt=0.100009, median_dt=0.100000, min_dt=0.100000, max_dt=0.200000
+  reversals=0, gaps(>2x expected)=2
+  recv_time - header.stamp: mean=1786903966.955226, min=1786903964.818156, max=1786903968.638673, stdev=0.936726
+
+--- /drone/imu ---
+  n=224866, mean_dt=0.010010, median_dt=0.010000, min_dt=0.010000, max_dt=0.260000
+  reversals=0, gaps(>2x expected)=12
+  recv_time - header.stamp: mean=1786903966.811291, min=1786903964.794774, max=1786903968.026380, stdev=0.839471
+
+=== anomaly events (reversal/gap>2x), all bag, count=14 ===
+  t+ 593.410s  /drone/imu     GAP       dt=+0.180000
+  t+ 934.710s  /drone/imu     GAP       dt=+0.180000
+  t+1185.320s  /drone/imu     GAP       dt=+0.020000
+  t+1201.510s  /drone/imu     GAP       dt=+0.250000
+  t+1200.590s  /drone/points  GAP       dt=+0.200000
+  t+1338.490s  /drone/points  GAP       dt=+0.200000
+  t+1402.350s  /drone/imu     GAP       dt=+0.250000
+  t+1540.220s  /drone/imu     GAP       dt=+0.170000
+  t+1672.090s  /drone/imu     GAP       dt=+0.250000
+  t+1674.410s  /drone/imu     GAP       dt=+0.110000
+  t+1809.970s  /drone/imu     GAP       dt=+0.260000
+  t+1872.940s  /drone/imu     GAP       dt=+0.260000
+  t+2007.800s  /drone/imu     GAP       dt=+0.260000
+  t+2145.670s  /drone/imu     GAP       dt=+0.180000
+
+=== focus window t+[90.0,150.0]s anomaly count ===
+  0 anomalies in this window (out of 14 total)

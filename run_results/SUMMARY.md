@@ -1,4 +1,69 @@
-# SUMMARY — GLIM(+GPS 사후결합) 전체 파이프라인 실험 (2026-08-17, 미완료)
+# SUMMARY — GLIM odometry 발산 원인 진단 (2026-08-17 새 세션, 0~1단계 완료)
+
+**이 세션의 목표는 "발산을 고치는 것"이 아니라 "왜 발산하는지 진단하는
+것"이었다 — 파라미터 튜닝은 의도적으로 안 했다(Phase 2로 미룸).** 아래
+"GLIM(+GPS 사후결합) 전체 파이프라인 실험" 절(이전 세션, 미완료로
+끝난 세션)이 남긴 "GLIM 궤적이 발산해서 GPS 사후결합을 못 써봤다"는
+문제를 이어받아 원인을 밝혔다.
+
+## 0단계 — glim_ext 빌드 가능성: **성공**
+
+`~/glim_ext_ws`에 `koide3/glim_ext`를 clone+colcon build, 별도 조치
+없이 1차 시도부터 성공. `libimu_validator.so`, `libgnss_global.so`
+정상 빌드. `source ~/glim_ext_ws/install/setup.bash`를 추가하면 GLIM이
+확장 모듈을 정상 인식(등록만 하고 워크스페이스 미소싱 시 GitHub 이슈
+#9와 동일한 "glim_ext package path was not found" 재현까지 확인).
+FAST-LIO2 래퍼만 서브모듈(SSH 전용 URL)을 못 받아 안 빌림(사용 안
+할 예정이라 무관). 라이선스: glim_ext 전체 GPLv3, gnss_global도
+동일(비상업 제한 없음) — 이번 진단 범위엔 라이선스 문제 없음.
+자세한 내용: `run_results/glim_ext_feasibility.md`.
+
+## 1단계 — 발산 원인 진단: 유력 원인 좁힘
+
+재사용 bag(GPS 포함, 재비행 없음)의 **chunk 0(앞 190.5초)**만으로
+GLIM을 기존 config 그대로 1회 실행하고 GT(`/tf`)와 정렬 비교했다(전체
+2254초를 다 돌리면 처리에만 5~6시간 필요하다는 게 이전 세션에서 이미
+실측됐고, chunk 0 안에 발산이 충분히 나타나 그럴 필요가 없었다).
+
+**핵심 발견 — 발산은 이전 추정(t≈101~136s)보다 훨씬 일찍(t≈15~17s)
+시작된다.** 이전 세션은 "절대좌표값이 물리적으로 말이 안 되는 시점"을
+발산 시점으로 봤는데, 그건 오차가 ~100초간 누적된 뒤 육안으로
+명백해진 시점일 뿐이었다. GT와 정렬해 유클리드 오차를 실측하면 비행
+시작 6~8초 만에 이미 오차가 커지기 시작하고, 이 시점은 **드론이
+정지(hover)에서 전진 비행으로 전환되는 순간과 거의 정확히 일치**한다
+(GT 위치가 t=8.9~13.6s 동안 거의 고정돼 있다가 그 직후부터 움직임).
+
+- **③ 타임스탬프 동기화**: 이상 없음(bag 전체 22508+224866개 메시지
+  검사, 역전 0건, 발산구간 근처 이상 0건) — **원인에서 배제**.
+- **④ LiDAR-IMU 외부보정**: 이상 없음(model.sdf 실측값으로 직접
+  재계산해 config 값과 소수점까지 일치 확인) — **원인에서 배제**.
+- **⑤ 디스큐 on/off 비교**: 발산 **시작 시점**은 거의 동일(15.7s vs
+  15.9s) — 디스큐가 1차 방아쇠는 아님. 그러나 발산 **이후 심각도**는
+  뚜렷이 다름(디스큐 ON 최대오차 306m·혼란스러운 스크리블 vs OFF
+  135m·매끄러운 단일 드리프트) — **디스큐는 2차 악화 요인으로 좁혀짐**.
+- **①② GT-GLIM 정렬 비교**: 1순위 후보로 **CT 오도메트리의 "정지→
+  전진 전환" 처리**를 지목. `config_odometry_ct.json`의
+  `constant_velocity_inf_scale` 주석이 "이 bag은 이미 8m/s로 순항
+  중일 때 시작한다"고 전제하는데, 실측 GT는 정지 구간이 실제로
+  존재해 이 전제와 어긋난다.
+
+Phase 2(파라미터 튜닝) 권고 순서: 1) `constant_velocity_inf_scale`을
+이 bag의 실제 초기 속도 프로파일에 맞게 재검토, 2) 디스큐를 일단
+끈 상태를 새 기준선으로 삼고 1)이 안정화된 뒤에 디스큐 정밀도를
+따로 개선. 자세한 근거·수치·그래프: `run_results/divergence_diagnosis.md`.
+
+## 산출물(이번 세션)
+
+- `run_results/glim_ext_feasibility.md`, `run_results/divergence_diagnosis.md`
+- `run_results/diag_scripts/check_timestamps.py`, `compare_gt_glim.py`
+- `run_results/glim_diag_dumps/run1_full_pipeline/`(디스큐 ON),
+  `run2_nodeskew/`(디스큐 OFF) — 각각 GLIM 궤적 txt 4종 + GT 비교 PNG
+- `glim_config_nodeskew/`(디스큐 OFF 비교용 config 사본, `global_shutter_lidar: true`만 다름)
+- `~/glim_ext_ws/`(빌드된 glim_ext 워크스페이스, git 추적 대상 아님 — 홈 디렉터리 별도 위치)
+
+---
+
+# SUMMARY — GLIM(+GPS 사후결합) 전체 파이프라인 실험 (2026-08-17, 미완료, 이전 세션)
 
 ## 전제 (지시사항 그대로 명시)
 이 시뮬레이션의 LiDAR/IMU/GPS 센서 정의(agconav_description)에는

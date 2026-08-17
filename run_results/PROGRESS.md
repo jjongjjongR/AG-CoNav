@@ -2026,3 +2026,127 @@ leg 8.03+17.45-0.50=24.98인데, 실측 C는 wheel 27.44·leg 14.48로
   중 존재하는 파일로 어디까지 끝났는지 판단.
 - gz sim/Gazebo는 이 3단계(bag 재처리)에는 필요 없다(bag play --clock이
   유일한 시간 소스) — 혹시 남아있으면 관계없는 잔재이니 정리.
+
+## [새 세션] GLIM odometry 발산 원인 진단 (0단계 glim_ext + 1단계 진단, 파라미터 튜닝 없음)
+
+**전체 타임아웃 3시간.** 판단 지점은 확인 없이 스스로 진행, 근거는 이
+문서에 계속 기록. 목표는 직전 세션(위 "[새 세션] GLIM(+GPS 사후결합)
+전체 파이프라인 실험" 절)이 미완료로 남긴 "GLIM 궤적이 4가지 조합
+전부에서 발산했다"는 문제의 **원인 진단**(파라미터 튜닝은 다음 세션/
+Phase 2로 미룸).
+
+### -1. 재개 확인
+`pgrep -af "ros2|gz sim|docker"` → dockerd 외 없음(깨끗). `df -h ~`
+→ 72%(21G 여유) — 임계값(70%) 초과라 정리 필요. `git log` HEAD가
+직전 세션 커밋(`5a8559d`)과 일치. **GPS 포함 velocity bag
+(`bags/velocity_4m_5mps_gps_attempt2`, 23G) 존재 확인, 재사용
+가능 — 재비행 불필요.**
+
+### -0.5. 디스크 정리
+1순위 항목(84m/GICP 실험 원본 bag 등)은 이미 이전 세션에서 정리돼
+남아있지 않았다(확인만 하고 스킵). 대신 `bags/_chunk_t`(2.1G, 직전
+세션이 청크 처리 중 중단하며 남긴 스트레이 중간 산출물 — 원본이 아니라
+`velocity_4m_5mps_gps_attempt2_0.mcap`에서 재생성 가능)를 삭제.
+`bags/exp_teleport`(144M)는 용도가 불명확해(애매함) 보존. 결과:
+72%→70%(23G 여유)로 회복.
+
+### 0단계 — glim_ext 빌드: 성공 (상세는 `run_results/glim_ext_feasibility.md`)
+`~/glim_ext_ws`에 clone+colcon build, 1차 시도부터 성공(추가 -dev
+패키지 설치 불필요 — apt PPA로 깔린 GLIM/GTSAM 개발 헤더가 이미
+충분했음). `libimu_validator.so`/`libgnss_global.so` 정상 빌드,
+FAST-LIO2만 서브모듈(SSH 전용 URL)을 못 받아 자동 제외(빌드 자체는
+안 깨짐). `config_ros.json`에 `libimu_validator.so`를 등록해 두
+번 테스트: (1) glim_ext 워크스페이스 미소싱 → GitHub 이슈 #9와
+동일한 "glim_ext package path was not found" + "cannot open shared
+object file" 재현 확인, (2) `source ~/glim_ext_ws/install/setup.bash`
+추가 → 에러/경고 없이 정상 로드 확인. 라이선스: GPLv3(top-level
+`package.xml`, `gnss_global`도 동일) — "closed-source"는 아니고
+README 경고는 "미완성/유지보수 부족" 취지. 이번 진단(④) 범위엔
+라이선스 문제 없음.
+
+### 1단계 — 원인 진단
+`glim_config/`(기존 그대로, CT+passthrough+pose_graph)로 GLIM을
+실행하되, **전체 bag(2254s) 대신 chunk 0(190.5s, t=8.9~198s)만
+사용**했다 — 직전 세션이 이미 4가지 조합 전부에서 t≈101~136s
+부근부터 "물리적으로 불가능한" 절대값으로 발산함을 실측해뒀고,
+chunk 0이 이 구간을 충분히 포함해 전체(처리에 5~6시간 필요, 직전
+세션 실측)를 다시 돌릴 필요가 없다고 판단했다.
+
+- `add_point_times_single.py`로 chunk 0에 point-level `t` 필드
+  추가(`bags/_chunk_t`, 처리 후 삭제 — 디스크에 남기지 않음).
+- `ros2 run glim_ros glim_rosnode --ros-args -p config_path:=...`로
+  라이브 실행(메모리 가드 4600MB 적용, 이번엔 chunk가 짧아 발동
+  안 하고 정상 종료) + `ros2 bag play bags/_chunk_t --clock --rate
+  1.0`(190.5s 실시간 재생) → SIGINT(실제 노드 PID, `ros2 run` 래퍼
+  PID가 아님 — 처음에 래퍼 PID에 보내서 반응 없었던 것 확인 후 수정)
+  → `/tmp/dump`에 `odom_imu.txt` 등 4종 저장 → 즉시
+  `run_results/glim_diag_dumps/run1_full_pipeline/`로 복사(다음
+  실행이 `/tmp/dump`를 덮어쓰기 전에).
+- **③ 타임스탬프 동기화**: `run_results/diag_scripts/check_timestamps.py`
+  로 bag 전체(22508+224866개 메시지) 검사 — 역전 0건, 간격 이상
+  14건 전부 t+593s 이후(발산구간과 무관), 발산구간 근처 이상
+  0건. **원인에서 배제.**
+- **④ LiDAR-IMU 외부보정**: `agconav_test_worlds/models/
+  agconav_drone_dynamic/model.sdf`(SDF 1.6, `relative_to` 미사용
+  → 모든 `<pose>`가 모델 프레임 기준)를 직접 읽고 T_lidar_imu를
+  손으로 재계산(Ry(-90°) 회전 적용) → `config_sensors.json`의
+  값과 translation/quaternion 모두 소수점까지 일치 확인.
+  imu_validator는 빌드는 됐지만 이 특정 bag으로 실제 구동해보는
+  것까지는 안 함(수치 재계산이 더 빠르고 직접적이라고 판단, 시간
+  절약) — 필요하면 다음 세션에서 추가 가능. **원인에서 배제.**
+- **①② GT-GLIM 비교**: `run_results/diag_scripts/compare_gt_glim.py`
+  (Umeyama 정합은 `ate_align.py` 로직 재사용, 단 **초반 5초만으로
+  정합**한 뒤 전체 궤적에 적용 — 전체 구간으로 정합하면 발산한
+  뒷부분이 정합 자체를 오염시키므로). **핵심 발견: 발산은 직전
+  세션이 본 t≈101~136s가 아니라 t≈15~17s부터 이미 시작** — 그
+  시점이 GT 상 드론이 정지(hover, t=8.9~13.6s 위치 고정)에서
+  전진 비행으로 전환되는 순간과 거의 정확히 일치. 이전 세션의
+  "t≈101~136s" 판단은 절대좌표값이 육안으로 명백히 이상해 보이는
+  시점이었을 뿐, 실제 GT 대비 오차는 그보다 훨씬 일찍부터 커지고
+  있었다는 뜻 — **진단이 한 단계 더 정밀해졌다.**
+- **⑤ 디스큐 on/off 비교**: `glim_config_nodeskew/`(사본,
+  `global_shutter_lidar: true`만 다름)로 같은 chunk 0을 재실행,
+  `run_results/glim_diag_dumps/run2_nodeskew/`에 저장. 발산
+  **시작 시점은 거의 동일**(15.7s vs 15.9s, 디스큐가 1차 원인은
+  아님) — 그러나 발산 **이후 심각도·양상은 뚜렷이 다름**(ON:
+  최대오차 306m·혼란스러운 스크리블, OFF: 135m·매끄러운 단일
+  드리프트) → 지시사항의 "다르면 원인이 상당히 좁혀진다" 기준으로
+  **디스큐는 2차 악화 요인**으로 좁힘.
+
+### 종합 진단 (상세 근거는 `run_results/divergence_diagnosis.md`)
+1순위 후보: **CT 오도메트리의 "정지→전진 전환" 처리**
+(`config_odometry_ct.json`의 `constant_velocity_inf_scale` 주석이
+"이 bag은 이미 8m/s로 순항 중일 때 시작한다"고 전제하는데, 실측 GT는
+이 bag에 실제 정지 구간이 있어 전제와 어긋남 — 다른 실험/속도 조건에서
+복사된 설정일 가능성). 2순위: per-point 디스큐(column-index 근사)
+정확도. 배제: 타임스탬프 동기화, LiDAR-IMU 외부보정.
+
+Phase 2(파라미터 튜닝, 다음 세션) 권고 순서: (1)
+`constant_velocity_inf_scale`을 이 bag의 실제 초기 속도 프로파일에
+맞게 재검토(1e0/1e2/1e3 정도로 간단 스윕해 발산 시작이 늦춰지는지만
+먼저 확인), (2) 디스큐를 일단 끈 상태를 새 기준선으로 삼고 (1)이
+안정화된 뒤 디스큐 정밀도를 별도로 개선(두 요인을 동시에 바꾸면
+이번처럼 원인 분리가 어려워짐), (3) 그래도 남으면
+`smoother_lag`/`max_correspondence_distance` 검토.
+
+### 정리/저장
+- `glim_config_nodeskew/`는 재현·비교 참고용으로 보존(작아서 git에
+  포함). `bags/_chunk_t`, `/tmp/dump`, 테스트용 `glim_config_extcheck/`
+  는 삭제. GLIM/bag play 잔여 프로세스 없음 확인.
+- 최종 디스크: 70%(23G 여유) — 안전.
+- `run_results/glim_ext_feasibility.md`, `run_results/divergence_diagnosis.md`
+  신규 작성. `SUMMARY.md` 최상단에 이번 세션 요약 추가(이전 세션
+  요약은 그대로 아래에 보존).
+
+### 세션 재개용 참고 (다음 세션이 이어받을 경우)
+- 이번 세션은 진단만 하고 파라미터를 전혀 바꾸지 않았다 —
+  `glim_config/`(기존 실험용)는 손대지 않음, `glim_config_nodeskew/`만
+  비교용 사본으로 신규 추가됨.
+- Phase 2(파라미터 튜닝)는 위 "종합 진단"의 권고 순서대로 시작하면
+  된다. `bags/velocity_4m_5mps_gps_attempt2`(GPS 포함)가 그대로
+  남아있으니 재비행 불필요, chunk 0 재사용(또는 필요시 다른
+  청크로도 검증) 가능.
+- `~/glim_ext_ws/`(빌드 완료 상태)가 홈 디렉터리에 남아있음 — Phase 1
+  ④를 imu_validator로 직접 재검증하고 싶다면(이번엔 수치 재계산으로만
+  검증) `source ~/glim_ext_ws/install/setup.bash` 추가하고
+  `config_ros.json`에 `libimu_validator.so` 등록 후 실행하면 된다.
