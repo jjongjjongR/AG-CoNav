@@ -1,5 +1,142 @@
 # PROGRESS — 5m AGL 방법B 경로 실험 (2~5단계)
 
+## [새 세션] Phase 4 — glim_ext gnss_global(실시간 GPS 제약) 시도 — 결론: 미채택
+
+**전체 타임아웃 2시간.** 목표: 사후보정이 아니라 GLIM 최적화 과정
+자체에 GPS를 실시간 제약으로 넣는 `glim_ext`의 `libgnss_global.so`를
+cv1e3(직전 세션이 확정한 최적 설정, 전체 bag ATE 68.6m)에 적용해
+개선되는지 확인. **결과: 결론적으로 유효하지 않음 — 검증에 실패해
+"미채택"으로 정리한다(단순 "미달"이 아니라 이 모듈 자체의 신뢰성
+문제로 판단).**
+
+### 1. gnss_global 입력 형식 조사
+소스(`~/glim_ext_ws/src/glim_ext/modules/mapping/gnss_global/`) 직접
+읽음 — NavSatFix를 직접 받지 않고 `geometry_msgs/PoseWithCovarianceStamped`
+(고정 데카르트 프레임, position만 사용, orientation/covariance 무시)를
+기대한다. `GlobalMappingCallbacks::on_insert_submap`/`on_smoother_update`
+콜백으로 **submap 단위**(스캔 단위 아님)로 GTSAM
+`PoseTranslationPrior` 팩터를 추가하는 방식 — "실시간 제약"은 맞지만
+평활화 시점은 submap 생성 주기(`max_num_keyframes=50`≈5s)마다다.
+자체 정렬(`T_world_utm`)은 **submap 궤적과 GPS 궤적을 SVD(Umeyama류,
+XY만, Z는 평행이동으로만 처리)로 맞추는데, `min_baseline`(기본
+10m) 조건을 만족하는 첫 순간 단 한 번만 계산하고 이후 다시 갱신하지
+않는다** — 코드 주석 자체가 "very naive... ignores GNSS observation
+covariance"라고 명시.
+
+`run_results/diag_scripts/navsat_to_gnss_pose.py`(신규) 작성 —
+`/drone/gps`(NavSatFix)를 `pymap3d.geodetic2enu`로 world 원점 기준
+ENU 변환(3-2절에서 이미 검증된 기준점 재사용) 후 `/gnss`로 재발행.
+`glim_config_cv1e3_gnss/`(cv1e3 사본)에 `libgnss_global.so` 등록 +
+`config_gnss_global.json`(gnss_topic=/gnss, min_baseline=10.0,
+prior_inf_scale=[1e3,1e3,0.0], 전부 glim_ext 기본값 그대로) 추가.
+
+### 2. 40초 슬라이스 스모크 테스트 — 통과
+모듈 로드/구독(publisher 1·subscriber 1 확인)/정상 종료 전부 이상
+없음. 다만 이 짧은 창에서는 `T_world_utm=` 정렬 로그가 안 떴다(이후
+알게 되지만, 정상 — 더 긴 시간/거리가 필요).
+
+### 3. 전체 bag 1차 시도(12청크) — 세그폴트로 실패
+청크 10까지 정상 진행, 20:36:23(재생 시작 34초 후)에
+`T_world_utm=se3(-9.29,162.46,-11.12,...,yaw≈13.4°)` 정렬 로그 확인
+— **GPS 제약이 실제로 걸리기 시작한 것 자체는 확인됨.** 그러나 청크
+11(마지막, t≈2092~2254s 구간) 재생 중 t≈2135~2137s에서
+`too few points in the downsampled cloud (0 points)` →
+`warning: Empty point cloud` → **`Segmentation fault`**로 GLIM
+프로세스 자체가 죽음(`/tmp/dump` 자체가 안 생겨 완전 손실).
+
+원인 분석: 이 시점은 **직전 세션이 이미 확인해둔 "임무완료 후
+자유낙하 구간"(`/drone/path_status=true` 발행 t≈2129.67s 직후)**과
+정확히 일치 — 자유낙하로 라이다가 빈 반환을 주는 극단 케이스에서
+GLIM이 안전하게 처리하지 못하고 죽는 것으로 보인다. 직전 세션의
+cv1e3 단독 실행(gnss_global 없음)은 같은 구간을 무사히 통과했었는데,
+이번엔 크래시 직전 `[mem] CPU memory usage: 4899.02/5894.34 MB
+83.11%`로 우리 외부 메모리가드 임계값(4600MB)을 이미 넘어선 상태였다
+(가드는 5초 주기 폴링이라 딱 그 사이에 못 잡음) — **gnss_global이
+추가하는 submap/팩터 상태가 메모리를 유의미하게 더 쓰게 만들어(같은
+지점에서 비-GNSS 버전 대비 RSS가 더 높았음), 이미 알려진 "빈
+포인트클라우드" 버그가 메모리 압박과 겹쳐 세그폴트로 악화된 것으로
+추정.**
+
+### 4. 재시도(11청크로 축소) — 완주했으나 GPS 제약이 활성화 안 됨
+크래시 구간(청크 11)을 아예 안 먹이도록 11청크(t≈9~2092s,
+`ros2 bag info`로 청크별 경계 실측 확인)만 재생하도록 축소해 재실행 —
+크래시 없이 정상 완주(`traj_lidar.txt` 8318 pose, t=[8.9,2097.2]s).
+
+**그러나 로그 전체(26,783줄)를 검사한 결과 `T_world_utm=` 정렬 로그가
+단 한 번도 안 떴다** — 즉 이번 실행에서는 GPS 제약이 끝까지
+활성화되지 않았다. `/gnss` 컨버터는 정상 작동 확인(20,500건 이상
+정상 재발행 로그 확인, GPS 데이터 자체는 확실히 흘러 들어감) —
+그런데도 정렬이 안 걸렸다. **동일 설정, 거의 동일한 데이터(청크
+0~10은 1차 시도와 완전히 동일)인데 1차 시도는 34초 만에 정렬이 됐고
+이번엔 35분 내내 안 됐다** — 원인을 명확히 특정하지 못함(시간 예산
+부족으로 `on_insert_submap` 콜백 자체가 호출됐는지까지는 추가
+계측 없이 확인 불가). glim_ext README의 자체 경고("half-baked code
+that may not be well-maintained")와 부합하는, **이 실험적 모듈의
+활성화 자체가 실행마다 일관되지 않다는 신뢰성 문제**로 잠정 결론.
+
+ATE 계산 결과(GPS 제약 없이 사실상 cv1e3와 동일 파이프라인이 11/12
+청크만 처리된 것): 평균 81.8m, 중앙값 80.5m, 최대 160.8m —
+cv1e3 단독(68.6m, 12청크 전체)보다 오히려 나쁘다. **이 숫자는 GPS
+제약의 효과를 보여주는 게 아니다**(제약이 안 걸렸으므로) — 궤적
+그림(`run_results/glim_diag_dumps/fullrun_cv1e3_gnss/ate_gt_vs_glim.png`)도
+cv1e3 단독 결과와 거의 같은 형태(스트립 박스 위아래로 뒤엉킨 궤적)를
+보여 이 해석과 일관된다. 차이(68.6m→81.8m)는 청크 11 누락 +
+CT-GICP 재생 시점의 미세한 비결정성 때문으로 보인다(GPS 제약과
+무관).
+
+### 5. 결론 및 권고
+**glim_ext의 gnss_global은 이번 세션 범위에서 신뢰성 있게 검증하지
+못했다** — 1차는 제약이 걸렸지만 무관한 GLIM 버그로 크래시했고,
+2차는 크래시는 피했지만 제약 자체가 안 걸렸다. 시간 예산(2시간)이
+소진돼 원인을 더 파거나 3차 시도를 하지 않고 여기서 정리한다.
+
+**권고 — 다음 세션은 이 실시간 제약 방식을 더 파지 말고, 이미 설계·
+구현까지 끝나 있는 사후결합(post-hoc, `run_results/glim_gps_correct.py`,
+GLIM(+GPS 사후결합) 전체 파이프라인 실험 절 3-3)으로 가는 게 낫다.**
+근거:
+1. 사후결합은 GPS 앵커마다 **주기적으로** 재정렬(SE3 보간)하는
+   방식이라, 이번에 의심되는 "정렬을 초반에 딱 한 번만 계산하고 다시
+   안 고친다"는 gnss_global의 구조적 약점(추정: 초반 궤적이 왕복
+   스트립 패턴상 거의 직선이라 회전 추정이 취약할 가능성)이 애초에
+   생기지 않는다.
+2. GLIM 프로세스 자체의 실행(궤적 생성)과 GPS 보정을 완전히 분리하는
+   구조라, 이번에 겪은 "모듈 활성화가 실행마다 달라짐" 같은 재현성
+   문제에서 자유롭다 — 이미 확보된 cv1e3 궤적(`traj_lidar.txt`,
+   9011 pose, 전체 bag)에 바로 적용 가능하고 재실행(GLIM 재구동) 자체가
+   필요 없다(수 분 내 결과 확인 가능, 이번처럼 30~40분 재실행
+   사이클이 필요 없음).
+3. 사용자가 예시로 든 다른 후보(`smoother_lag`, `max_num_keyframes`,
+   디스큐)는 순수 LIO 파라미터 튜닝 축이라 GPS 정보를 전혀 안 쓴다 —
+   목표(ATE 23m 근처)는 애초에 GPS 같은 절대 기준 없이 순수 LIO
+   드리프트만으로 달성하기 어려운 수준일 가능성이 높고(84m 실험도
+   원래 GPS 없이 23m를 낸 것이지만 비행이 훨씬 짧았다, 236s vs
+   2254s), 사후결합이 더 직접적인 해법으로 판단.
+
+### 세션 재개용 참고 (다음 세션이 이어받을 경우)
+1. **`glim_config_cv1e3_gnss/`, `navsat_to_gnss_pose.py`는 보존하되
+   당장 재사용 계획 없음** — gnss_global 재시도는 위 권고에 따라
+   후순위. 필요해지면 `on_insert_submap`이 실제 호출되는지부터
+   직접 계측(예: `libglim_callback_demo.so`를 같이 등록해 콜백
+   발생 여부 확인)하는 게 다음 디버깅 시작점.
+2. **다음 최우선 작업**: `run_results/glim_gps_correct.py`를
+   `run_results/glim_diag_dumps/fullrun_cv1e3/traj_lidar.txt`
+   (cv1e3 단독, 9011 pose, t=[8.9,2258.3]s, 이미 검증됨)에 바로
+   적용. GPS 앵커는 `bags/velocity_4m_5mps_gps_attempt2`의
+   `/drone/gps`를 그대로 쓰되, **t<=2129.67s로 절단**(자유낙하 구간
+   제외, 이미 두 세션에 걸쳐 확인된 경계).
+3. 보정된 궤적으로 다시 `ate_full.py`(이번 세션 신규, 재사용 가능)로
+   ATE 재계산 → 84m 실험 수준(23m 근처) 도달 여부 확인.
+4. 도달하면 `glim_gps_build_map.py`+`glim_gps_metrics.py`로 최종
+   4개 지표(coverage/wheel FN%/leg FN%/비행시간) 산출 후 5m AGL
+   실험 비교표에 추가.
+
+### 저장/보고
+`glim_config_cv1e3_gnss/`, `run_results/diag_scripts/{navsat_to_gnss_pose.py,
+run_glim_chunked_gnss.sh}`, `run_results/glim_diag_dumps/fullrun_cv1e3_gnss/`,
+`run_results/logs/{smoke_gnss_*,fullrun_cv1e3_gnss_*}` 전부 커밋 대상
+(실패 원인 재현/디버깅 참고용으로 보존). 잔여 프로세스 없음, 최종
+디스크 71% 확인.
+
 ## [새 세션] Phase 2 파라미터 튜닝 재개 — 컴퓨터 전원 강제종료 후 복구
 
 **전체 타임아웃 2시간.** 직전 세션이 "VM 재부팅이 아니라 컴퓨터 전원

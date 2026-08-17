@@ -1,0 +1,152 @@
+[2026-08-17 20:32:44.792] [glim] [info] config_path: /home/hyunwoo-chae/AG-CoNav-test_main/glim_config_cv1e3_gnss
+[2026-08-17 20:32:44.794] [glim] [info] load libodometry_estimation_ct.so
+[2026-08-17 20:32:44.801] [glim] [info] load libsub_mapping_passthrough.so
+[2026-08-17 20:32:44.803] [glim] [info] load libglobal_mapping_pose_graph.so
+[2026-08-17 20:32:44.805] [glim] [warning] Extension modules are enabled!!
+[2026-08-17 20:32:44.805] [glim] [warning] You must carefully check and follow the licenses of ext modules
+[2026-08-17 20:32:44.805] [glim] [info] config_ext_path: /home/hyunwoo-chae/glim_ext_ws/install/glim_ext/share/glim_ext/config
+[2026-08-17 20:32:44.805] [glim] [info] load libmemory_monitor.so
+[2026-08-17 20:32:44.806] [glim] [info] load librviz_viewer.so
+[2026-08-17 20:32:44.846] [glim] [info] load libgnss_global.so
+[2026-08-17 20:32:44.922] [gnss_global] [info] initializing GNSS global constraints
+[2026-08-17 20:32:44.923] [gnss_global] [info] gnss_global_config_path=/home/hyunwoo-chae/AG-CoNav-test_main/glim_config_cv1e3_gnss/config_gnss_global.json
+[2026-08-17 20:32:44.923] [gnss_global] [info] starting GNSS global thread
+[WARN] [1786966378.048297235] [transform_listener_impl_ab71cc50a640]: New publisher discovered on topic '/tf_static', offering incompatible QoS. No messages will be sent to it. Last incompatible policy: DURABILITY_QOS_POLICY
+[2026-08-17 20:32:58.648] [rviz] [info] auto-detected IMU frame ID: drone/base_link
+[2026-08-17 20:32:58.648] [rviz] [info] auto-detected LiDAR frame ID: drone/os1_lidar
+[2026-08-17 20:32:58.648] [rviz] [info] base_frame_id is not set. using IMU frame ID 'drone/base_link' as base frame ID.
+[2026-08-17 20:33:00.918] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:00.918] [glim] [warning] current=11.200000 last=10.600000 diff=0.600000
+[2026-08-17 20:33:02.608] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:02.608] [glim] [warning] current=12.900000 last=12.200000 diff=0.700000
+[2026-08-17 20:33:05.413] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:05.414] [glim] [warning] current=15.700000 last=15.000000 diff=0.700000
+[2026-08-17 20:33:06.624] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:06.624] [glim] [warning] current=16.900000 last=16.200000 diff=0.700000
+[2026-08-17 20:33:09.225] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:09.225] [glim] [warning] points=18.500000 imu=19.510000 diff=1.010000
+[2026-08-17 20:33:09.231] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:09.231] [glim] [warning] current=19.500000 last=18.500000 diff=1.000000
+[2026-08-17 20:33:09.610] [odom] [warning] neither frames[last]=0xf662e0144250 nor frames[last - 1]=0x0 is released!!
+[2026-08-17 20:33:09.611] [odom] [warning] there might be a large time gap between point cloud frames
+[2026-08-17 20:33:13.132] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:13.132] [glim] [warning] current=23.400000 last=22.700000 diff=0.700000
+[2026-08-17 20:33:16.036] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:16.037] [glim] [warning] current=26.300000 last=25.400000 diff=0.900000
+[2026-08-17 20:33:16.394] [odom] [warning] neither frames[last]=0xf662e0540c20 nor frames[last - 1]=0x0 is released!!
+[2026-08-17 20:33:16.394] [odom] [warning] there might be a large time gap between point cloud frames
+[2026-08-17 20:33:17.030] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:17.030] [glim] [warning] current=27.300000 last=26.600000 diff=0.700000
+[2026-08-17 20:33:19.637] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:19.637] [glim] [warning] current=29.900000 last=29.200000 diff=0.700000
+[2026-08-17 20:33:22.640] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:22.640] [glim] [warning] current=32.900000 last=32.300000 diff=0.600000
+[2026-08-17 20:33:24.740] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:24.740] [glim] [warning] current=35.000000 last=34.300000 diff=0.700000
+[2026-08-17 20:33:27.443] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:27.443] [glim] [warning] current=37.700000 last=37.000000 diff=0.700000
+[2026-08-17 20:33:28.540] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:28.541] [glim] [warning] current=38.800000 last=38.200000 diff=0.600000
+[2026-08-17 20:33:31.534] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:31.534] [glim] [warning] current=41.800000 last=41.000000 diff=0.800000
+[2026-08-17 20:33:33.122] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.123] [glim] [warning] points=42.400000 imu=43.410000 diff=1.010000
+[2026-08-17 20:33:33.133] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.133] [glim] [warning] points=42.400000 imu=43.420000 diff=1.020000
+[2026-08-17 20:33:33.142] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.142] [glim] [warning] points=42.400000 imu=43.430000 diff=1.030000
+[2026-08-17 20:33:33.151] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.151] [glim] [warning] points=42.400000 imu=43.440000 diff=1.040000
+[2026-08-17 20:33:33.164] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.164] [glim] [warning] points=42.400000 imu=43.450000 diff=1.050000
+[2026-08-17 20:33:33.172] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.172] [glim] [warning] points=42.400000 imu=43.460000 diff=1.060000
+[2026-08-17 20:33:33.181] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.181] [glim] [warning] points=42.400000 imu=43.470000 diff=1.070000
+[2026-08-17 20:33:33.192] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.192] [glim] [warning] points=42.400000 imu=43.480000 diff=1.080000
+[2026-08-17 20:33:33.201] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.201] [glim] [warning] points=42.400000 imu=43.490000 diff=1.090000
+[2026-08-17 20:33:33.212] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.212] [glim] [warning] points=42.400000 imu=43.500000 diff=1.100000
+[2026-08-17 20:33:33.222] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.222] [glim] [warning] points=42.400000 imu=43.510000 diff=1.110000
+[2026-08-17 20:33:33.232] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.232] [glim] [warning] points=42.400000 imu=43.520000 diff=1.120000
+[2026-08-17 20:33:33.243] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.243] [glim] [warning] points=42.400000 imu=43.530000 diff=1.130000
+[2026-08-17 20:33:33.251] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.251] [glim] [warning] points=42.400000 imu=43.540000 diff=1.140000
+[2026-08-17 20:33:33.261] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.261] [glim] [warning] points=42.400000 imu=43.550000 diff=1.150000
+[2026-08-17 20:33:33.271] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.271] [glim] [warning] points=42.400000 imu=43.560000 diff=1.160000
+[2026-08-17 20:33:33.281] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.281] [glim] [warning] points=42.400000 imu=43.570000 diff=1.170000
+[2026-08-17 20:33:33.292] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.292] [glim] [warning] points=42.400000 imu=43.580000 diff=1.180000
+[2026-08-17 20:33:33.301] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.301] [glim] [warning] points=42.400000 imu=43.590000 diff=1.190000
+[2026-08-17 20:33:33.311] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.311] [glim] [warning] points=42.400000 imu=43.600000 diff=1.200000
+[2026-08-17 20:33:33.323] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.323] [glim] [warning] points=42.400000 imu=43.610000 diff=1.210000
+[2026-08-17 20:33:33.332] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.332] [glim] [warning] points=42.400000 imu=43.620000 diff=1.220000
+[2026-08-17 20:33:33.341] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.341] [glim] [warning] points=42.400000 imu=43.630000 diff=1.230000
+[2026-08-17 20:33:33.351] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.351] [glim] [warning] points=42.400000 imu=43.640000 diff=1.240000
+[2026-08-17 20:33:33.361] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.361] [glim] [warning] points=42.400000 imu=43.650000 diff=1.250000
+[2026-08-17 20:33:33.371] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.371] [glim] [warning] points=42.400000 imu=43.660000 diff=1.260000
+[2026-08-17 20:33:33.381] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.381] [glim] [warning] points=42.400000 imu=43.670000 diff=1.270000
+[2026-08-17 20:33:33.391] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.391] [glim] [warning] points=42.400000 imu=43.680000 diff=1.280000
+[2026-08-17 20:33:33.401] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.401] [glim] [warning] points=42.400000 imu=43.690000 diff=1.290000
+[2026-08-17 20:33:33.412] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.412] [glim] [warning] points=42.400000 imu=43.700000 diff=1.300000
+[2026-08-17 20:33:33.424] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.424] [glim] [warning] points=42.400000 imu=43.710000 diff=1.310000
+[2026-08-17 20:33:33.431] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.431] [glim] [warning] points=42.400000 imu=43.720000 diff=1.320000
+[2026-08-17 20:33:33.441] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.441] [glim] [warning] points=42.400000 imu=43.730000 diff=1.330000
+[2026-08-17 20:33:33.452] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.452] [glim] [warning] points=42.400000 imu=43.740000 diff=1.340000
+[2026-08-17 20:33:33.461] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.461] [glim] [warning] points=42.400000 imu=43.750000 diff=1.350000
+[2026-08-17 20:33:33.471] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.471] [glim] [warning] points=42.400000 imu=43.760000 diff=1.360000
+[2026-08-17 20:33:33.481] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.481] [glim] [warning] points=42.400000 imu=43.770000 diff=1.370000
+[2026-08-17 20:33:33.491] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.491] [glim] [warning] points=42.400000 imu=43.780000 diff=1.380000
+[2026-08-17 20:33:33.501] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.501] [glim] [warning] points=42.400000 imu=43.790000 diff=1.390000
+[2026-08-17 20:33:33.512] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.512] [glim] [warning] points=42.400000 imu=43.800000 diff=1.400000
+[2026-08-17 20:33:33.523] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.523] [glim] [warning] points=42.400000 imu=43.810000 diff=1.410000
+[2026-08-17 20:33:33.532] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.532] [glim] [warning] points=42.400000 imu=43.820000 diff=1.420000
+[2026-08-17 20:33:33.541] [glim] [warning] large time difference between points and imu!!
+[2026-08-17 20:33:33.541] [glim] [warning] points=42.400000 imu=43.830000 diff=1.430000
+[2026-08-17 20:33:33.544] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:33.544] [glim] [warning] current=43.800000 last=42.400000 diff=1.400000
+[2026-08-17 20:33:33.713] [odom] [warning] neither frames[last]=0xf662e15b2900 nor frames[last - 1]=0x0 is released!!
+[2026-08-17 20:33:33.713] [odom] [warning] there might be a large time gap between point cloud frames
+[2026-08-17 20:33:35.334] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:35.334] [glim] [warning] current=45.600000 last=44.700000 diff=0.900000
+[2026-08-17 20:33:37.745] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 20:33:37.745] [glim] [warning] current=48.000000 last=47.200000 diff=0.800000
+[INFO] [1786966467.940656112] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[2026-08-17 20:34:27.955] [glim] [info] waiting for odometry estimation
+[2026-08-17 20:34:27.958] [glim] [info] waiting for local mapping
+[2026-08-17 20:34:27.979] [glim] [info] waiting for global mapping
+[2026-08-17 20:34:27.987] [global] [info] saving to /tmp/dump...
+[2026-08-17 20:34:27.989] [global] [info] serializing factor graph to /tmp/dump/graph.bin
+[2026-08-17 20:34:28.032] [global] [info] saved
