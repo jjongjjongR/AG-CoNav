@@ -1,0 +1,306 @@
+[2026-08-17 19:12:13.866] [glim] [info] config_path: /opt/ros/jazzy/share/glim/glim_config_cv1e6
+[2026-08-17 19:12:13.866] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config.json
+[2026-08-17 19:12:13.866] [glim] [warning] param global/config_ros not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=config_ros.json
+[2026-08-17 19:12:13.866] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_ros.json
+[2026-08-17 19:12:13.866] [glim] [warning] param glim_ros/keep_raw_points not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=false
+[2026-08-17 19:12:13.866] [glim] [warning] param glim_ros/imu_time_offset not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=0
+[2026-08-17 19:12:13.866] [glim] [warning] param glim_ros/points_time_offset not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=0
+[2026-08-17 19:12:13.866] [glim] [warning] param glim_ros/acc_scale not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=0
+[2026-08-17 19:12:13.866] [glim] [warning] param global/config_sensors not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=config_sensors.json
+[2026-08-17 19:12:13.866] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_sensors.json
+[2026-08-17 19:12:13.866] [glim] [warning] param sensors/intensity_field not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=intensity
+[2026-08-17 19:12:13.866] [glim] [warning] param sensors/ring_field not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=
+[2026-08-17 19:12:13.866] [glim] [warning] param global/config_sensors not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=config_sensors.json
+[2026-08-17 19:12:13.866] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_sensors.json
+[2026-08-17 19:12:13.866] [glim] [warning] param sensors/autoconf_perpoint_times not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.866] [glim] [warning] param sensors/autoconf_prefer_frame_time not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=false
+[2026-08-17 19:12:13.866] [glim] [warning] param global/config_preprocess not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=config_preprocess.json
+[2026-08-17 19:12:13.866] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_preprocess.json
+[2026-08-17 19:12:13.866] [glim] [warning] param global/config_sensors not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=config_sensors.json
+[2026-08-17 19:12:13.866] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_sensors.json
+[2026-08-17 19:12:13.866] [glim] [warning] param sensors/global_shutter_lidar not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=false
+[2026-08-17 19:12:13.866] [glim] [warning] param preprocess/distance_near_thresh not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=1
+[2026-08-17 19:12:13.866] [glim] [warning] param preprocess/distance_far_thresh not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=100
+[2026-08-17 19:12:13.866] [glim] [warning] param preprocess/use_random_grid_downsampling not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=false
+[2026-08-17 19:12:13.866] [glim] [warning] param preprocess/downsample_resolution not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=0.15
+[2026-08-17 19:12:13.866] [glim] [warning] param preprocess/random_downsample_target not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=0
+[2026-08-17 19:12:13.866] [glim] [warning] param preprocess/random_downsample_rate not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=0.3
+[2026-08-17 19:12:13.866] [glim] [warning] param preprocess/enable_outlier_removal not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=false
+[2026-08-17 19:12:13.866] [glim] [warning] param preprocess/outlier_removal_k not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=10
+[2026-08-17 19:12:13.866] [glim] [warning] param preprocess/outlier_std_mul_factor not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=2
+[2026-08-17 19:12:13.866] [glim] [warning] param preprocess/enable_cropbox_filter not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=false
+[2026-08-17 19:12:13.866] [glim] [warning] param preprocess/k_correspondences not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=8
+[2026-08-17 19:12:13.866] [glim] [warning] param preprocess/num_threads not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=2
+[2026-08-17 19:12:13.866] [glim] [warning] param global/config_odometry not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=config_odometry.json
+[2026-08-17 19:12:13.866] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_odometry.json
+[2026-08-17 19:12:13.866] [glim] [warning] param odometry_estimation/so_name not found
+[2026-08-17 19:12:13.866] [glim] [warning] use default_value=libodometry_estimation_cpu.so
+[2026-08-17 19:12:13.866] [glim] [info] load libodometry_estimation_cpu.so
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_sensors not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_sensors.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_sensors.json
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/T_lidar_imu not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=se3(0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,1.000000)
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/imu_bias_noise not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.001
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_odometry not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_odometry.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_odometry.json
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/fix_imu_bias not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=false
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/initialization_mode not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=LOOSE
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/init_pose_damping_scale not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=10000000000
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/smoother_lag not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=5
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/use_isam2_dogleg not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=false
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/isam2_relinearize_skip not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=1
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/isam2_relinearize_thresh not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.1
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/compute_covs not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=false
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/validate_imu not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/save_imu_rate_trajectory not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=false
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/num_threads not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=4
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_odometry not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_odometry.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_odometry.json
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/registration_type not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=VGICP
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/max_iterations not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=5
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/lru_thresh not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=100
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/target_downsampling_rate not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.1
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/ivox_resolution not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.5
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/ivox_min_dist not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.1
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/vgicp_resolution not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.2
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/vgicp_voxelmap_levels not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=2
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/vgicp_voxelmap_scaling_factor not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=2
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_logging not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_logging.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_logging.json
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/log_dir not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=/tmp
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/save_logs not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/rotate_logs not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/max_file_size_kb not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=8192
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/max_files not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=10
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_odometry not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_odometry.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_odometry.json
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/num_threads not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=2
+[2026-08-17 19:12:13.867] [glim] [warning] param odometry_estimation/initialization_window_size not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=1
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_sensors not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_sensors.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_sensors.json
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/imu_acc_noise not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.01
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/imu_gyro_noise not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.001
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/imu_int_noise not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.001
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_sensors not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_sensors.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_sensors.json
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/imu_acc_noise not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.01
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/imu_gyro_noise not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.001
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/imu_int_noise not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.001
+[2026-08-17 19:12:13.867] [glim] [warning] param glim_ros/enable_local_mapping not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_sub_mapping not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_sub_mapping.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_sub_mapping.json
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/so_name not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=libsub_mapping.so
+[2026-08-17 19:12:13.867] [glim] [info] load libsub_mapping.so
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_sub_mapping not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_sub_mapping.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_sub_mapping.json
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/enable_imu not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/enable_optimization not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/max_num_keyframes not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=15
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/keyframe_update_strategy not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=OVERLAP
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/keyframe_update_min_points not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=500
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/keyframe_update_interval_rot not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=3.15
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/keyframe_update_interval_trans not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=1
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/max_keyframe_overlap not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.8
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/create_between_factors not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/between_registration_type not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=GICP
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/registration_error_factor_type not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=VGICP
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/keyframe_randomsampling_rate not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.1
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/keyframe_voxel_resolution not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.5
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/keyframe_voxelmap_levels not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=3
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/keyframe_voxelmap_scaling_factor not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=2
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/submap_downsample_resolution not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.25
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/submap_voxel_resolution not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.5
+[2026-08-17 19:12:13.867] [glim] [warning] param sub_mapping/submap_target_num_points not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=-1
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_logging not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_logging.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_logging.json
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/log_dir not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=/tmp
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/save_logs not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/rotate_logs not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/max_file_size_kb not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=8192
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/max_files not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=10
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_sensors not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_sensors.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_sensors.json
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/imu_acc_noise not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.01
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/imu_gyro_noise not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.001
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/imu_int_noise not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.001
+[2026-08-17 19:12:13.867] [glim] [warning] param glim_ros/enable_global_mapping not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_global_mapping not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_global_mapping.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_global_mapping.json
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/so_name not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=libglobal_mapping.so
+[2026-08-17 19:12:13.867] [glim] [info] load libglobal_mapping.so
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_global_mapping not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_global_mapping.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_global_mapping.json
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/enable_imu not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/enable_optimization not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/create_between_factors not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=false
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/between_registration_type not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=GICP
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/registration_error_factor_type not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=VGICP
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/submap_voxel_resolution not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=1
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/submap_voxel_resolution_max not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=1
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/submap_voxel_resolution_dmin not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=5
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/submap_voxel_resolution_dmax not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=20
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/submap_voxelmap_levels not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=2
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/submap_voxelmap_scaling_factor not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=2
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/randomsampling_rate not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=1
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/max_implicit_loop_distance not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=100
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/min_implicit_loop_overlap not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.1
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/use_isam2_dogleg not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=false
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/isam2_relinearize_skip not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=1
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/isam2_relinearize_thresh not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.1
+[2026-08-17 19:12:13.867] [glim] [warning] param global_mapping/init_pose_damping_scale not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=10000000000
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_logging not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_logging.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_logging.json
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/log_dir not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=/tmp
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/save_logs not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/rotate_logs not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=true
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/max_file_size_kb not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=8192
+[2026-08-17 19:12:13.867] [glim] [warning] param logging/max_files not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=10
+[2026-08-17 19:12:13.867] [glim] [warning] param global/config_sensors not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=config_sensors.json
+[2026-08-17 19:12:13.867] [glim] [error] failed to open /opt/ros/jazzy/share/glim/glim_config_cv1e6/config_sensors.json
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/imu_acc_noise not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.01
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/imu_gyro_noise not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.001
+[2026-08-17 19:12:13.867] [glim] [warning] param sensors/imu_int_noise not found
+[2026-08-17 19:12:13.867] [glim] [warning] use default_value=0.001
+[2026-08-17 19:12:13.868] [glim] [warning] param glim_ros/imu_topic not found
+[2026-08-17 19:12:13.868] [glim] [warning] use default_value=
+[2026-08-17 19:12:13.868] [glim] [warning] param glim_ros/points_topic not found
+[2026-08-17 19:12:13.868] [glim] [warning] use default_value=
+[2026-08-17 19:12:13.868] [glim] [warning] param glim_ros/image_topic not found
+[2026-08-17 19:12:13.868] [glim] [warning] use default_value=
+terminate called after throwing an instance of 'rclcpp::exceptions::InvalidTopicNameError'
+  what():  Invalid topic name: topic name must not be empty string:
+  ''
+   ^
+
+[ros2run]: Aborted

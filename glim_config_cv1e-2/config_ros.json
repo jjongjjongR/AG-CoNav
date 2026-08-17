@@ -1,0 +1,98 @@
+{
+  /*** ROS-related config ***/
+  // --- Backend modules ---
+  // If both local and global mapping are disabled, odometry estimation runs.
+  // enable_local_mapping   : Enable local mapping module
+  // enable_global_mapping  : Enable global mapping module
+  //
+  // --- Points config ---
+  // keep_raw_points        : Keep raw points in the map (required for only extension modules)
+  //
+  // --- IMU config ---
+  // imu_time_offset        : Time offset for IMU data (in seconds)
+  // acc_scale              : Accelerometer scale factor (Set to 9.80665 for Livox sensors)
+  //
+  // --- TF config ---
+  // GLIM publishes TF subtrees "map -> odom -> base_frame" and "imu -> lidar".
+  // imu_frame_id           : IMU frame ID (If blank, auto-detected from IMU topic)
+  // lidar_frame_id         : LiDAR frame ID (If blank, auto-detected from points topic)
+  // base_frame_id          : Base frame ID. If blank, IMU frame ID is used.
+  // odom_frame_id          : Odometry frame ID
+  // map_frame_id           : Map frame ID
+  // publish_imu2lidar      : If false, do not publish "imu -> lidar" TF
+  // tf_time_offset         : Time offset for TF data (in seconds)
+  //
+  // --- Extension modules ---
+  // extension_modules      : List of extension modules to load
+  //
+  // --- Topics ---
+  // imu_topic              : IMU topic
+  // points_topic           : Points topic
+  // image_topic            : Image topic (required for only extension modules)
+  //
+  // --- QoS options ---
+  // imu_qos                : QoS options for IMU topic subscription.
+  //   profile              : Builtin QoS profile name. Could be one of the following:
+  //                          default, system_default, sensor_data, services_default, parameters, parameter_events
+  //   depth                : Size of the message queue.
+  //   durability           : Durability QoS policy setting. Could be one of the following:
+  //                          system_default, transient_local, volatile
+  //   reliability          : Reliabiilty QoS policy setting. Could be one of the following:
+  //                          system_default, reliable, best_effort
+  //   history              : History QoS policy setting. Could be one of the following:
+  //                          system_default, keep_last, keep_all
+  // points_qos             : QoS options for points topic subscription. See imu_qos for details.
+  // image_qos              : QoS options for image topic subscription. See imu_qos for details.
+  "glim_ros": {
+    // Backend modules
+    "enable_local_mapping": true,
+    "enable_global_mapping": true,
+    // Points config
+    "keep_raw_points": false,
+    // IMU config
+    "imu_time_offset": 0.0,
+    "points_time_offset": 0.0,
+    "acc_scale": 0.0, // Auto-detect if zero
+    // TF config
+    "imu_frame_id": "", // Auto-detect if blank
+    "lidar_frame_id": "", // Auto-detect if blank
+    "base_frame_id": "", // If blank, IMU frame ID is used
+    "odom_frame_id": "odom",
+    "map_frame_id": "map",
+    "publish_imu2lidar": true,
+    "tf_time_offset": 1e-6,
+    // Extension modules
+    // libstandard_viewer는 GLFW/X11 창을 연다. 컨테이너에서 DISPLAY를 못 열면
+    // 초기화 실패 직후 segfault로 죽는다 (실측: glfw error 65544 → Segmentation fault).
+    // 헤드리스 실행에서는 빼고, 결과는 librviz_viewer의 ROS 토픽으로 받는다.
+    "extension_modules": [
+      "libmemory_monitor.so",
+      "librviz_viewer.so"
+      // "libstandard_viewer.so"   // GUI로 볼 때만 (호스트에서 xhost +local: 필요)
+      // "libimu_validator.so"
+    ],
+    // Topics
+    "imu_topic": "/drone/imu",
+    "points_topic": "/drone/points",
+    "image_topic": "/image",
+    // QoS options
+    // 시뮬 센서 토픽은 BEST_EFFORT/VOLATILE로 발행된다 (topics.md QoS 표).
+    // sensor_data 프로파일이 곧 best_effort지만, 어긋나면 구독이 조용히
+    // 성립하지 않고 데이터가 0건이 되므로 명시적으로 못박아 둔다.
+    "imu_qos": {
+      "profile": "sensor_data",
+      "reliability": "best_effort",
+      "durability": "volatile",
+      "depth": 1000
+    },
+    "points_qos": {
+      "profile": "sensor_data",
+      "reliability": "best_effort",
+      "durability": "volatile",
+      "depth": 10
+    },
+    "image_qos": {
+      "profile": "sensor_data"
+    }
+  }
+}

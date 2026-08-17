@@ -1,0 +1,45 @@
+[2026-08-17 18:20:37.225] [glim] [info] config_path: /home/hyunwoo-chae/AG-CoNav-test_main/glim_config_cv1e3
+[2026-08-17 18:20:37.226] [glim] [info] load libodometry_estimation_ct.so
+[2026-08-17 18:20:37.226] [glim] [info] load libsub_mapping_passthrough.so
+[2026-08-17 18:20:37.227] [glim] [info] load libglobal_mapping_pose_graph.so
+[2026-08-17 18:20:37.227] [glim] [info] load libmemory_monitor.so
+[2026-08-17 18:20:37.228] [glim] [info] load librviz_viewer.so
+[WARN] [1786958442.264182261] [transform_listener_impl_b2cab331a140]: New publisher discovered on topic '/tf_static', offering incompatible QoS. No messages will be sent to it. Last incompatible policy: DURABILITY_QOS_POLICY
+[2026-08-17 18:20:42.548] [rviz] [info] auto-detected IMU frame ID: drone/base_link
+[2026-08-17 18:20:42.548] [rviz] [info] auto-detected LiDAR frame ID: drone/os1_lidar
+[2026-08-17 18:20:42.548] [rviz] [info] base_frame_id is not set. using IMU frame ID 'drone/base_link' as base frame ID.
+[2026-08-17 18:20:43.098] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:20:43.098] [glim] [warning] current=9.500000 last=8.900000 diff=0.600000
+[2026-08-17 18:20:44.824] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:20:44.824] [glim] [warning] current=11.200000 last=10.500000 diff=0.700000
+[2026-08-17 18:20:46.222] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:20:46.222] [glim] [warning] current=12.600000 last=11.900000 diff=0.700000
+[2026-08-17 18:20:47.813] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:20:47.813] [glim] [warning] current=14.200000 last=13.400000 diff=0.800000
+[2026-08-17 18:20:57.637] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:20:57.637] [glim] [warning] current=24.000000 last=23.400000 diff=0.600000
+[2026-08-17 18:20:58.247] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:20:58.247] [glim] [warning] current=24.600000 last=24.000000 diff=0.600000
+[2026-08-17 18:20:59.142] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:20:59.142] [glim] [warning] current=25.500000 last=24.600000 diff=0.900000
+[2026-08-17 18:21:02.544] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:21:02.544] [glim] [warning] current=28.900000 last=28.000000 diff=0.900000
+[2026-08-17 18:21:03.843] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:21:03.843] [glim] [warning] current=30.200000 last=29.600000 diff=0.600000
+[2026-08-17 18:21:05.935] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:21:05.935] [glim] [warning] current=32.300000 last=31.700000 diff=0.600000
+[2026-08-17 18:21:13.448] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:21:13.448] [glim] [warning] current=39.800000 last=39.100000 diff=0.700000
+[2026-08-17 18:21:14.646] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:21:14.646] [glim] [warning] current=41.000000 last=40.400000 diff=0.600000
+[2026-08-17 18:21:19.748] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:21:19.748] [glim] [warning] current=46.100000 last=45.200000 diff=0.900000
+[2026-08-17 18:21:21.748] [glim] [warning] large time gap between consecutive LiDAR frames!!
+[2026-08-17 18:21:21.748] [glim] [warning] current=48.100000 last=47.500000 diff=0.600000
+[INFO] [1786958482.562394635] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[2026-08-17 18:21:22.564] [glim] [info] waiting for odometry estimation
+[2026-08-17 18:21:22.592] [glim] [info] waiting for local mapping
+[2026-08-17 18:21:22.599] [glim] [info] waiting for global mapping
+[2026-08-17 18:21:22.688] [global] [info] saving to /tmp/dump...
+[2026-08-17 18:21:22.688] [global] [info] serializing factor graph to /tmp/dump/graph.bin
+[2026-08-17 18:21:22.704] [global] [info] saved
