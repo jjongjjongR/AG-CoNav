@@ -1,0 +1,6 @@
+[04:25:06] variant=kf_11_building_mixture extra_params=-p building_mixture_enabled:=true
+[bag play 종료 04:44:02] capture 대기 중...
+[kf_11_building_mixture] wheel FN%=4.38% (GT통과가능 618378개 중 pipeline이 막힘판정 27114개, 미측정 1.5%)
+[kf_11_building_mixture] leg FN%=4.28% (GT통과가능 618378개 중 pipeline이 막힘판정 26494개, 미측정 1.5%)
+[kf_11_building_mixture] 저장: run_results/kf_variants/11_building_mixture_fn.json
+로그: /tmp/trav_fn_kf_11_building_mixture   결과: run_results/kf_variants/11_building_mixture_fn.json

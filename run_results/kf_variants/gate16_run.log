@@ -1,0 +1,6 @@
+[02:08:46] variant=kf_gate16 extra_params=-p innovation_gate_threshold:=16.0
+[bag play 종료 02:27:42] capture 대기 중...
+[kf_gate16] wheel FN%=5.95% (GT통과가능 618378개 중 pipeline이 막힘판정 36766개, 미측정 1.5%)
+[kf_gate16] leg FN%=5.47% (GT통과가능 618378개 중 pipeline이 막힘판정 33814개, 미측정 1.5%)
+[kf_gate16] 저장: run_results/kf_variants/gate16_fn.json
+로그: /tmp/trav_fn_kf_gate16   결과: run_results/kf_variants/gate16_fn.json

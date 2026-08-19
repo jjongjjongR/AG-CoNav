@@ -1,0 +1,6 @@
+[04:04:00] variant=kf_10_adaptive_R extra_params=-p adaptive_r_enabled:=true
+[bag play 종료 04:22:56] capture 대기 중...
+[kf_10_adaptive_R] wheel FN%=5.82% (GT통과가능 618378개 중 pipeline이 막힘판정 36014개, 미측정 1.5%)
+[kf_10_adaptive_R] leg FN%=4.87% (GT통과가능 618378개 중 pipeline이 막힘판정 30090개, 미측정 1.5%)
+[kf_10_adaptive_R] 저장: run_results/kf_variants/10_adaptive_R_fn.json
+로그: /tmp/trav_fn_kf_10_adaptive_R   결과: run_results/kf_variants/10_adaptive_R_fn.json

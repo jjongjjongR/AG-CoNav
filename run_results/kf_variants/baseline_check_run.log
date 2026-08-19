@@ -1,0 +1,5 @@
+[bag play 종료 01:12:11] capture 대기 중...
+[kf_baseline_check] wheel FN%=10.68% (GT통과가능 618378개 중 pipeline이 막힘판정 66019개, 미측정 1.4%)
+[kf_baseline_check] leg FN%=7.89% (GT통과가능 618378개 중 pipeline이 막힘판정 48773개, 미측정 1.4%)
+[kf_baseline_check] 저장: run_results/kf_variants/baseline_check_fn.json
+로그: /tmp/trav_fn_kf_baseline_check   결과: run_results/kf_variants/baseline_check_fn.json

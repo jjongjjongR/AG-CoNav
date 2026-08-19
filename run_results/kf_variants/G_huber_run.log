@@ -1,0 +1,6 @@
+[02:27:50] variant=kf_G_huber extra_params=
+[bag play 종료 02:46:46] capture 대기 중...
+[kf_G_huber] wheel FN%=4.66% (GT통과가능 618378개 중 pipeline이 막힘판정 28812개, 미측정 1.4%)
+[kf_G_huber] leg FN%=4.62% (GT통과가능 618378개 중 pipeline이 막힘판정 28598개, 미측정 1.4%)
+[kf_G_huber] 저장: run_results/kf_variants/G_huber_fn.json
+로그: /tmp/trav_fn_kf_G_huber   결과: run_results/kf_variants/G_huber_fn.json
