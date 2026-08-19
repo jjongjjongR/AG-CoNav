@@ -1,0 +1,33 @@
+{
+  "map_path": "run_results/pure_glim_gps_realtime_map.npz",
+  "grid_cap": {
+    "max_grid_cells": 30000000,
+    "max_requested_cells": 9402870,
+    "n_dropped_batches": 0,
+    "n_dropped_points": 0,
+    "cap_triggered": false
+  },
+  "coverage": {
+    "n_eval_cells": 1000000,
+    "n_valid_cells": 64140,
+    "coverage_percent": 6.414
+  },
+  "wheel_FN": {
+    "n_gt_traversable": 618378,
+    "n_pipeline_blocked_FN": 53756,
+    "n_pipeline_unknown": 562803,
+    "n_pipeline_free_correct": 1819,
+    "FN_percent": 8.693064759742423,
+    "unknown_percent": 91.01277859173516
+  },
+  "wheel_largest_component_percent": 0.0,
+  "leg_FN": {
+    "n_gt_traversable": 618378,
+    "n_pipeline_blocked_FN": 53009,
+    "n_pipeline_unknown": 562803,
+    "n_pipeline_free_correct": 2566,
+    "FN_percent": 8.572264860651575,
+    "unknown_percent": 91.01277859173516
+  },
+  "leg_largest_component_percent": 0.0033
+}

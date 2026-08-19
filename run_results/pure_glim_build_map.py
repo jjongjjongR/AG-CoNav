@@ -229,10 +229,16 @@ def main():
     t_arr, trans_arr, quat_arr = load_traj(traj_path)
     print(f'GLIM 궤적(LiDAR, 정합 전): {len(t_arr)}개 포즈, t=[{t_arr[0]:.2f},{t_arr[-1]:.2f}]')
 
-    imu_traj_path = traj_path.replace('traj_lidar.txt', 'traj_imu.txt')
-    t_imu, trans_imu, quat_imu = load_traj(imu_traj_path)
-    trans_arr, quat_arr = align_traj_to_gt(
-        bag_dir, t_imu, trans_imu, quat_imu, t_arr, trans_arr, quat_arr, align_window_s)
+    if align_window_s > 0:
+        # GPS 사후결합 등으로 이미 world/ENU 프레임으로 보정된 궤적을 넣을 때는
+        # align_window_s<=0으로 호출해 이 1회 초기정합을 건너뛴다(이미 GPS로
+        # 프레임이 맞춰진 궤적을 다시 GT 초반 5초로 재정합하면 이중보정이 된다).
+        imu_traj_path = traj_path.replace('traj_lidar.txt', 'traj_imu.txt')
+        t_imu, trans_imu, quat_imu = load_traj(imu_traj_path)
+        trans_arr, quat_arr = align_traj_to_gt(
+            bag_dir, t_imu, trans_imu, quat_imu, t_arr, trans_arr, quat_arr, align_window_s)
+    else:
+        print('align_window_s<=0 -- 초기 프레임 정합 건너뜀(이미 world 프레임 궤적으로 간주)')
 
     grid = GrowableMeanGrid(RES, max_grid_cells)
 

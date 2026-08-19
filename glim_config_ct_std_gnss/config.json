@@ -1,0 +1,21 @@
+{
+  /*** Global Configuration ***/
+  "global": {
+    "config_path": "",
+    "config_ros": "config_ros.json",
+    "config_logging": "config_logging.json",
+    "config_viewer": "config_viewer.json",
+    "config_sensors": "config_sensors.json",
+    "config_preprocess": "config_preprocess.json",
+    "config_gnss_global": "config_gnss_global.json",
+
+    // B: 실시간 GPS 결합 실험(2026-08-19). glim_config_ct_std(순수 표준 CT,
+    // constant_velocity_inf_scale=1e3 미수정 원본)에 glim_ext의
+    // libgnss_global.so만 추가한 조합 -- 정확도 튜닝은 여전히 하지 않는다.
+    // CT는 IMU 프레임에서 추정하지 않으므로 sub_mapping/global_mapping은
+    // passthrough/pose_graph 조합이 구조적으로 필요하다(GLIM 자체 제약).
+    "config_odometry": "config_odometry_ct.json",
+    "config_sub_mapping": "config_sub_mapping_passthrough.json",
+    "config_global_mapping": "config_global_mapping_pose_graph.json"
+  }
+}
