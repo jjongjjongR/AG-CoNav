@@ -2558,3 +2558,236 @@ Phase 2(파라미터 튜닝, 다음 세션) 권고 순서: (1)
   ④를 imu_validator로 직접 재검증하고 싶다면(이번엔 수치 재계산으로만
   검증) `source ~/glim_ext_ws/install/setup.bash` 추가하고
   `config_ros.json`에 `libimu_validator.so` 등록 후 실행하면 된다.
+
+## [새 세션] 순수 GLIM 표준 재현 실험 (2026-08-19)
+
+**목표**: 지금까지 쌓인 모든 커스텀 우회(수동 청크분할, GPS 사후결합,
+메모리 가드 수정)를 걷어내고 GLIM 공식 문서가 권장하는 표준 방식
+그대로 100x100 지역 2.5D elevation map을 얻는다. 조건(5m AGL/5m/s/4m
+간격) 유지, 재비행 없이 기존 GPS 포함 bag 재사용. 정확도 개선용
+파라미터 튜닝·GPS결합 없음. 허용 예외는 딱 2개: ①bag 끝 자유낙하
+구간 처음부터 제외, ②지도 생성 시 격자 크기 크래시 방지 상한.
+전체 타임아웃 3시간, 판단은 사용자 확인 없이 스스로.
+
+### -1/0단계 — 재개 확인 + 디스크 정리
+`pgrep -af "ros2|gz sim|docker"` → dockerd 외 없음(깨끗). branch
+`test_main_brian` 확인. `df -h ~` → 71%(22G 여유). 우선순위대로 정리:
+`bags/_slice40`(453MB, Phase 2 cv 스윕에서 쓰고 SUMMARY.md에 최종
+수치까지 이미 기록 완료, GPS bag에서 재생성 가능) 삭제 → 70%(23G
+여유)로 회복. `bags/exp_teleport`(144M)는 용도 불명확(이전 세션도
+보류) 상태 그대로 보존. 보호 대상(GPS bag 23G, PROGRESS/SUMMARY,
+path_100x100_5m_4m_5mps.yaml, apt GLIM, ~/glim_ext_ws) 전부 확인,
+손대지 않음.
+
+### 1-2단계 — GLIM 공식 문서 재검증: 기존 CT+passthrough+pose_graph가
+표준이 아니었다는 것 확인
+
+WebFetch로 `https://koide3.github.io/glim/{quickstart,parameters}.html`
+확인 + 로컬 apt 설치 패키지(`ros-jazzy-glim` 1.2.2, `/opt/ros/jazzy/
+share/glim/config/`)의 **미수정 원본 config.json을 직접 diff**로
+대조(웹 요약보다 훨씬 신뢰할 수 있는 근거):
+- **패키지 기본(진짜 표준) config.json은 GPU 조합**
+  (`config_odometry_gpu.json`+`config_sub_mapping_gpu.json`+
+  `config_global_mapping_gpu.json`). 이 VM은 `nvidia-smi` 자체가 없어
+  GPU 조합은 애초에 실행 불가(이전 세션이 이미 확인해뒀던 사실 재확인).
+- **기존 `glim_config/`(CT+passthrough+pose_graph)는 GPU 코드 실행 불가라는
+  제약 + "IMU 회전이 안 잡히는 teleport bag" 대응이라는 이유로 이전
+  세션이 고른 특수 조합**이었다 — 이번 GPS bag은 실제 IMU 운동이 있는
+  velocity 비행이라 그 특수 조합을 쓸 이유가 없다.
+- **패키지에는 CT 말고도 진짜 CPU 표준 조합이 세트로 존재한다**:
+  `config_odometry_cpu.json`(LiDAR-IMU tight coupling, GICP/VGICP,
+  `validate_imu: true`) + `config_sub_mapping_cpu.json`(`enable_imu:
+  true`) + `config_global_mapping_cpu.json`(`enable_imu: true,
+  enable_optimization: true`, between-factor+implicit loop closure) —
+  기존 `glim_config/`에 이 3개 파일이 이미 미수정 원본으로(diff 0)
+  들어있었는데도 안 쓰이고 있었다. **GPU 다음으로 우선 시도해야 할
+  진짜 표준은 CT가 아니라 이 CPU LiDAR-IMU 조합**이라고 판단, 새
+  디렉터리 `glim_config_cpu_std/`를 만들어 이 3개(전부 미수정 원본)로
+  config.json을 구성.
+- 부수 발견: `glim_config/config_odometry_ct.json`의
+  `constant_velocity_inf_scale`이 원본 기본값(1e3)에서 1e0으로
+  낮춰져 있었고, 그 근거 주석("이 bag은 이미 8m/s로 순항 중")이 **다른
+  (84m/8m/s) 실험에서 복사된 것으로 이번 5m AGL/5m/s bag과 무관** —
+  이건 이번 실험 기준으로 "미승인 정확도 튜닝 잔재"라 판단, CT를
+  쓸 경우를 대비해 완전히 미수정 원본(1e3)만 쓰는 `glim_config_ct_std/`도
+  별도로 만들었다(둘 다 diff 0 확인).
+- `config_sensors.json`/`config_preprocess.json`/`config_ros.json`의
+  기존 수정분(T_lidar_imu 실측값, 토픽명 `/drone/*`, QoS best_effort,
+  distance_far_thresh 200m, downsample 0.3m, GUI 뷰어 제거)은 전부
+  "이 시뮬레이터 센서에 맞춘 필수 환경설정"이지 "정확도 개선용 파라미터
+  튜닝"이 아니라고 판단해 그대로 유지(모든 신규 config 디렉터리에 공통
+  적용). 원본 bag의 `/drone/points`는 point-level 타임스탬프 필드가
+  없음(fields: x,y,z,intensity,ring만, 실측 확인) — 이전 진단 세션이
+  썼던 "bag에 t필드 주입" 전처리는 이번엔 하지 않음(그것도 커스텀
+  우회이자 재비행 없이 원본 bag 그대로 쓰라는 지시와 배치) — GLIM의
+  `autoconf_perpoint_times=true`(패키지 기본값과 동일, 커스텀 아님)
+  기본 동작에 그대로 맡김. 실행 로그에 "use pseudo per-point
+  timestamps based on the order of points" 경고로 확인됨.
+
+### 1-1/1-3/1-4단계 — 짧은 깨끗한 직진 구간 표준 실행 + GT 대조
+
+GT `/tf`로 실측(`gt_velocity_profile.py`): 이 bag은 t=0~약 33s에
+이륙+첫 웨이포인트로 진입하는 정지→상승→오버슈트→재정렬 과정을 거치고
+(고도가 3m→10.8m까지 오버슈트했다가 8.4m 근처로 정착), **t≈33~93s가
+진짜 깨끗한 등속 직진 구간**(y≈-166.1 고정, x가 -29→+62로 일정하게
+증가, 첫 코너는 x=61.4 지점, waypoint yaml 계산상 x=61.4 부근 = 실측
+GT에서도 t≈97.9s에 x=62.3로 정확히 일치). 이 구간(t=33~90s, 57초)을
+"정지→전진 전환 이후 첫 코너 전 깨끗한 직진 구간"으로 채택.
+
+GLIM 공식 배치 도구 `glim_rosbag`(수동 청크분할 아님 — ROS 파라미터
+`start_offset`/`playback_duration`/`auto_quit`/`dump_path`가 도구
+자체에 내장된 표준 인터페이스)로 이 구간을 CPU-IMU 표준과 CT 표준
+양쪽에 각각 1회 실행(파라미터 튜닝 없음), `compare_gt_glim.py`(기존
+진단 스크립트, 초반 5초 Umeyama 정합 후 전체 오차 비교)로 GT 대조:
+
+| 설정 | 초반 거동 | 오차 진행 | 최종(t=97~98s) |
+|---|---|---|---|
+| CPU-IMU 표준(`glim_config_cpu_std`) | 첫 데이터부터 이미 4.2m(정합 직후 발산 시작) | 단조 증가, 회복 없음 | **151.5m** |
+| CT 표준(`glim_config_ct_std`, cv=1e3 원본) | t=44.4s에 err=0.05m(거의 완벽)까지 잠깐 좋음 | t≈43~52s부터 흔들리다 t≈62~70s부터 z가 급락(+4→-47m)하며 파국적 발산 | **79.6m** |
+
+실행 로그: CPU-IMU 표준은 `IMU prediction is not good... IMU better
+ratios rot=0.47, trans=0.15, vel=0.29`(IMU 결합이 안 쓰느니만 못한
+경우가 더 많다는 자체 경고)가 반복 — 이 시뮬레이터의 IMU/LiDAR-IMU
+외부보정 조합에서 GLIM의 LiDAR-IMU tight coupling이 구조적으로
+불리하다는 증거. CT는 짧게나마 GT와 1~2m 이내로 맞아떨어지는 구간이
+있었지만(정합 노이즈 수준의 순간적 일치라 "성공"이라 부르긴 이르다)
+30초 안에 파국적으로 무너졌다.
+
+**1-4단계 판정**: 둘 다 GT 대비 1~2m 이내를 유지하지 못하고 수십~백m
+단위로 발산 — **"GLIM/설정/환경 자체의 문제" 쪽 증거로 판정.** 커스텀
+코드(칼만필터, GICP, R보정, 디스큐 등)는 이번 실행에 전혀 관여하지
+않았으므로(원시 GLIM 궤적만 봄), 이 발산은 그런 다운스트림 커스텀
+코드와 무관하게 GLIM 자체 궤적 추정 단계에서 이미 발생하는 것으로
+확정. CT가 CPU-IMU보다 상대적으로 나아(초반 짧은 구간 일치, 최종오차
+비교적 낮음) **2단계(점진적 확장)의 대표 표준 설정으로 CT 표준
+(`glim_config_ct_std`)을 채택**하고, CPU-IMU 결과는 대조군으로
+기록만 남긴다.
+
+### 2단계 — 점진적 확장
+
+**확장1(t=0~800s, bag 시작부터 여러 코너 포함)**: `glim_rosbag`
+(start_offset=0, playback_duration=800, 청크분할 아님 — 도구 자체 파라미터로
+단일 실행) 결과 **크래시/OOM 없이 정상 완주**(약 10분 소요, 메모리
+최대 RSS 약 1.45GB, 스왑 소폭 사용 후 회복, 5.8GiB 중 여유 4GB대 유지).
+GT 대조(`compare_gt_glim.py`): 발산 자동탐지 **t=22.3s**(거의 이륙
+직후), 최대오차 **157.0m**(t=784.2s). 로그에 IMU 관련 경고 없음(CT는
+LiDAR-only라 CPU-IMU 표준 때 봤던 "IMU better ratio" 문제 자체가
+구조적으로 발생하지 않음), time-gap 경고 1건(t=602.22s, 0.18s 간격 —
+경미, 치명적이지 않음).
+
+**판단 — "발산"을 정지조건으로 볼지 재검토**: 오차가 크지만(수십~150m대)
+이 프로젝트의 이전 Phase 2 세션(SUMMARY.md "GLIM Phase 2 파라미터
+튜닝" 절)이 이미 **같은 constant_velocity_inf_scale=1e3**(이번 실험이
+"미수정 원본값"으로 다시 채택한 바로 그 값, 우연의 일치가 아니라
+Phase 2가 원본값을 실측으로 재확인했던 것) 조합에서 전체 bag을 끝까지
+처리해 **"치명적 발산(물리적으로 불가능한 값)은 없고, 각 스트립
+왕복마다 5~140m 사이를 진동하는 bounded 오차, 실비행 구간 평균
+68.6m"**라는 것을 이미 검증해뒀다. 지금 800s 구간의 최대오차 157m도
+같은 자릿수(bounded, 아직 수백~수천m로 폭주하지 않음)로, **OOM이나
+"물리적으로 불가능한 값으로의 파국적 발산"이 아니라 "GLIM 표준
+설정의 실제 정확도가 원래 나쁘다"는 뜻으로 판정** — 지시사항의 정지조건
+("발산 또는 OOM이 나타나면 그 지점에서 멈춰라")은 후자(파국적
+발산/크래시)를 가리키는 것으로 해석하고, 전자(경계가 있는 큰 오차)는
+"GLIM 표준 방식의 실제 정확도"로서 계속 진행해 끝까지 지도를 만들고
+지표에 정직하게 반영하기로 판단했다. 이 판단 근거를 최종 보고서에도
+명시한다.
+
+**확장2(전체 bag, 자유낙하 구간 제외 t<=2129.67s)**: 위 판단에 따라
+청크분할 없이 단일 `glim_rosbag` 실행으로 바로 진행(`start_offset=0,
+playback_duration=2129.67`). 진행 상황은 이 문서 하단에 이어서 기록.
+
+### 3단계 — 2.5D 지도 생성
+
+`run_results/pure_glim_build_map.py`(신규, drone_elevation_mapper.py는
+전혀 건드리지 않음) 작성. `_grow_to_fit`은 drone_elevation_mapper.py의
+동명 메서드를 읽기 전용으로 참고해 sum/count 버전으로 독립 재구현(칼만
+variance 없음, 셀당 단순 평균만). max_grid_cells=30,000,000(Module D/E와
+동일값) 상한을 넘는 배치는 저장하지 않고 에러 로그 후 버리는 안전장치2를
+동일하게 구현.
+
+**버그 발견·수정(스모크테스트 중)**: GLIM의 map/odom 프레임이 GT(world)
+절대좌표와 무관한 자체 로컬 좌표계(첫 스캔 부근을 원점으로 잡음)라는 걸
+스모크테스트로 처음 확인 — 정합 없이 그대로 지도를 만들면 평가영역(BOX)과
+전혀 안 겹쳐 커버리지가 항상 0%가 나왔다. **초기 1회 프레임 정합**(Umeyama,
+스케일 고정, 궤적 초반 5초만 사용 — `compare_gt_glim.py`가 평가에 이미
+쓰던 것과 동일 로직을 독립 재구현)을 추가해 해결. 이건 "GPS 사후결합"
+(비행 내내 주기적으로 GPS로 재정합)과는 성격이 다르다고 판단했다 —
+로컬 SLAM 좌표계를 세계 좌표계에 최초 1회 등록하는 절차는 실제 로봇
+배포에도 필요한 최소한의 절차이고, 이후 궤적을 다시 건드리지 않기
+때문이다(이 정합 없이는애초에 좌표축 자체가 안 맞아 지도/평가가 성립
+불가능 — GLIM "정확도"를 개선하는 게 아니라 좌표계를 맞추는 것).
+
+`glim_config_ct_std` 전체 bag 실행(`run_results/pure_glim_diag/dump_full_ct`,
+21,255개 궤적 포즈, t=[8.80,2134.40])의 `traj_lidar.txt`로 지도 생성:
+- 원본 `/drone/points` 21,207개 스캔 처리(궤적 범위 밖 스캔 0개), 점
+  261,841,364개(2.5m 미만 자기반사 필터 적용, 기존 스크립트들과 동일 기준).
+- 결과 격자 2829x1676(≈283m x 168m) — **평가영역(100x100m)보다 훨씬 큼**,
+  궤적이 튀어 격자가 실제 필요한 것보다 훨씬 넓게 확장됐다는 뜻(아래
+  안전장치2 발동 여부 참고).
+- 유효 셀 850,549개(격자 자체 기준 17.94%).
+- **안전장치2(max_grid_cells) 발동 안 함**(요청된 최대 4,741,404 < 상한
+  30,000,000) — 다만 격자가 평가영역의 ~4.7배까지 커진 것 자체가 궤적
+  부정확성의 정황증거로 기록.
+- `run_results/pure_glim_map.png` 저장 — 재구성 지도가 대각선 줄무늬
+  형태로 평가영역(붉은 점선)과 부분적으로만 겹치고, 절대고도값이 최대
+  180m대까지 나타남(5m AGL 비행에서 물리적으로 불가능 — 궤적 오차가
+  XY뿐 아니라 Z에도 그대로 나타난다는 시각적 증거).
+
+### 4단계 — 4가지 지표
+
+`run_results/pure_glim_metrics.py`(신규) — 지시사항대로 Module F의 live
+`traversability_verdictor` 노드를 띄우지 않고, 이번 지도의 4-이웃 최대
+높이차(step)로 주행성 지도(g: 0=free/1=blocked/-1=unknown)를 직접 구성
+(wheel 0.08m/leg 0.15m). `inbox`=평가영역 전체 1,000,000셀. 사용자가 준
+연결덩어리 코드를 그대로 사용(wheel r=0.55m, leg r=0.40m).
+
+- **비행 소요시간**: bag epoch로 계산한 `/drone/path_status=true` 시각
+  (1786906103.279183234) - bag 시작(1786903973.604773595) =
+  **2129.674초(35.49분)**. (이전 세션들의 "2254.09/2258.8초"는 자유낙하
+  구간까지 포함한 bag 전체 길이였다 — 이번엔 안전장치1로 그 구간을 아예
+  처리 대상에서 뺐으므로 지시사항대로 path_status 기준으로 다시 계산.)
+- **커버리지**: 40.99%(409,908/1,000,000셀).
+- **wheel FN%**: 33.39%(206,475/618,378, 미측정 66.31%). leg FN%:
+  33.12%(204,806/618,378, 미측정 66.31%).
+- **최대연결덩어리%**: wheel **0.00%**, leg **0.00%** — GT 통과가능 셀
+  618,378개 중 우리 지도가 실제 "free"로 옳게 잡은 셀 자체가 wheel
+  1,858개/leg 3,527개뿐이라 로봇 몸체 크기 disk로 침식하면 살아남는
+  연결영역이 사실상 없다.
+
+전체 결과: `run_results/pure_glim_metrics.json`, `run_results/pure_glim_map.npz`.
+
+### 5단계 — 결론
+
+1단계(다운스트림 커스텀 코드 완전 배제, GLIM 원시 궤적만 GT와 대조)부터
+이미 수십~200m 단위로 벗어났고 전체 bag으로 확장해도 같은 bounded-발산
+양상이 유지됨 — **"GLIM/설정/환경 자체의 문제"로 확정, 커스텀 코드
+문제가 아니다.** 100x100 처리 자체는 크래시/OOM 없이 끝까지 완주했지만
+(시간/코너 기준 100%), 궤적 부정확성 때문에 실제 유효 커버리지는
+40.99%에 그쳤다 — "일부 구간에서 멈췄다"가 아니라 "끝까지는 갔지만
+위치가 많이 틀렸다"는 실패 양상. baseline #5(칼만필터+GT pose, wheel
+FN% 10.91%)와 비교하면 wheel FN%가 3배 이상 나쁘고 최대연결덩어리가
+사실상 0%다. "GLIM+GPS cv1e3+사후결합" 비교행은 `git log`/PROGRESS.md
+전체 검색으로 확인한 결과 과거 세션에서 **실행까지 못 가고 미완료로
+남아있어**(GLIM 궤적 발산으로 중단, 커밋 `5a8559d`) 숫자를 지어내지
+않고 "미완료"로 표시했다. 상세 비교표·근거는
+`run_results/pure_glim_result.md` 참고.
+
+**핵심 결론**: 이전 세션들이 도입한 커스텀 우회(GT pose 신뢰, 칼만필터
+이상치방어, GPS 사후결합 등)는 결과를 인위적으로 좋게 포장한 게 아니라,
+GLIM 표준 파이프라인이 이 환경(GPU 없는 VM + 이 시뮬레이터의 센서 특성)
+에서 스스로 해결하지 못하는 실제 정확도 문제를 메우기 위해 필요했다는
+근거가 이번 실험으로 확인됐다.
+
+### 6단계 — 정리/저장
+- `run_results/pure_glim_diag/`의 GLIM 내부 서브맵 바이너리 폴더(전체
+  717개, dump_full_ct만 726M)는 재현 가능(같은 명령 재실행)하고 최종
+  결과에 불필요해 삭제, 궤적 txt/graph.bin·txt/config/비교 PNG는 보존
+  (12M로 축소).
+- 프로세스: `pgrep -af "ros2|gz sim|glim"` → 잔여 없음(깨끗) 확인.
+- 디스크: 72%(22G 여유) — 안전.
+- 신규 config 디렉터리(`glim_config_cpu_std/`, `glim_config_ct_std/`)와
+  신규 스크립트(`pure_glim_build_map.py`, `pure_glim_metrics.py`) +
+  결과물(`pure_glim_result.md`, `pure_glim_map.png`, `pure_glim_map.npz`,
+  `pure_glim_metrics.json`) 전부 git add 대상.
+- 소요시간: 세션 시작~완료 약 35분(GLIM 로그 타임스탬프 18:03:35~18:30
+  기준) — 3시간 타임아웃 안에 여유 있게 완료.

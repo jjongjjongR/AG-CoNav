@@ -1,0 +1,39 @@
+{
+  "glim_ros": {
+    "acc_scale": 0.0,
+    "base_frame_id": "",
+    "enable_global_mapping": true,
+    "enable_local_mapping": true,
+    "extension_modules": [
+      "libmemory_monitor.so",
+      "librviz_viewer.so"
+    ],
+    "image_qos": {
+      "profile": "sensor_data"
+    },
+    "image_topic": "/image",
+    "imu_frame_id": "",
+    "imu_qos": {
+      "depth": 1000,
+      "durability": "volatile",
+      "profile": "sensor_data",
+      "reliability": "best_effort"
+    },
+    "imu_time_offset": 0.0,
+    "imu_topic": "/drone/imu",
+    "keep_raw_points": false,
+    "lidar_frame_id": "",
+    "map_frame_id": "map",
+    "odom_frame_id": "odom",
+    "points_qos": {
+      "depth": 10,
+      "durability": "volatile",
+      "profile": "sensor_data",
+      "reliability": "best_effort"
+    },
+    "points_time_offset": 0.0,
+    "points_topic": "/drone/points",
+    "publish_imu2lidar": true,
+    "tf_time_offset": 1e-06
+  }
+}

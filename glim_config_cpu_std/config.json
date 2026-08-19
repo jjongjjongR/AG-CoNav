@@ -1,0 +1,27 @@
+{
+  /*** Global Configuration ***/
+  "global": {
+    "config_path": "",
+    "config_ros": "config_ros.json",
+    "config_logging": "config_logging.json",
+    "config_viewer": "config_viewer.json",
+    "config_sensors": "config_sensors.json",
+    "config_preprocess": "config_preprocess.json",
+
+    // 표준 재현 실험(2026-08-19). 패키지 기본 config.json(GPU 조합)을 그대로
+    // 쓰지 못하는 이유는 이 VM에 GPU가 없기 때문(nvidia-smi 없음, 1단계 조사에서
+    // 이미 확인됨) 뿐이다. GLIM이 실제로 제공하는 CPU 대안은 CT(LiDAR 전용,
+    // IMU 미사용) 하나가 아니라 config_odometry_cpu.json(LiDAR-IMU tight coupling,
+    // GICP/VGICP, validate_imu=true)도 있고, 이 CPU 조합에는 짝이 맞는
+    // config_sub_mapping_cpu.json/config_global_mapping_cpu.json(둘 다
+    // enable_imu=true, IMU 프레임에서 정상 추정)까지 세트로 존재한다.
+    // 이전 세션이 썼던 CT+passthrough+pose_graph 조합은 "IMU 회전이 안 잡히는
+    // teleport bag"을 위한 특수 조합이었는데, 이번 velocity bag은 실제 IMU
+    // 운동이 있으므로 그 특수 조합을 쓸 이유가 없다 — GLIM이 제공하는 진짜
+    // CPU 표준 조합(odometry_cpu + sub_mapping_cpu + global_mapping_cpu, 셋 다
+    // 패키지 기본값 그대로, 파라미터 튜닝 없음)을 표준으로 채택한다.
+    "config_odometry": "config_odometry_cpu.json",
+    "config_sub_mapping": "config_sub_mapping_cpu.json",
+    "config_global_mapping": "config_global_mapping_cpu.json"
+  }
+}

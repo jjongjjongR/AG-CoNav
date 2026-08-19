@@ -1,0 +1,30 @@
+[2026-08-19 18:05:41.499] [glim] [info] config_path: /home/hyunwoo-chae/AG-CoNav-test_main/glim_config
+[2026-08-19 18:05:41.500] [glim] [info] load libodometry_estimation_ct.so
+[2026-08-19 18:05:41.501] [glim] [info] load libsub_mapping_passthrough.so
+[2026-08-19 18:05:41.503] [glim] [info] load libglobal_mapping_pose_graph.so
+[2026-08-19 18:05:41.504] [glim] [info] load libmemory_monitor.so
+[2026-08-19 18:05:41.504] [glim] [info] load librviz_viewer.so
+[2026-08-19 18:05:41.528] [glim] [info] topics:
+[2026-08-19 18:05:41.528] [glim] [info] - /drone/imu
+[2026-08-19 18:05:41.528] [glim] [info] - /drone/points
+[2026-08-19 18:05:41.528] [glim] [info] - /image
+[2026-08-19 18:05:41.528] [glim] [info] bag_filenames:
+[2026-08-19 18:05:41.528] [glim] [info] - /home/hyunwoo-chae/AG-CoNav-test_main/bags/velocity_4m_5mps_gps_attempt2
+[2026-08-19 18:05:41.528] [glim] [warning] param glim_ros/playback_speed not found
+[2026-08-19 18:05:41.528] [glim] [warning] use default_value=100
+[2026-08-19 18:05:41.528] [glim] [info] opening /home/hyunwoo-chae/AG-CoNav-test_main/bags/velocity_4m_5mps_gps_attempt2
+[2026-08-19 18:05:41.530] [glim] [info] detected storage_id=mcap from metadata.yaml
+[2026-08-19 18:05:41.542] [glim] [info] skipping msg for start_offset 33
+[2026-08-19 18:05:41.548] [glim] [warning] per-point timestamps are not given!!
+[2026-08-19 18:05:41.548] [glim] [warning] use pseudo per-point timestamps based on the order of points
+[2026-08-19 18:05:41.561] [rviz] [info] auto-detected IMU frame ID: drone/base_link
+[2026-08-19 18:05:41.561] [rviz] [info] auto-detected LiDAR frame ID: drone/os1_lidar
+[2026-08-19 18:05:41.561] [rviz] [info] base_frame_id is not set. using IMU frame ID 'drone/base_link' as base frame ID.
+[2026-08-19 18:05:51.547] [glim] [info] playback speed: 4.683x
+[2026-08-19 18:05:53.598] [glim] [info] reached playback_duration (57.009301249 > 57)
+[2026-08-19 18:05:53.602] [glim] [info] waiting for odometry estimation
+[2026-08-19 18:05:53.690] [glim] [info] waiting for local mapping
+[2026-08-19 18:05:53.701] [glim] [info] waiting for global mapping
+[2026-08-19 18:05:53.807] [global] [info] saving to /home/hyunwoo-chae/AG-CoNav-test_main/run_results/pure_glim_diag/dump_seg1_ct...
+[2026-08-19 18:05:53.807] [global] [info] serializing factor graph to /home/hyunwoo-chae/AG-CoNav-test_main/run_results/pure_glim_diag/dump_seg1_ct/graph.bin
+[2026-08-19 18:05:53.882] [global] [info] saved

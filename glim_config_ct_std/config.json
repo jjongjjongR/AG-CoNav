@@ -1,0 +1,27 @@
+{
+  /*** Global Configuration ***/
+  "global": {
+    "config_path": "",
+    "config_ros": "config_ros.json",
+    "config_logging": "config_logging.json",
+    "config_viewer": "config_viewer.json",
+    "config_sensors": "config_sensors.json",
+    "config_preprocess": "config_preprocess.json",
+
+    // 표준 재현 실험(2026-08-19). CT(LiDAR-only) odometry는 IMU 프레임에서
+    // 추정하지 않으므로 짝이 맞는 sub_mapping/global_mapping은 반드시
+    // passthrough/pose_graph여야 한다(구조적 요구사항, 사용자가 고른 옵션이
+    // 아니라 GLIM 자체 제약 -- 다른 조합을 주면 "odom frames are not
+    // estimated in the IMU frame"으로 즉시 거부됨). 이 세 파일은 전부
+    // /opt/ros/jazzy/share/glim/config/의 패키지 기본값과 diff 0(완전히
+    // 동일) -- constant_velocity_inf_scale 등 어떤 파라미터도 튜닝하지
+    // 않았다. 기존 glim_config/config_odometry_ct.json은
+    // constant_velocity_inf_scale을 1e3(기본값)에서 1e0으로 낮춰뒀었는데,
+    // 그 근거 주석("이 bag은 이미 8m/s로 순항 중")이 실은 다른(84m/8m/s)
+    // 실험에서 복사된 것으로 이번 5m AGL/5m/s bag과 무관함 -- 이번 표준
+    // 재현에서는 그 커스텀을 걷어내고 기본값(1e3) 그대로 쓴다.
+    "config_odometry": "config_odometry_ct.json",
+    "config_sub_mapping": "config_sub_mapping_passthrough.json",
+    "config_global_mapping": "config_global_mapping_pose_graph.json"
+  }
+}
