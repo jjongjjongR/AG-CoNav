@@ -1,0 +1,65 @@
+{
+  "tag": "kf_G_huber",
+  "elevation_map": {
+    "size_m": [
+      100.4,
+      103.60000000000001
+    ],
+    "resolution": 0.1,
+    "n_cells": 1040144,
+    "n_valid": 997515,
+    "coverage_percent": 95.90162515959328,
+    "height_min": 1.1679785251617432,
+    "height_max": 8.81170654296875
+  },
+  "features": {
+    "slope": {
+      "median": 0.03604745306074619,
+      "p95": 0.13531273156404483,
+      "max": 1.5474735498428345,
+      "wheel_exceed_percent": 0.0,
+      "leg_exceed_percent": 0.0
+    },
+    "step": {
+      "median": 0.0056476593017578125,
+      "p95": 0.6020138978957837,
+      "max": 6.360499858856201,
+      "wheel_exceed_percent": 5.7833410024832,
+      "leg_exceed_percent": 5.605496925823783
+    }
+  },
+  "/leg/nav_map": {
+    "width": 1004,
+    "height": 1036,
+    "resolution": 0.10000000149011612,
+    "unknown_percent": 4.536967958282699,
+    "free_percent": 90.11790675137289,
+    "blocked_percent": 5.345125290344414,
+    "free_of_known_percent": 94.40084273878018
+  },
+  "/wheel/nav_map": {
+    "width": 1004,
+    "height": 1036,
+    "resolution": 0.10000000149011612,
+    "unknown_percent": 4.536967958282699,
+    "free_percent": 90.00474934239874,
+    "blocked_percent": 5.458282699318556,
+    "free_of_known_percent": 94.2823074203915
+  },
+  "wheel_FN": {
+    "n_gt_traversable": 618378,
+    "n_pipeline_occupied_FN": 28812,
+    "n_pipeline_unknown": 8858,
+    "n_pipeline_free_correct": 580708,
+    "FN_percent": 4.659286067744971,
+    "unknown_percent": 1.432457170209807
+  },
+  "leg_FN": {
+    "n_gt_traversable": 618378,
+    "n_pipeline_occupied_FN": 28598,
+    "n_pipeline_unknown": 8858,
+    "n_pipeline_free_correct": 580922,
+    "FN_percent": 4.624679403212921,
+    "unknown_percent": 1.432457170209807
+  }
+}
