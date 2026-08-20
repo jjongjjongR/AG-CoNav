@@ -1,4 +1,0 @@
-[methodb_4m_5mps] wheel FN%=37.26% (GT통과가능 618378개 중 pipeline이 막힘판정 230401개, 미측정 0.5%)
-[methodb_4m_5mps] leg FN%=30.03% (GT통과가능 618378개 중 pipeline이 막힘판정 185670개, 미측정 0.5%)
-[methodb_4m_5mps] 저장: run_results/methodb_4m_5mps_fn.json
-로그: /tmp/trav_fn_methodb_4m_5mps   결과: run_results/methodb_4m_5mps_fn.json

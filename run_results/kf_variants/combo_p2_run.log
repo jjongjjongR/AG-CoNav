@@ -1,6 +1,0 @@
-[04:47:31] variant=kf_combo_p2 extra_params=-p building_mixture_enabled:=true -p innovation_gate_threshold:=16.0 -p r_combination_mode:=additive -p directional_r_enabled:=true -p adaptive_r_enabled:=true
-[bag play 종료 05:06:27] capture 대기 중...
-[kf_combo_p2] wheel FN%=4.35% (GT통과가능 618378개 중 pipeline이 막힘판정 26888개, 미측정 1.4%)
-[kf_combo_p2] leg FN%=4.29% (GT통과가능 618378개 중 pipeline이 막힘판정 26526개, 미측정 1.4%)
-[kf_combo_p2] 저장: run_results/kf_variants/combo_p2_fn.json
-로그: /tmp/trav_fn_kf_combo_p2   결과: run_results/kf_variants/combo_p2_fn.json

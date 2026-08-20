@@ -1,287 +1,274 @@
-# AG-CoNav
+# gicp-gt-pose — 방법B(GT pose + GICP 정합) 재현 실험
 
-**Aerial-Ground Cooperative Navigation — 이기종 3로봇 통합 시뮬레이션**
+이 브랜치는 AG-CoNav 시뮬레이션에서 나온 한 가지 실험만 다룬다: **드론이
+낮은 고도(5m AGL)에서 촘촘한 간격(4m)으로 빠르게(5m/s) 스캔했을 때, GT
+pose에 GLIM의 GICP 정합(`small_gicp`)을 추가로 걸면 지형 지도 품질이
+좋아지는가, 나빠지는가?**
 
-> 새 알고리즘 연구가 아니라, 기존 라이브러리(ROS2 · Gazebo · Nav2 · grid_map/elevation_mapping · robot_localization)를 조합해 **드론·4륜·4족 3대가 하나의 시뮬레이션에서 함께 동작하고, 세 로봇의 지도를 하나로 통합**하는 **통합 엔지니어링 과제**. (한양대학교 UNICONLAB 인턴)
+이미 한 번 이 조건에서 돌려서 **GICP가 오히려 결과를 악화시킨다**는
+결과를 얻었다(아래 7절 참고). 이 문서는 그 결과를 **재현/검증**하기 위한
+것이다. 전체 AG-CoNav 프로젝트(3로봇 통합 시뮬레이션) 자체에 대한 설명은
+[`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md)를 참고하라 — 이 문서는 그
+위에서 이 실험 하나를 처음부터 끝까지 그대로 따라 칠 수 있게 하는 것이
+목적이다.
 
----
-
-## 1. 프로젝트 개요
-
-미지의 도시 환경에서 이기종 로봇 3대가 협력해 지도를 만들고 목표를 탐지한다.
-
-- **드론(drone)** — 수동(사람이 pose 경로 지정), 상공에서 하향 LiDAR로 먼저 지형을 훑어 **2.5D 지도**를 만든다.
-- **4륜(wheel, Husky A300)** — 개활지·연속 도로를 빠르게 이동한다.
-- **4족(leg, Unitree Go2 + CHAMP)** — 낮은 장애물이 막은 길 등 지상을 이동한다.
-
-지상 로봇은 SLAM을 새로 돌리지 않는다(드론 지도가 이미 있음). 드론 2.5D 지도에서 **로봇별 주행 가능 맵(wheel용·leg용)을 분리**하고, 각 로봇이 자기 주행맵으로 **Nav2** 이동하면서 자기 LiDAR로 주변 지형을 **자기 2.5D 지도로 누적**한다. 마지막에 **드론·4륜·4족 세 2.5D 지도를 하나로 병합**한다.
-
-### 근본 목표 (이 둘이 메인)
-
-1. **3대 이기종 로봇이 하나의 시뮬레이션에서 동시 구동**된다.
-2. **세 로봇의 지도를 하나로 통합**한다.
-
-> 정밀 탐지·임무 배분·LLM·RL은 현재 범위에서 제외(컷).
-
-### 미션 플로우
-
-```
-드론 탐지(고도 84m, 하향)  →  드론 2.5D 지도 생성
-        │
-        ▼
-wheel 주행가능 맵 · leg 주행가능 맵 분리   ← 드론 2.5D 에서 로봇별 주행 영역 산출
-        │
-        ▼
-각 로봇이 자기 주행맵으로 Nav2 이동  +  이동 중 자기 2.5D 지도 누적
-        │
-        ▼
-드론 + wheel + leg  세 2.5D 지도 → 하나로 병합(/merged_map)   ← 최종 결과물
-        │
-        ▼
-     복귀  →  로봇 출동
-        │
-        ▼
-   RViz2 로 통합 시각화
-```
+> 칼만필터·실시간/사후결합 GPS·FAST-LIO2·84m 조건 등 이 저장소에서
+> 나왔던 다른 실험들은 이 브랜치에 없다. 그건 `test_main_brian` 브랜치에
+> 있다. 이 브랜치는 방법B(5m AGL/4m/5mps) 하나만 남기려고 의도적으로
+> 가지치기했다 — 무엇을 왜 지웠는지는 [`run_results/PROGRESS.md`](run_results/PROGRESS.md)에
+> 기록되어 있다.
 
 ---
 
-## 2. 확정 사항 (Fixed)
+## 1. 무엇을 테스트하는가
 
-### 2.1 환경 · 버전
+- **월드**: 100×100m 성동구 동적 월드(`Seongdong_gu_100x100_dynamic`).
+- **비행**: 고도(AGL) 5m, 스캔 라인 간격 4m, 순항 속도 5m/s
+  (`path_100x100_5m_4m_5mps.yaml`). 낮은 고도·촘촘한 간격·빠른 속도라
+  코너(라운마워 경로의 180도 턴)가 25개나 있고, 코너마다 스캔이 순간적으로
+  아주 작아진다 — 이게 아래 결과 해석의 핵심이다.
+- **비교 대상 두 가지**(둘 다 드론의 실제 물리 pose, 즉 GT pose를 씀 —
+  SLAM 추정 pose 아님):
+  - **baseline**: GT pose로 스캔을 그대로 지도에 쌓는다. 정합 없음.
+  - **방법B**: GT pose를 초기 정렬값으로 주고, 직전 6개 스캔을 타깃으로
+    GICP(`small_gicp`, GLIM이 쓰는 것과 같은 정합 라이브러리)로 미세
+    정합한 pose로 쌓는다. GICP가 수렴 안 하거나(또는 수렴은 했지만 GT 대비
+    2.0m 넘게 이탈하는, 물리적으로 말이 안 되는 해면) GT pose로 안전
+    폴백한다.
+- **채점**: 드론 2.5D 지도 → wheel(0.08m 단차 기준)/leg(0.15m 단차 기준)
+  주행가능 맵으로 변환한 뒤, `height_map.png` 기반 GT "실제 통과가능"
+  셀과 대조해 **FN%**(실제로는 통과 가능한데 파이프라인이 "막힘"으로
+  오판한 비율)를 wheel/leg 각각 계산한다.
+
+### 우리가 이미 얻은 참고 결과값 (이걸 재현/검증하는 것이 이 문서의 목적)
+
+| | wheel FN% | leg FN% |
+| --- | --- | --- |
+| baseline (GT pose, 정합 없음) | **13.44%** | **12.60%** |
+| 방법B (GT pose + GICP) | **37.26%** | **30.03%** |
+
+**즉 이 조건에서는 GICP를 추가하는 게 오히려 FN%를 2배 이상 악화시켰다.**
+원인으로 진단된 것: 코너마다 스캔이 아주 작아지는 구간에서 GICP가
+"수렴은 했지만" 물리적으로 말이 안 되는 국소해(예: z가 튀는 등)로 잘못
+정합되는 사례가 실제로 관측됐다(`build_methodB_cloud.py` 상단 주석
+참고). 이 문서를 그대로 따라가서 **같은 방향의 결과(방법B가 baseline보다
+나쁨)가 재현되는지, 정확한 수치가 위 표와 비슷한지**를 확인하는 것이
+검증의 핵심이다.
+
+---
+
+## 2. 환경 요구사항
 
 | 항목 | 값 |
 | --- | --- |
 | OS | Ubuntu 24.04 LTS (Noble) |
-| 미들웨어 | ROS 2 **Jazzy Jalisco** (LTS ~2029) |
-| 시뮬레이터 | **Gazebo Harmonic** (gz-sim 8, LTS ~2028) |
-| 내비게이션 | Nav2 (Jazzy apt) |
-| 2.5D 지도화 | `grid_map` + `elevation_mapping` |
-| 위치추정 | `robot_localization` (EKF + navsat) |
-| 브리지 / 시각화 / 로깅 | `ros_gz` / RViz2 / rosbag2(mcap) |
-| 언어 | Python 3.12(시스템, **venv 미사용**) / C++17 |
-| 빌드 | `colcon build --symlink-install` |
-| RMW / DOMAIN | `rmw_fastrtps_cpp` / `ROS_DOMAIN_ID=42` (전원 동일) |
-
-### 2.2 지형 · 맵
-
-| 항목 | 값 |
-| --- | --- |
-| 장소 | **서울 성수동** (일반 도시, 숲·계단 없음) |
-| 좌표 원점(datum) | **37.5412278, 127.0565741** |
-| 크기 | **500 m × 500 m** |
-| 4족(leg)용 조건 | **낮은 장애물로 길 막기** |
-| 4륜(wheel)용 조건 | **끊기지 않은 연속 도로** |
-| map 원점 | Gazebo world 원점 (0,0,0)와 일치 |
-
-### 2.3 로봇 · 센서
-
-| 항목 | 값 |
-| --- | --- |
-| 드론 | Gazebo 멀티콥터, **수동 pose 이동**(kinematic, 자율비행 없음) |
-| 4륜(wheel) | Clearpath **Husky A300** |
-| 4족(leg) | Unitree **Go2 + CHAMP** (`unitree_go2_ros2_jazzy`) |
-| 센서 | **Ouster OS1-32 (3D LiDAR) — 3대 통일** |
-| 드론 LiDAR | **하향 장착**, 탐지 고도 **84 m** |
-| GPS / IMU | GPS 적극 활용(GT 아님) + **IMU 사용**(skid-steer·보행 yaw 드리프트 보정) |
-
-**OS1-32 스펙**: 32채널 / 수직 FOV 42.4°(±21.2°) / 수평 360° / 사거리 0.5–170 m(80% 반사)·90 m(10%) / 최소 0.5 m / 10–20 Hz / 865 nm / 최대 2 returns.
-
-### 2.4 지도화 · 위치추정 · 주행
-
-| 항목 | 값 |
-| --- | --- |
-| SLAM 방식 | **2.5D SLAM** (elevation 격자) |
-| 드론 지도 | 하향 스캔 → 2.5D 고도맵 |
-| 주행 가능 맵 | 드론 2.5D → **wheel용·leg용 2D 주행맵 분리** (로봇별 지형 통과 기준) |
-| 위치추정 | robot_localization(EKF + navsat), GPS 기반, **GT 사용 안 함** |
-| 지상 주행 | **Nav2 공통 설정**으로 wheel·leg, **각자 주행맵** 사용. Voxel Layer로 점군 직접(LaserScan 없음) |
-| 지상 지도 | SLAM 아님 → 자기 주행맵 위 Navigation + 자기 elevation 지도 누적 |
-| 맵 병합 | `multirobot_map_merge` Jazzy 미지원 → **커스텀**(`agconav_map_fusion`) |
+| ROS | ROS 2 **Jazzy Jalisco** |
+| 시뮬레이터 | Gazebo Harmonic (gz-sim 8) |
+| Python | 3.12 (시스템, venv 미사용) |
+| CPU | 최소 4코어 권장 (`build_methodB_cloud.py`의 GICP가 `num_threads=4`로 고정 호출됨) |
+| GPU | **선택 사항.** 아래 8절 참고 — 현재 코드는 CPU만 쓰고, GPU를 실제로 활용하려면 코드 변경이 필요할 가능성이 높다(확인 필요, 8절 참고). |
+| RAM | 이 조건(스캔 21,771개, 누적 점 약 2.67억 개)은 이 저장소 안에서 가장 무거운 실험이다. 원래 방식(전체를 메모리에 들고 있다가 한 번에 concatenate)은 **5.8GB RAM에서 실제로 OOM-kill됐다**(`build_methodB_cloud.py` 상단 주석 참고). 지금 스크립트는 그 문제를 스트리밍 방식으로 고쳤지만, 그래도 **8GB 이상, 가능하면 16GB 이상**을 권장한다. |
+| 디스크 | 이 비행의 bag은 수십 GB급이 될 수 있고(참고: 비슷한 조건의 다른 bag이 23GB였다), baseline/방법B 포인트클라우드(.npy)도 각각 GB 단위다. **여유 공간 60GB 이상**을 권장한다. |
 
 ---
 
-## 3. 공통 규약 (Conventions) — 모듈이 맞물리는 접점
-
-### 3.1 좌표 · 프레임 · TF
-
-- 전역 프레임 **`map` 하나**, 원점 = **Gazebo world (0,0,0)**. map=ENU, base_link=FLU, 오른손 좌표계.
-- TF 사슬: `map → X/odom → X/base_link → X/{os1_lidar, gps_link}` (X = drone/wheel/leg).
-- **TF 소유권 — 한 관계에 발행자 하나.**
-  - `map→X/odom` = 위치추정(robot_localization)만 (wheel·leg)
-  - `X/odom→X/base_link` = 시뮬 오도메트리만 (wheel·leg)
-  - **드론**: kinematic이라 `drone_path_player`가 명령 pose로 **`map→drone/base_link`를 직접 발행**(odom·EKF 없음). 드론엔 사실상 명령 pose를 그대로 쓴다(수동 비행 경로 = 알고 있는 값).
-  - `X/base_link→센서` = robot_state_publisher만
-- `earth`/`utm` 프레임은 필요 확인 전까지 트리에 넣지 않는다.
-- 드론 TF: `drone_path_player`가 명령 pose로 `map→drone/base_link` 직접 발행 — 3.1
-
-### 3.2 단위 (SI)
-
-| 물리량 | 단위 |
-| --- | --- |
-| 길이·위치 | m |
-| 각도 | rad |
-| 속도 / 각속도 | m/s / rad/s |
-| 방향 | quaternion |
-| 시간 | ROS Time (s), Gazebo `/clock` 기준 |
-
-### 3.3 지도
-
-- 해상도 **0.10 m/cell**(전 지도 동일 → 병합 시 리샘플 불필요) · 2.5D 핵심 레이어 **`elevation`**(m).
-- **미관측 셀 = `NaN`** (grid_map 표준). Nav2용 2D(OccupancyGrid) 투영 시 자유 0 / 점유 100 / 미관측 −1(NaN→−1).
-- **주행성 통과 기준(F)**: wheel = 최대 경사 20°·최대 단차 **0.08 m**, leg = 최대 경사 30°·최대 단차 **0.15 m**. → 월드의 낮은 장애물은 **정확히 0.10 m**(wheel 막힘·leg 통과)로 배치해야 두 nav_map이 갈린다. (0.11 m↑는 leg 판정 불안정 구간, 값은 yaml 튜닝)
-- **병합 규칙(E)**: 같은 해상도 전제, 출력 = 세 입력의 합집합 범위. 중복 셀은 **지상(wheel/leg) 관측 우선 → 드론**(가림영역 세부 보완 목적), 유효값을 NaN으로 덮지 않음.
-- **저장 형식**: 2.5D elevation = **rosbag2 `mcap`으로 GridMap 직렬화**, 2D nav_map/occupancy = **map_server `.yaml`+`.pgm`**.
-- **미관측 셀** = `NaN` (2D 투영 시 −1) — 3.3
-- **통과 기준**: wheel 20°/0.08 m, leg 30°/0.15 m — 3.3
-- **병합**: 같은 해상도·합집합 범위·지상 우선 — 3.3
-- **저장**: 2.5D=mcap(GridMap), 2D=map_server(yaml+pgm) — 3.3
-
-### 3.4 시간 · 네임스페이스 · QoS
-
-- 전 노드 `use_sim_time: true`, `/clock`의 유일 소스는 Gazebo.
-- 네임스페이스 `/drone`, `/wheel`, `/leg`.
-- QoS: 센서(points/gps/imu) = best_effort · 명령·odom = reliable · 지도(elevation/map/merged) = reliable + transient_local(래치).
-
-### 3.5 환경 변수 (전원 `~/.bashrc`)
+## 3. 설치
 
 ```bash
-export ROS_DOMAIN_ID=42
-export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-```
+# 1) 워크스페이스 clone
+git clone <이 저장소 URL> AG-CoNav-gicp-gt-pose
+cd AG-CoNav-gicp-gt-pose
+git checkout gicp-gt-pose
 
----
-
-## 4. 모듈 A~F (담당 · 책임 · 입출력)
-
-각 모듈의 상세 스펙(범위 밖·전제조건·완료기준)은 별도 설계 문서로 관리한다. 아래는 요약.
-
-| 모듈 | 담당 | 책임(한 줄) | 주요 입력 | 주요 출력 |
-| --- | --- | --- | --- | --- |
-| **A 드론 지도 생성** | 홍연주 | 드론을 pose 경로로 이동시키며 하향 LiDAR로 2.5D 지도 누적 | 경로 YAML, `/drone/points`, 드론 pose/TF | `/drone/elevation_map`, 저장 |
-| **F 지형 주행성 분석** | 이종헌 | 드론 2.5D → **wheel/leg 주행가능 맵 분리** | `/drone/elevation_map`, 로봇별 통과기준 | `/wheel/nav_map`, `/leg/nav_map` |
-| **B 지상 위치추정** | 이수빈 | wheel·leg의 GPS+odom을 융합해 공통 map 좌표 정렬 | `/X/gps`, `/X/odom` | `map→X/odom` TF, 필터 odom |
-| **C 지상 Nav2 이동** | 이수빈 | 공통 Nav2로 wheel·leg를 **각자 주행맵**으로 목표까지 이동 | `/X/nav_map`, B의 TF, `/X/points` | `/X/cmd_vel`, 경로/상태 |
-| **D 지상 지도 누적** | 채현우 | wheel·leg가 이동하며 주변 지형을 2.5D 지도로 누적 | `/X/points`, B의 pose/TF | `/wheel/elevation_map`, `/leg/elevation_map`, 저장 |
-| **E 모든 지도 병합** | 채현우 | 세 2.5D 지도를 하나로 병합 | 3개 `elevation_map` | `/merged_map`, 저장 |
-
-- **F(주행성 분석)**: 드론 2.5D에서 로봇별(경사·단차 기준) 통과 영역을 갈라 `/wheel/nav_map`·`/leg/nav_map`을 만든다. 낮은 장애물 = wheel 막힘 / leg 통과. Nav2 설정은 **공통 하나**, 로봇별 차이는 **입력 주행맵·footprint**뿐.
-- D는 A의 지도 생성 구조를 재사용(협업: 홍연주 ↔ 채현우). E는 이미 map 프레임으로 정렬된 지도를 겹치기만 한다(정렬은 B).
-
----
-
-## 5. 모듈 간 인터페이스 계약 (핵심 토픽)
-
-`X` = drone / wheel / leg.
-
-| 토픽 | 타입 | 발행 → 구독 | QoS |
-| --- | --- | --- | --- |
-| `/X/points` | `sensor_msgs/PointCloud2` | 브리지 → 지도화·Nav2 | best_effort |
-| `/X/odom` | `nav_msgs/Odometry` | 브리지 → 위치추정 | reliable |
-| `/X/gps` | `sensor_msgs/NavSatFix` | 브리지 → 위치추정 | best_effort |
-| `/X/imu` | `sensor_msgs/Imu` | 브리지 → 위치추정(EKF) | best_effort |
-| `/drone/cmd_pose` | `geometry_msgs/PoseStamped` | 드론 경로 재생 → 드론 | reliable |
-| `/wheel/cmd_vel`·`/leg/cmd_vel` | `geometry_msgs/Twist` | Nav2 → 로봇 | reliable |
-| `/X/elevation_map` | `grid_map_msgs/GridMap` (layer `elevation`) | 지도화 → 병합 | reliable, transient_local |
-| `/wheel/nav_map`·`/leg/nav_map` | `nav_msgs/OccupancyGrid` | F(주행성 분석) → C(Nav2) | reliable, transient_local |
-| `/merged_map` | `grid_map_msgs/GridMap` | 병합 → RViz·저장 | reliable, transient_local |
-| `/clock` | `rosgraph_msgs/Clock` | Gazebo → all | best_effort |
-| `/tf`, `/tf_static` | `tf2_msgs/TFMessage` | — | 기본 / latched |
-
-**액션**: `/wheel/navigate_to_pose`, `/leg/navigate_to_pose` (`nav2_msgs/NavigateToPose`).
-**커스텀 메시지·서비스: 없음**(표준 타입 + 라이브러리 제공분으로 충분).
-
----
-
-## 6. 파일 · 폴더 구조
-
-현재 저장소 구조(패키지 접두어 `agconav_`).
-
-```
-AG-CoNav/
-├── README.md              # 이 문서
-├── CONTRIBUTING.md        # 기여 규칙(브랜치·PR·커밋)
-├── config/
-├── src/
-│   ├── agconav_worlds/           # 공통(홍연주)  서울 성수동 500×500 월드·지형
-│   ├── agconav_description/      # 공통(이종헌)  로봇 3종 모델 + OS1-32/GPS/IMU, 정적 TF
-│   ├── agconav_gz_bridge/        # 공통(이종헌)  Gazebo↔ROS2 브리지 설정
-│   ├── agconav_bringup/          # 공통(이종헌)  전체 통합 launch(원클릭)
-│   ├── agconav_drone/            # A(홍연주)     드론 2.5D 지도 생성
-│   ├── agconav_traversability/   # F(이종헌)     드론 2.5D → wheel/leg 주행맵 분리
-│   ├── agconav_localization/     # B(이수빈)     GPS/EKF 위치추정
-│   ├── agconav_navigation/       # C(이수빈)     지상 공통 Nav2 이동
-│   ├── agconav_ground_mapping/   # D(채현우)     지상 로봇 2.5D 지도 누적
-│   ├── agconav_map_fusion/       # E(채현우)     세 지도 병합 (메인 결과물)
-│   └── unitree_go2_ros2_jazzy/   # 외부          Go2 + CHAMP 통합 (vcstool, git에 직접 커밋 안 함)
-├── deps.repos             # vcstool 외부 저장소 목록(URL+커밋 고정)
-└── (build/ install/ log/ 는 colcon 산출물 — gitignore)
-```
-
-> 6개 모듈(A·F·B·C·D·E)이 각각 패키지로 매핑됨. `package.xml`/`CMakeLists.txt`는 각 담당이 구현 착수 시 추가.
->
-> `src/unitree_go2_ros2_jazzy`는 메쉬 포함 ~170MB짜리 외부 저장소([RobInLabUJI/unitree_go2_ros2_jazzy](https://github.com/RobInLabUJI/unitree_go2_ros2_jazzy))라 이 저장소 git 히스토리에 직접 넣지 않는다. 루트 `deps.repos`에 URL과 커밋 해시를 고정해두고 `vcstool`로 받는다(10장 참조). `.gitignore`에도 등록되어 있어 로컬에 받아도 커밋되지 않는다.
-
----
-
-## 7. 역할 · 소유권
-
-모듈별 담당은 **4장 모듈표**(담당 컬럼)에 있다. 패키지·모듈 소유권 표와 기여 절차는 **[CONTRIBUTING.md](CONTRIBUTING.md)** 참조.
-
----
-
-## 8. 확정된 세부 결정 (검증 완료) · 남은 튜닝
-
-이전 7개 미결정은 아래 기본값으로 **확정**(상세는 3장). 남은 건 실측 튜닝·조율뿐.
-
-**확정**
-
-- 미관측 셀 = `NaN` (2D 투영 시 −1) — 3.3
-- 통과 기준: wheel 20°/0.08 m, leg 30°/0.15 m — 3.3
-- 병합: 같은 해상도·합집합 범위·지상 우선 — 3.3
-- 저장: 2.5D=mcap(GridMap), 2D=map_server(yaml+pgm) — 3.3
-- 드론 TF: `drone_path_player`가 명령 pose로 `map→drone/base_link` 직접 발행 — 3.1
-- **지상 IMU 사용** (skid-steer·보행 yaw 드리프트 보정)
-- **드론 스캔 경로: 간격 ≈ 32 m, 약 16줄**. 지면 스와스 65 m지만 가장자리 슬랜트 거리 ≈ 90 m가 OS1-32의 10% 반사율 사거리 한계라, **오버랩 ~50%**로 신뢰 스와스만 사용.
-
-**남은 튜닝·조율**
-
-1. 통과 기준 파라미터 실측 튜닝(위 값은 시작점).
-2. **월드의 낮은 장애물 높이 0.10 m 배치** (worlds·F 모두 이종헌). wheel(0.08)와 leg(0.15) 통과 기준 사이이며, leg 판정이 안정적인 0.10 m로 맞춘다.
-3. 지도 저장 경로·파일명 규칙(형식은 확정).
-
----
-
-## 9. 설계 원칙
-
-1. **연구가 아니라 통합.** 새 알고리즘을 만들지 않고 기존 라이브러리를 쓴다. 발표 때 "실제로 돌려봤는지"까지 보여준다.
-2. **알고리즘은 하나로 통일.** wheel·leg에 같은 Nav2 설정. 로봇별 최적화 금지. **작동(목표 도착)만 되면 통과.**
-3. **센서는 OS1-32로 통일.** SLAM/정렬 방식도 여기에 맞춘다.
-
-> 코드 규약("설명 가능한 것만" · 토픽-only 결합 · 공통 규약 준수)과 Git 워크플로는 **[CONTRIBUTING.md](CONTRIBUTING.md)**.
-
----
-
-## 10. 설치 · 실행 (요약)
-
-```bash
-git clone https://github.com/jjongjjongR/AG-CoNav.git && cd AG-CoNav
+# 2) ROS2 Jazzy + Gazebo Harmonic 등 기본 의존성 (이미 설치돼 있지 않다면)
+#    PROJECT_OVERVIEW.md 10절 및 simulation_guide_jongheon.md를 따른다.
 ./scripts/setup_simulation.sh
-./scripts/run_simulation.sh
+
+# 3) small_gicp (pip, Method B 스크립트가 직접 import한다 — CPU 버전)
+pip3 install --user small_gicp
+
+# 4) 워크스페이스 빌드
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install
+source install/setup.bash
 ```
 
-자동 설정 스크립트가 apt 의존성, Go2/CHAMP 고정 커밋 다운로드, AG-CoNav용
-Go2 패치, rosdep, 전체 빌드와 설치 검증까지 수행한다. 자세한 수동 절차와
-트러블슈팅은 [simulation_guide_jongheon.md](simulation_guide_jongheon.md)를 따른다.
+`small_gicp`는 **GPU 없는 환경에서도 정상 동작한다**(순수 CPU 라이브러리,
+아래 8절 참고) — 3번 단계는 GPU 유무와 무관하게 항상 필요하다.
 
-> `deps.repos`에 등록된 외부 저장소를 갱신하려면 `deps.repos`의 `version`뿐 아니라
-> `patches/unitree_go2_ros2_jazzy.patch`도 새 upstream 기준으로 재검증해야 한다.
-> 임의 갱신 금지 — 팀 전원이 같은 커밋과 같은 패치를 사용해야 한다.
+### GPU 버전 설치 (선택 사항 — 8절의 "확인 필요" 항목들을 먼저 읽어라)
+
+이 실험 스크립트(`run_results/build_methodB_cloud.py`)는 GLIM 전체 ROS
+노드를 실행하는 게 아니라, 그 안의 정합 라이브러리(`small_gicp`)만
+Python에서 직접 호출한다. 이게 왜 중요한지, GPU 패키지를 깔면 실제로
+빨라지는지는 **8절에서 조사한 내용을 반드시 먼저 읽어라** — 결론만
+요약하면 **지금 코드 그대로는 CUDA 패키지를 깔아도 가속되지 않을
+가능성이 높다.**
+
+그래도 조사해서 확인한 사실은 다음과 같다(설치 자체는 GPU 없는 이
+브랜치 작성 환경에서 검증하지 못했다):
+
+```bash
+# koide3 PPA (glim/gtsam_points/small_gicp 배포처) — 이미 이 소스가
+# 등록돼 있다면 생략. 정확한 최초 키 등록 명령은 이 문서 작성 환경에서
+# 확인하지 못했다(확인 필요) — 아래는 결과로 남아있는 소스 파일 내용이다.
+cat /etc/apt/sources.list.d/koide3_ppa.list
+# deb [signed-by=/etc/apt/trusted.gpg.d/koide3_ppa.gpg] https://koide3.github.io/ppa/ubuntu2404 ./
+# 없다면 GLIM 공식 저장소(https://github.com/koide3/glim)의 설치 안내를 따라
+# PPA와 서명 키를 등록해라.
+
+sudo apt update
+# CUDA 12.6 또는 13.1 중 설치된 CUDA 툴킷 버전에 맞는 쪽 하나만:
+sudo apt install libgtsam-points-cuda12.6-dev   # 또는 libgtsam-points-cuda13.1-dev
+```
+
+**확인 필요 (GPU 머신에서 실제 검증 못 함)**:
+- `libgtsam-points-cuda*-dev`는 **C++ 라이브러리만 설치하고 Python
+  바인딩이 없다**(`dpkg -L libgtsam-points-dev`로 확인, CUDA 버전도 동일한
+  방식으로 빌드될 것으로 추정). 즉 `import gtsam_points`가 되는 pip
+  패키지는 존재하지 않는다(`pip3 index versions gtsam_points` → 없음).
+- `small_gicp`(pip, 이 실험이 실제로 쓰는 것) 자체는 PyPI에 CUDA 버전이
+  없고, 설치된 버전의 Python API(`help(small_gicp.align)`)에도 GPU/CUDA
+  파라미터가 없다 — `num_threads`(CPU 스레드 수)만 있다.
+- **따라서 위 apt 패키지를 설치하는 것만으로는 `build_methodB_cloud.py`가
+  GPU를 쓰게 되지 않을 가능성이 높다.** 실제로 GPU 가속을 받으려면 (a)
+  `gtsam_points`의 CUDA 팩터를 C++에서 직접 호출하는 코드를 새로 작성하거나,
+  (b) 이 스크립트 대신 GLIM 전체 ROS 노드(`ros-jazzy-glim-ros-cuda12.6`
+  또는 `-cuda13.1`, apt에 존재함을 확인함)를 띄워서 GLIM 자체 파이프라인
+  결과를 쓰는 방식으로 바꿔야 할 것으로 보이는데, 후자는 "방법B"의 정의
+  (우리 스크립트가 GT pose를 초기값으로 직접 제어하는 것) 자체를 바꾸는
+  것이라 이 실험과 같은 게 아니게 된다. GPU가 있는 환경에서 실측해서
+  이 부분을 검증/수정하는 게 이 브랜치의 다음 과제로 남아있다.
+- GPU를 실제로 썼는지 확인하는 로그 문구도 위와 같은 이유로 **현재 코드
+  경로에서는 존재하지 않는다**(CPU에서 실행하든 GPU 패키지가 깔려 있든
+  로그가 동일할 것으로 예상됨) — 확인 필요.
 
 ---
 
-## 11. 범위 밖 (컷 — 하지 않음)
+## 4. 시뮬레이션 실행 (비행 + bag 녹화)
 
-MuJoCo/4족 RL · LLM 재배분 · 드론 자율비행 · 로봇별 알고리즘 최적화 · 정밀 목표 탐지(`/X/detections`) · 임무 배분 · 지상 독립 SLAM · LaserScan 변환.
-(필요가 실제로 확인되기 전까지 추가하지 않는다.)
-d
+이 저장소에 bag 자체는 들어있지 않다(용량 문제, `.gitignore`의
+`bags/` 규칙). **여기서부터 새로 비행해서 bag을 만들어야 한다.**
+
+```bash
+cd AG-CoNav-gicp-gt-pose
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+bash run_results/run_velocity_4m_5mps_monitored.sh my_run
+```
+
+- 내부적으로 `ros2 launch agconav_test_worlds experiment.launch.py
+  flight:=velocity path_file:=path_100x100_5m_4m_5mps.yaml
+  cruise_speed_mps:=5.0 module_a:=false module_f:=false
+  bag_output:=<repo>/bags/velocity_4m_5mps_my_run`를 실행한다(module_a/f를
+  끄는 이유: 방법B는 bag의 `/drone/points`+`/tf`만 있으면 오프라인으로
+  처리 가능해서, 그 두 모듈까지 같이 띄워 자원을 나눠 쓸 필요가 없다).
+- 순항 기준 비행 시간은 약 570초지만, 실제로는 가속/코너 감속 등으로 더
+  걸린다. 이 스크립트는 진행률 정지(5분 연속)·`/tf` 무응답(3분 연속)·
+  디스크 80% 초과를 자동 감지해 안전하게 종료하고, `run_results/logs/
+  velocity_4m_5mps_my_run_result.txt`에 `COMPLETED`/`STALLED`/`TF_FROZEN`/
+  `TIMEOUT`/`DISK_THRESHOLD_STOP` 중 하나를 남긴다. **`COMPLETED`가 아니면
+  다음 단계로 넘어가지 마라.**
+- 완료되면 `bags/velocity_4m_5mps_my_run/`에 mcap bag이 생긴다.
+
+---
+
+## 5. 방법B 스크립트 실행 (정합 + 지도 생성)
+
+```bash
+python3 run_results/build_methodB_cloud.py \
+  bags/velocity_4m_5mps_my_run \
+  /tmp/baseline_my_run.npy \
+  /tmp/methodb_my_run.npy
+```
+
+- bag의 `/tf`(map→drone/base_link, 물리엔진이 계산한 실제 GT pose)와
+  `/tf_static`(base_link→os1_lidar)을 오프라인 `tf2.Buffer`로 조회해서,
+  `/drone/points`의 매 스캔을 map 프레임으로 변환한다.
+- `/tmp/baseline_my_run.npy` — GT pose만으로 쌓은 점군.
+- `/tmp/methodb_my_run.npy` — GT pose를 초기값으로 GICP 정합해서 쌓은 점군.
+- 스캔 수만 개, 점 수억 개 규모라 **오래 걸린다**(이 조건에서 실측
+  기준 상당한 시간 소요 — CPU 코어 수·클럭에 따라 다르다). 진행 중
+  50스캔마다 stderr에 진행 상황(GICP 성공/실패 카운트)을 출력한다.
+- 메모리 걱정 없이 진행되면(RAM을 계속 다 채우지 않으면) 정상이다 — 2절의
+  OOM 이슈는 이미 스트리밍 방식으로 해결되어 있다.
+
+---
+
+## 6. 채점 스크립트 실행 (wheel/leg FN%)
+
+baseline과 방법B 각각 한 번씩, **총 두 번** 실행한다(둘이 서로 다른
+`ROS_DOMAIN_ID`를 안 쓰면 노드가 겹치니, 반드시 하나씩 순서대로 끝내고
+다음을 실행해라 — 스크립트가 시작할 때 관련 프로세스를 자동으로
+정리하긴 하지만, 안전하게 순차 실행을 권장한다):
+
+```bash
+# baseline
+bash run_results/run_traversability_fn_v2.sh \
+  /tmp/baseline_my_run.npy baseline_my_run /tmp/baseline_my_run_fn.json
+
+# 방법B
+bash run_results/run_traversability_fn_v2.sh \
+  /tmp/methodb_my_run.npy methodb_my_run /tmp/methodb_my_run_fn.json
+```
+
+- 내부적으로 Module A(`drone_elevation_mapper`)·Module F(`terrain_feature_
+  calculator` + wheel/leg `traversability_verdictor`)·`elevation_map_saver`를
+  띄우고, `feed_cloud.py`로 .npy 점군을 `/drone/points`에 흘려보내서 진짜
+  파이프라인으로 지도를 만든다.
+- `capture_nav_fn.py`가 `/wheel/nav_map`·`/leg/nav_map`을
+  `run_results/gt_traversable.py`가 만드는 GT 통과가능 마스크와 대조해
+  wheel/leg FN%를 계산하고 결과 JSON에 저장한다.
+- 이 조건은 점 수가 아주 많아 `feed_cloud.py`가 다 보내는 데만 10분
+  넘게 걸릴 수 있다 — 그래서 v2 스크립트는 캡처 타임아웃을 기본
+  1500초(25분)로 넉넉하게 잡는다. 필요하면 5번째 인자로 늘려라:
+  `run_traversability_fn_v2.sh <cloud> <tag> <out.json> <domain> <timeout_s>`.
+
+---
+
+## 7. 결과 확인
+
+```bash
+python3 -c "
+import json
+b = json.load(open('/tmp/baseline_my_run_fn.json'))
+m = json.load(open('/tmp/methodb_my_run_fn.json'))
+print('baseline wheel FN%%=%.2f leg FN%%=%.2f' % (b['wheel_FN']['FN_percent'], b['leg_FN']['FN_percent']))
+print('방법B    wheel FN%%=%.2f leg FN%%=%.2f' % (m['wheel_FN']['FN_percent'], m['leg_FN']['FN_percent']))
+"
+```
+
+**참고 결과값과 비교**: baseline wheel/leg FN% ≈ **13.44% / 12.60%**,
+방법B wheel/leg FN% ≈ **37.26% / 30.03%** (1절 참고). 정확히 같은 수치가
+나오진 않을 것이다(시뮬레이션은 결정적이지 않을 수 있고, bag마다 약간의
+타이밍 차이가 생긴다) — 확인할 것은 **방향**(방법B가 baseline보다
+뚜렷하게 나쁨)과 **대략적인 크기**(두 배 이상 악화)가 재현되는지다.
+
+**GPU를 실제로 썼는지 확인하는 방법**: 8절에서 설명했듯, 현재 코드
+경로(`small_gicp.align()`)는 GPU 파라미터가 아예 없어서 "GPU 사용 확인
+로그"라는 게 존재하지 않는다. `nvidia-smi -l 1`을 `build_methodB_cloud.py`
+실행 중에 같이 띄워서 GPU 사용률(`Volatile GPU-Util`)이 0%에 머무는지
+보는 것이 지금 시점에 할 수 있는 유일한 간접 확인이다 — 0%면 GPU
+패키지를 깔았어도 실제로는 안 쓰이고 있다는 뜻이다.
+
+---
+
+## 8. GPU 가속 관련 조사 결과 요약
+
+3절의 "GPU 버전 설치"와 내용이 같다 — 요약하면:
+
+- **확실한 것**: `build_methodB_cloud.py`가 쓰는 `small_gicp`(pip)
+  Python API에는 GPU/CUDA 파라미터가 없다. `gtsam_points`(apt,
+  `libgtsam-points-dev`/`-cuda12.6-dev`/`-cuda13.1-dev`)는 Python 바인딩이
+  없는 C++ 전용 라이브러리다. 따라서 CUDA apt 패키지를 까는 것만으로는
+  이 스크립트가 빨라지지 않는다.
+- **확인 필요**: GPU가 있는 환경에서 (a) 위 결론이 실측으로도 맞는지
+  (속도 변화 없음을 직접 확인), (b) `gtsam_points`의 CUDA 팩터를 실제로
+  호출하려면 어떤 C++ API를 어떻게 바인딩해야 하는지, (c) 그 대신 GLIM
+  전체 노드를 쓰는 쪽으로 아키텍처를 바꾸는 게 더 현실적인 대안인지 —
+  이 세 가지는 GPU 없는 환경(이 문서를 처음 쓴 VM)에서는 검증할 수 없어
+  미확정으로 남겨둔다.
+
+자세한 조사 과정과 근거는 [`run_results/PROGRESS.md`](run_results/PROGRESS.md)
+0절에 그대로 남아있다.

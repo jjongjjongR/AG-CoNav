@@ -1,6 +1,0 @@
-[17:53:43] variant=variantB_deskew extra_params=-p deskew_enabled:=true
-[bag play 종료 18:31:30] capture 대기 중...
-[variantB_deskew] wheel FN%=15.00% (GT통과가능 618378개 중 pipeline이 막힘판정 92759개, 미측정 9.5%)
-[variantB_deskew] leg FN%=7.53% (GT통과가능 618378개 중 pipeline이 막힘판정 46547개, 미측정 9.5%)
-[variantB_deskew] 저장: run_results/variantB_deskew_fn.json
-로그: /tmp/trav_fn_variantB_deskew   결과: run_results/variantB_deskew_fn.json

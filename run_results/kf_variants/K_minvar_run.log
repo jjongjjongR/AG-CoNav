@@ -1,5 +1,0 @@
-[bag play 종료 01:50:24] capture 대기 중...
-[kf_K_minvar] wheel FN%=11.02% (GT통과가능 618378개 중 pipeline이 막힘판정 68160개, 미측정 1.4%)
-[kf_K_minvar] leg FN%=8.19% (GT통과가능 618378개 중 pipeline이 막힘판정 50640개, 미측정 1.4%)
-[kf_K_minvar] 저장: run_results/kf_variants/K_minvar_fn.json
-로그: /tmp/trav_fn_kf_K_minvar   결과: run_results/kf_variants/K_minvar_fn.json

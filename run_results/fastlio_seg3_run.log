@@ -1,5 +1,0 @@
-[16:18:09] tag=seg3_nograv start_offset=0.0 duration=90 rate=1.0
-[16:19:45] bag play 종료, 후처리 대기 중...
-[16:19:54] 완료. 로그: /tmp/fastlio_seg3_nograv  궤적: /tmp/fastlio_seg3_nograv/traj_lidar.txt
-9144 /tmp/fastlio_seg3_nograv/traj_lidar.txt
-run_results/run_fastlio.sh: line 65: 33555 Killed                  ros2 run spark_fast_lio spark_lio_mapping --ros-args -r lidar:=/drone/points_ouster -r imu:=/drone/imu -p use_sim_time:=true --params-file "$FLROOT/agconav_config.yaml" "${EXTRA_PARAMS[@]}" > "$OUT/fastlio.log" 2>&1

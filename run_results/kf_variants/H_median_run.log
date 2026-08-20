@@ -1,5 +1,0 @@
-[bag play 종료 01:31:14] capture 대기 중...
-[kf_H_median] wheel FN%=12.55% (GT통과가능 618378개 중 pipeline이 막힘판정 77602개, 미측정 1.5%)
-[kf_H_median] leg FN%=8.59% (GT통과가능 618378개 중 pipeline이 막힘판정 53109개, 미측정 1.5%)
-[kf_H_median] 저장: run_results/kf_variants/H_median_fn.json
-로그: /tmp/trav_fn_kf_H_median   결과: run_results/kf_variants/H_median_fn.json

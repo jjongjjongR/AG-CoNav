@@ -1,6 +1,0 @@
-[03:06:13] variant=kf_pointpregate extra_params=-p point_pregate_threshold_m:=1.0
-[bag play 종료 03:25:09] capture 대기 중...
-[kf_pointpregate] wheel FN%=10.52% (GT통과가능 618378개 중 pipeline이 막힘판정 65033개, 미측정 1.4%)
-[kf_pointpregate] leg FN%=7.93% (GT통과가능 618378개 중 pipeline이 막힘판정 49012개, 미측정 1.4%)
-[kf_pointpregate] 저장: run_results/kf_variants/pointpregate_fn.json
-로그: /tmp/trav_fn_kf_pointpregate   결과: run_results/kf_variants/pointpregate_fn.json

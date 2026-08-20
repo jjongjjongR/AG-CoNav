@@ -1,5 +1,0 @@
-[bag play 종료 12:58:01] capture 대기 중...
-[kalman_4m_5mps] wheel FN%=10.91% (GT통과가능 618378개 중 pipeline이 막힘판정 67436개, 미측정 1.5%)
-[kalman_4m_5mps] leg FN%=8.03% (GT통과가능 618378개 중 pipeline이 막힘판정 49646개, 미측정 1.5%)
-[kalman_4m_5mps] 저장: run_results/kalman_4m_5mps_fn.json
-로그: /tmp/trav_fn_kalman_4m_5mps   결과: run_results/kalman_4m_5mps_fn.json

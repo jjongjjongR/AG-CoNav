@@ -1,3 +1,0 @@
-num_submaps: 435
-num_all_frames: 9565
-num_matching_cost_factors: 0

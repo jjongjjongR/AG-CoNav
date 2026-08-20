@@ -1,6 +1,0 @@
-[03:25:16] variant=kf_8_additive_R extra_params=-p r_combination_mode:=additive
-[bag play 종료 03:44:12] capture 대기 중...
-[kf_8_additive_R] wheel FN%=7.58% (GT통과가능 618378개 중 pipeline이 막힘판정 46862개, 미측정 1.4%)
-[kf_8_additive_R] leg FN%=6.59% (GT통과가능 618378개 중 pipeline이 막힘판정 40744개, 미측정 1.4%)
-[kf_8_additive_R] 저장: run_results/kf_variants/8_additive_R_fn.json
-로그: /tmp/trav_fn_kf_8_additive_R   결과: run_results/kf_variants/8_additive_R_fn.json

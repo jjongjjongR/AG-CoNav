@@ -1,6 +1,0 @@
-[03:44:48] variant=kf_9_directional_R extra_params=-p directional_r_enabled:=true
-[bag play 종료 04:03:43] capture 대기 중...
-[kf_9_directional_R] wheel FN%=9.78% (GT통과가능 618378개 중 pipeline이 막힘판정 60472개, 미측정 1.5%)
-[kf_9_directional_R] leg FN%=7.47% (GT통과가능 618378개 중 pipeline이 막힘판정 46217개, 미측정 1.5%)
-[kf_9_directional_R] 저장: run_results/kf_variants/9_directional_R_fn.json
-로그: /tmp/trav_fn_kf_9_directional_R   결과: run_results/kf_variants/9_directional_R_fn.json
