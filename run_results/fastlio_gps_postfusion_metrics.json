@@ -1,0 +1,33 @@
+{
+  "map_path": "run_results/fastlio_gps_postfusion_map.npz",
+  "grid_cap": {
+    "max_grid_cells": 30000000,
+    "max_requested_cells": 1311576,
+    "n_dropped_batches": 0,
+    "n_dropped_points": 0,
+    "cap_triggered": false
+  },
+  "coverage": {
+    "n_eval_cells": 1000000,
+    "n_valid_cells": 987531,
+    "coverage_percent": 98.7531
+  },
+  "wheel_FN": {
+    "n_gt_traversable": 618378,
+    "n_pipeline_blocked_FN": 602899,
+    "n_pipeline_unknown": 12469,
+    "n_pipeline_free_correct": 3010,
+    "FN_percent": 97.49683850331027,
+    "unknown_percent": 2.0164042058417344
+  },
+  "wheel_largest_component_percent": 0.0,
+  "leg_FN": {
+    "n_gt_traversable": 618378,
+    "n_pipeline_blocked_FN": 580122,
+    "n_pipeline_unknown": 12469,
+    "n_pipeline_free_correct": 25787,
+    "FN_percent": 93.81349271804625,
+    "unknown_percent": 2.0164042058417344
+  },
+  "leg_largest_component_percent": 0.0
+}
