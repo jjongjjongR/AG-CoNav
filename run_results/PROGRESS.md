@@ -3133,3 +3133,63 @@ Z가 -5.36~0.26m, 5m AGL과 부합), Inf 필터·시작시점·중력정렬까�
 기록하고 우회하지 마라") 더 이상 새 우회를 시도하지 않고, 크래시가
 아닌 "발산"임을 기록한 뒤 2단계(전체 bag 확장, 크래시 여부만 정지
 기준)로 진행한다.
+
+### 2단계 — 전체 bag 확장: 완료 (크래시 없음), 세션 일시중단
+
+**전체 bag(t=0~2129.67s, 자유낙하 구간 제외) 실시간(rate=1.0) 처리
+완료** — bag 재생 자체는 16:21:12 시작~16:57:00 종료(약 35.8분,
+예상 35.5분과 거의 일치). **크래시/OOM 없음**, 경고("No Effective
+Points"/"No point, skip this scan")도 전체 구간에서 단 18건뿐(대부분
+맨 끝 경계 근처로 추정) — 1단계에서 봤던 것과 달리 이번엔 거의 깨끗하게
+완주했다. 궤적 220,120개 포즈, t=[?,2135.34]까지 기록(요청한
+playback-duration=2129.67보다 살짝 넘어간 것은 GLIM 때와 동일한 흔한
+버퍼링 오버런 — t<=2129.67로 트리밍해 자유낙하 제외 정책 그대로 적용).
+
+**세션 중단 사유**: 사용자가 귀가해야 해서 "지금 실행 끝나면 잠깐
+멈춰달라"고 요청 — 3단계(지도 생성)·4단계(지표 산출)·5단계(비교)는
+**의도적으로 미완료 상태로 남김**(다음 세션에서 이어받을 것).
+
+**알려진 사소한 이슈(다음 세션이 알아둘 것)**: `run_fastlio.sh`의 종료
+시퀀스(`kill -INT` → sleep 3 → 나머지 kill → sleep 1 → `kill -9` 전체)가
+`spark_lio_mapping`을 못 죽이고 프로세스가 남는 현상 실측됨(bag play/
+republisher/recorder는 정상 종료됐는데 fastlio 노드만 남음, 이유
+미상 -- `set -e`와 `kill` 여러 PID 중 일부가 이미 죽은 상태에서의 종료
+코드 상호작용으로 추정, 확정 원인 조사는 안 함). 데이터 자체는 완전한
+상태로 저장됐으므로 결과에 영향 없음. **다음 세션 시작 시 반드시
+`pgrep -af "spark_lio_mapping"`로 잔여 프로세스 확인 후 정리할 것**
+(이번엔 수동으로 `kill -9`해서 정리 완료해뒀음).
+
+### 저장된 산출물 (재개용)
+- `run_results/fastlio_diag/traj_lidar_full_raw.txt`(220,120개 포즈,
+  원본 그대로) / `traj_lidar_full_trimmed.txt`(219,537개 포즈, t<=2129.67
+  트리밍 완료, **다음 세션은 이 파일을 바로 3단계 지도 생성에 쓰면 됨**).
+- `run_results/fastlio_diag/full_fastlio.log`, `full_play.log`(전체
+  실행 로그, 경고 18건 포함).
+- 앞서 커밋된 `run_results/fastlio_build_map.py`(3단계 지도 생성
+  스크립트, 이미 작성+짧은 구간으로 스모크테스트 완료됨 -- 그대로
+  실행 가능)와 `~/fastlio_ws/agconav_config.yaml`(설정, 이 저장소
+  바깥이라 git 추적 대상 아님, 별도 백업 불필요할 만큼 이미
+  PROGRESS.md에 전체 내용 기록됨).
+
+### 다음 세션이 이어받을 지점 (정확한 다음 명령)
+```
+cd ~/AG-CoNav-test_main
+source /opt/ros/jazzy/setup.bash && source install/setup.bash
+python3 run_results/fastlio_build_map.py \
+  bags/velocity_4m_5mps_gps_attempt2 \
+  run_results/fastlio_diag/traj_lidar_full_trimmed.txt \
+  run_results/fastlio_map.npz \
+  -inf 2129.67 30000000 5.0
+```
+이후: `run_results/pure_glim_metrics.py`와 동일한 패턴(또는 그 스크립트를
+그대로 재사용 -- 입력 npz 포맷이 동일하게 설계됨, `elevation`/`origin_x`/
+`origin_y`/`res` 키 동일)으로 4가지 지표(커버리지/wheel·leg FN%/
+wheel·leg 최대연결덩어리%) 계산, 비행 소요시간은 이미 확정 가능(bag
+`/drone/path_status` 기준 2129.674초, GLIM 실험과 동일한 bag이므로
+동일값). 이후 `run_results/fastlio2_result.md` 작성, SUMMARY.md/
+PROGRESS.md 갱신, git add/commit/push, 대화창에 종합비교표 출력까지가
+남은 작업.
+
+세션 소요시간: 시작~중단 약 1시간 15분(4시간 예산 중 여유 많이 남음) --
+다음 세션에서 남은 작업(지도생성~보고)에 필요한 시간은 20~30분 정도로
+추정(전부 스크립트는 이미 작성/검증 완료 상태).
