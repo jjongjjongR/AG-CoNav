@@ -79,7 +79,8 @@ GLIM의 GICP 정합만 사용, 5m AGL / 4m 간격 / 5m/s 조건) 실험만 남�
 
 ## 2. 가지치기
 
-### 남긴 것 (`run_results/`, 7개 파일)
+### 남긴 것 (`run_results/`, 8개 파일 — `surface_model.py`는 4단계 검증에서
+빠뜨린 걸 발견해 추가 복원함, 아래 4절 참고)
 
 - `build_methodB_cloud.py` — 방법B 핵심: bag의 `/tf`+`/tf_static`에서 GT
   pose 추출(오프라인 tf2.Buffer) → baseline.npy(GT pose만) / methodb.npy
@@ -95,6 +96,8 @@ GLIM의 GICP 정합만 사용, 5m AGL / 4m 간격 / 5m/s 조건) 실험만 남�
   대조해 wheel/leg FN% 계산.
 - `gt_traversable.py` — `height_map.png` 기반 GT "실제 통과가능" 셀 정의
   (wheel 0.08m / leg 0.15m 단차 기준).
+- `surface_model.py` — `gt_traversable.py`가 건물 풋프린트 판정에 쓰는
+  `load_buildings`/`BOX`/`_point_in_poly`를 제공하는 의존 모듈.
 - `baseline_4m_5mps_fn.json`, `methodb_4m_5mps_fn.json` — 참고 결과값
   (13.44%/12.60%, 37.26%/30.03%)이 저장된 실제 산출 파일.
 
@@ -171,8 +174,49 @@ GLIM의 GICP 정합만 사용, 5m AGL / 4m 간격 / 5m/s 조건) 실험만 남�
 
 ## 4. 자체 검증
 
-(진행 예정 — `~/gicp_verify_test`에 새로 clone해서 검증. 완료 시 이 섹션과
-`run_results/verification_log.md`에 결과 기록.)
+`~/gicp_verify_test`에 `gicp-gt-pose`를 새로 clone해서 README.md를 그대로
+따라간 결과, **초기 가지치기에서 실제로 재현을 깨는 버그 두 종류를
+발견하고 고쳤다.** 상세 로그는 `run_results/verification_log.md` 참고.
+요약:
+
+1. **`run_results/surface_model.py`를 실수로 지웠었다.**
+   `gt_traversable.py`가 `from surface_model import load_buildings, BOX,
+   _point_in_poly`로 그 파일에 의존하는데, 처음 가지치기 때 "무관한
+   유틸"로 분류해 삭제해버렸다 — `import`부터 즉시 깨지는 심각한 실수.
+   `test_main_brian`에서 `git checkout test_main_brian -- run_results/
+   surface_model.py`로 복원함.
+2. **하드코딩된 절대경로 5곳** — 전부 옛 작업 디렉터리 이름
+   (`/home/hyunwoo-chae/AG-CoNav-test_main`)이 소스에 그대로 박혀 있었다.
+   사용자가 사전에 경고한 "이전 작업 폴더의 흔적에 의존" 문제가 실제로
+   존재했다:
+   - `run_results/gt_traversable.py`: `sys.path.insert(0, ".../run_results")`,
+     `HM_PNG = ".../mesh/height_map.png"`
+   - `run_results/surface_model.py`: `WORLD_DIR = Path(".../worlds/...")`,
+     `__main__`의 `cache_path`
+   - `run_results/capture_nav_fn.py`: `sys.path.insert(0, ".../run_results")`
+   - `run_results/run_traversability_fn_v2.sh`: `ROOT="/home/.../AG-CoNav-test_main"`
+   - `run_results/run_velocity_4m_5mps_monitored.sh`: `cd /home/.../AG-CoNav-test_main`
+
+   전부 `Path(__file__).resolve().parent[.parent]`(Python) 또는
+   `$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)`(bash)로 바꿔서,
+   clone 디렉터리 이름·위치와 무관하게 스크립트 자신의 위치 기준으로
+   저장소 루트를 찾도록 고쳤다. 이 버그는 특히 위험했다 — 옛
+   `~/AG-CoNav-test_main`이 같은 머신에 계속 남아있는 동안은 **에러 없이
+   조용히 옛 디렉터리의 (지금은 다를 수도 있는) 파일을 참조**하기
+   때문에, 이 VM 안에서 대충 테스트했으면 못 잡았을 문제다 — 완전히
+   별도 디렉터리에 clone해서 실행해보라는 지시가 정확히 이걸 잡으려는
+   것이었다.
+3. **`run_results/logs/` 디렉터리가 없어서 비행 스크립트가 즉시 죽었다.**
+   git은 빈 디렉터리를 추적하지 않으므로, 가지치기 때 그 디렉터리를
+   통째로 지운 뒤로는 새로 clone하면 `run_results/logs/`가 아예 없다.
+   `run_velocity_4m_5mps_monitored.sh`가 `: > "$STATUS_LOG"`에서 그
+   디렉터리가 있다고 가정해 즉시 실패(`LAUNCH_PROCESS_DIED`, 0초만에
+   종료)했다. 스크립트 시작부에 `mkdir -p run_results/logs`를 추가해서
+   고침.
+
+수정 후 fresh clone을 다시 만들어 처음부터(colcon build → 비행 → 방법B
+스크립트 → 채점) 다시 검증했다 — 결과는 `run_results/verification_log.md`
+참고.
 
 ## 5. 최종 커밋/푸시
 

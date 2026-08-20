@@ -6,7 +6,7 @@
 #
 #   run_traversability_fn_v2.sh <cloud.npy> <태그> <결과.json> [ROS_DOMAIN_ID] [capture_timeout_s]
 CLOUD="$1"; TAG="$2"; OUT_JSON="$3"; DOMAIN="${4:-91}"; CAP_TIMEOUT="${5:-1500}"
-ROOT="/home/hyunwoo-chae/AG-CoNav-test_main"
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 RR="$ROOT/run_results"
 cd "$ROOT"
 

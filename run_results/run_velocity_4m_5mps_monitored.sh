@@ -14,7 +14,7 @@
 #     독립적으로 감지한다.
 #
 # 사용: run_velocity_4m_5mps_monitored.sh <attempt_tag>
-cd /home/hyunwoo-chae/AG-CoNav-test_main
+cd "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
@@ -27,6 +27,7 @@ DISK_LIMIT=80     # %
 STALL_CHECKS=5    # 진행률 5회(=5분) 연속 불변이면 정지로 판단 (단, 마지막 wp 도달 후는 예외)
 TF_HZ_STALL_CHECKS=3  # /tf가 3회(=3분) 연속 0Hz면 TF 동결로 판단
 
+mkdir -p run_results/logs
 : > "$STATUS_LOG"
 rm -rf "$BAG_DIR"
 # 이전 실행의 stale <TAG>_result.txt가 남아있으면 감시 루프가 시작하자마자

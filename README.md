@@ -85,7 +85,11 @@ git checkout gicp-gt-pose
 ./scripts/setup_simulation.sh
 
 # 3) small_gicp (pip, Method B 스크립트가 직접 import한다 — CPU 버전)
-pip3 install --user small_gicp
+#    Ubuntu 24.04는 PEP 668(externally-managed-environment)로 시스템 pip에
+#    직접 설치하는 걸 막는다 -- venv를 안 쓰는 이 프로젝트 관례상
+#    --break-system-packages가 필요하다(실제로 --user만으로는 실패함을
+#    확인함).
+pip3 install --user --break-system-packages small_gicp
 
 # 4) 워크스페이스 빌드
 source /opt/ros/jazzy/setup.bash

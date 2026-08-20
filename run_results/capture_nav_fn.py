@@ -12,6 +12,7 @@ FN에 넣지 않고 별도로 보고한다(측정 누락은 다른 실패 모드
 """
 import json
 import sys
+from pathlib import Path
 
 import numpy as np
 import rclpy
@@ -21,7 +22,7 @@ from rclpy.node import Node
 from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
                        ReliabilityPolicy)
 
-sys.path.insert(0, "/home/hyunwoo-chae/AG-CoNav-test_main/run_results")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gt_traversable import build as build_gt  # noqa: E402
 
 WANT = {'/wheel/nav_map', '/leg/nav_map', 'elev', 'feat'}

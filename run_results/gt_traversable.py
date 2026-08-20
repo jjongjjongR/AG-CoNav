@@ -13,14 +13,17 @@ surface_model.py의 "지형 vs 건물 중 높은 쪽"과는 다른, 순수 지�
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
 import numpy as np
 from PIL import Image
 
-sys.path.insert(0, "/home/hyunwoo-chae/AG-CoNav-test_main/run_results")
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_REPO_ROOT / "run_results"))
 from surface_model import load_buildings, BOX, _point_in_poly  # noqa: E402
 
 WHEEL_STEP, LEG_STEP = 0.08, 0.15
-HM_PNG = "/home/hyunwoo-chae/AG-CoNav-test_main/src/agconav_test_worlds/worlds/Seongdong_gu_100x100/mesh/height_map.png"
+HM_PNG = str(_REPO_ROOT / "src/agconav_test_worlds/worlds/Seongdong_gu_100x100/mesh/height_map.png")
 HM_SIZE_Z, HM_POS_Z = 5.249597, 1.202132
 
 
