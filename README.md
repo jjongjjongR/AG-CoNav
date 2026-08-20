@@ -175,6 +175,13 @@ bash run_results/run_velocity_4m_5mps_monitored.sh my_run
   `TIMEOUT`/`DISK_THRESHOLD_STOP` 중 하나를 남긴다. **`COMPLETED`가 아니면
   다음 단계로 넘어가지 마라.**
 - 완료되면 `bags/velocity_4m_5mps_my_run/`에 mcap bag이 생긴다.
+- **알려진 이슈(실측으로 발견, 자동 복구됨)**: 이 조건의 bag은 20GB+로 커서,
+  디스크가 느린 환경에서는 정상 완주(`COMPLETED`)했는데도 `ros2 bag record`가
+  종료 시퀀스 중 `metadata.yaml`을 다 쓰기 전에 끊길 수 있다. 스크립트는 종료
+  직후 `metadata.yaml` 존재를 확인해서 없으면 `ros2 bag reindex -s mcap`으로
+  자동 복구를 시도하고 `STATUS_LOG`에 남긴다. 혹시 다른 이유로 자동 복구가
+  실패했다면(로그에 "reindex 실패" 표시) 직접
+  `ros2 bag reindex -s mcap bags/velocity_4m_5mps_my_run`을 실행해봐라.
 
 ---
 

@@ -79,6 +79,23 @@ shutdown_launch() {
   echo "[$(date '+%F %T')] 잔여 프로세스 확인: ${REMAIN:-없음}" | tee -a "$STATUS_LOG"
 }
 
+# 실측으로 발견된 버그: 이 조건(4m/5mps, bag ~20GB+)에서는 SIGINT 후 100초를
+# 기다려도 ros2 bag record가 metadata.yaml을 다 못 쓰고 SIGTERM 에스컬레이션에
+# 끊기는 경우가 실제로 있었다(정상 완주 COMPLETED인데도 bag이 깨짐). 디스크
+# 속도가 느린 환경에서는 더 흔할 수 있으므로, 타임아웃을 늘리는 대신 종료 직후
+# metadata.yaml 존재를 확인하고 없으면 `ros2 bag reindex`로 자동 복구한다
+# (mcap 파일 자체는 청크 단위로 안전하게 쓰이므로 reindex로 복구 가능).
+ensure_bag_metadata() {
+  if [ -d "$BAG_DIR" ] && [ ! -f "$BAG_DIR/metadata.yaml" ]; then
+    echo "[$(date '+%F %T')] *** metadata.yaml 없음 — bag 녹화가 완료 직전에 끊긴 것으로 보임. ros2 bag reindex로 자동 복구 시도 ***" | tee -a "$STATUS_LOG"
+    if ros2 bag reindex -s mcap "$BAG_DIR" >> "$STATUS_LOG" 2>&1 && [ -f "$BAG_DIR/metadata.yaml" ]; then
+      echo "[$(date '+%F %T')] reindex 성공 — metadata.yaml 복구됨" | tee -a "$STATUS_LOG"
+    else
+      echo "[$(date '+%F %T')] *** reindex 실패 — bag이 손상됐을 수 있음, 수동 확인 필요 ***" | tee -a "$STATUS_LOG"
+    fi
+  fi
+}
+
 START=$(date +%s)
 LAST_PROGRESS=""
 STALL_COUNT=0
@@ -114,6 +131,7 @@ while true; do
   if [ "$TF_STALL_COUNT" -ge "$TF_HZ_STALL_CHECKS" ]; then
     echo "[$(date '+%F %T')] *** /tf가 ${TF_HZ_STALL_CHECKS}분 연속 무응답 — TF_FROZEN ***" | tee -a "$STATUS_LOG"
     shutdown_launch "TF 동결(${TF_HZ_STALL_CHECKS}분 연속 무응답)"
+    ensure_bag_metadata
     echo "TF_FROZEN" > "run_results/logs/velocity_4m_5mps_${TAG}_result.txt"
     exit 7
   fi
@@ -143,6 +161,7 @@ while true; do
   if [ "$STALL_COUNT" -ge "$STALL_CHECKS" ]; then
     echo "[$(date '+%F %T')] *** 진행률이 ${STALL_CHECKS}분 연속 정지(${PROGRESS}) — STALLED ***" | tee -a "$STATUS_LOG"
     shutdown_launch "진행률 정지(${STALL_CHECKS}분)"
+    ensure_bag_metadata
     echo "STALLED" > "run_results/logs/velocity_4m_5mps_${TAG}_result.txt"
     exit 6
   fi
@@ -150,6 +169,7 @@ while true; do
   if [ -n "$DISK_PCT" ] && [ "$DISK_PCT" -ge "$DISK_LIMIT" ]; then
     echo "[$(date '+%F %T')] *** 디스크 사용량 ${DISK_PCT}% >= ${DISK_LIMIT}% — 즉시 중단 ***" | tee -a "$STATUS_LOG"
     shutdown_launch "디스크 사용량 ${DISK_PCT}% 임계치 초과"
+    ensure_bag_metadata
     echo "DISK_THRESHOLD_STOP" > "run_results/logs/velocity_4m_5mps_${TAG}_result.txt"
     exit 5
   fi
@@ -157,6 +177,7 @@ while true; do
   if grep -qi "Traceback\|Segmentation fault\|core dumped" "$FLIGHT_LOG" 2>/dev/null; then
     echo "[$(date '+%F %T')] 로그에서 에러/크래시 시그니처 발견" | tee -a "$STATUS_LOG"
     shutdown_launch "flight log 에러 시그니처"
+    ensure_bag_metadata
     echo "ERROR_IN_LOG" > "run_results/logs/velocity_4m_5mps_${TAG}_result.txt"
     exit 4
   fi
@@ -165,6 +186,7 @@ while true; do
   if echo "$PSTATUS" | grep -q "data: true"; then
     echo "[$(date '+%F %T')] path_status=true — 완주" | tee -a "$STATUS_LOG"
     shutdown_launch "정상 완주"
+    ensure_bag_metadata
     echo "COMPLETED" > "run_results/logs/velocity_4m_5mps_${TAG}_result.txt"
     exit 0
   fi
@@ -172,6 +194,7 @@ while true; do
   if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
     echo "[$(date '+%F %T')] TIMEOUT ${ELAPSED}s" | tee -a "$STATUS_LOG"
     shutdown_launch "타임아웃 ${TIMEOUT}s"
+    ensure_bag_metadata
     echo "TIMEOUT" > "run_results/logs/velocity_4m_5mps_${TAG}_result.txt"
     exit 2
   fi

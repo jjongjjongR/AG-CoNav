@@ -170,7 +170,10 @@ GLIM의 GICP 정합만 사용, 5m AGL / 4m 간격 / 5m/s 조건) 실험만 남�
 
 ## 3. README.md
 
-(작성 진행 중 — 아래 절 참고. 완료 시 이 섹션 갱신.)
+완료. 8개 절(목적/참고결과, 환경요구사항, 설치, 시뮬레이션 실행, 방법B
+스크립트, 채점 스크립트, 결과 확인, GPU 조사 요약)로 구성. 4절 자체
+검증에서 발견한 bag metadata 버그(아래 4절 참고)에 대한 안내도 4절에
+추가로 반영함.
 
 ## 4. 자체 검증
 
@@ -214,10 +217,41 @@ GLIM의 GICP 정합만 사용, 5m AGL / 4m 간격 / 5m/s 조건) 실험만 남�
    종료)했다. 스크립트 시작부에 `mkdir -p run_results/logs`를 추가해서
    고침.
 
-수정 후 fresh clone을 다시 만들어 처음부터(colcon build → 비행 → 방법B
-스크립트 → 채점) 다시 검증했다 — 결과는 `run_results/verification_log.md`
-참고.
+### 재개 세션 — 전원 차단 후 재검증 (2차 검증, 실제로 완료)
+
+직전 세션이 위 3개 버그를 고치고 커밋(`b6b8d45`)한 직후, 재검증을 위해
+새 clone(`~/gicp_verify_test`)을 만들어 비행을 시작했지만 **컴퓨터
+전원이 꺼지면서 waypoint 452/5251(전체의 9%)에서 비행이 끊긴 채
+중단됐다** — `run_results/verification_log.md`가 아직 존재하지 않는데도
+위 문단이 "다시 검증했다"고 이미 서술하고 있던 것은, 그 재검증을
+시작하려던 계획을 먼저 적어두고 실제로 실행하는 도중 전원이 나간
+것이었다. 재개 세션에서:
+
+1. `~/gicp_verify_test`(반쯤 진행되다 만 상태 — bag 21% 지점에서 로그가
+   패딩된 채 끊겨 있었음)를 **신뢰하지 않고 완전히 삭제**한 뒤, 처음부터
+   다시 clone → colcon build → 비행 → 방법B 스크립트 → 채점 2회를 실제로
+   끝까지 실행했다.
+2. 이 과정에서 **네 번째 버그를 새로 발견**: 정상 완주(`COMPLETED`)했는데도
+   bag의 `metadata.yaml`이 생성되지 않아 다음 단계가 즉시 실패하는 문제
+   (`run_velocity_4m_5mps_monitored.sh`의 SIGINT→100초 대기→SIGTERM
+   에스컬레이션 타이밍이 21GB급 bag에는 부족했음). `ros2 bag reindex`로
+   복구 가능함을 확인하고, 스크립트에 `ensure_bag_metadata()`를 추가해
+   모든 종료 경로에서 자동 복구하도록 고쳤다(README 4절에도 명시).
+3. 최종 결과: baseline wheel/leg FN% = 8.32%/5.80%, 방법B =
+   59.80%/51.38% — 참고값(13.44/12.60 → 37.26/30.03)과 절대 수치는
+   다르지만, **방향(방법B가 훨씬 나쁨)과 "두 배 이상 악화" 기준은 오히려
+   더 큰 폭(7~9배)으로 재현됐다.** 이 VM이 aarch64(ARM64)라는 점이 수치
+   차이의 원인일 가능성을 "확인 필요"로 남겨둠 — 결론 자체의 재현에는
+   영향 없음.
+
+상세 로그는 `run_results/verification_log.md` 참고(실제로 존재하고
+완결된 문서임 — 위 4)와 다르게 이번엔 실행 후에 작성함).
 
 ## 5. 최종 커밋/푸시
 
-(진행 예정.)
+진행 중 — 이 커밋에 3절/4절 갱신, `verification_log.md` 신규,
+`run_velocity_4m_5mps_monitored.sh`의 `ensure_bag_metadata()` 수정,
+README 4절 안내 추가를 모두 포함해서 커밋한 뒤 `origin`(GitHub,
+`jjongjjongR/AG-CoNav`)에 `gicp-gt-pose` 브랜치를 푸시한다(최초 푸시 —
+이전 세션에서 한 번도 푸시되지 않았음을 `git ls-remote origin`으로
+확인함).
