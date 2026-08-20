@@ -3009,3 +3009,127 @@ baseline #5 상태)** 확인 완료. 어떤 실험적 변경도 코드에 남기
   기준 실험 실행 구간, 이후 문서화·정리 포함) — 8시간 타임아웃 안에
   여유 있게 완료. 11개 Phase 1 항목 전부 시도(스킵 없음), Phase 2
   조합까지 완료.
+
+## [새 세션] FAST-LIO2 실험 (2026-08-20)
+
+**목표**: FAST-LIO2(GLIM과 무관한 독립 패키지)를 5m AGL/4m간격/5m/s
+조건에서 테스트, GPS 없이 단순평균(칼만필터 없음) 지도로 순수GLIM
+(wheel FN 33.39%)과 사과 대 사과로 비교. 전체 타임아웃 4시간.
+
+### -1단계 재개 확인
+`pgrep -af "ros2|gz sim|docker"` → dockerd만(깨끗). `df -h ~` → 72%(22G
+여유), 정리 불필요. branch/작업폴더 확인 완료.
+
+### 0단계 — 빌드
+`~/fastlio_ws/src`(이 저장소와 완전히 별도)에 `MIT-SPARK/spark-fast-lio`
+clone(README에 명시적으로 "ROS2 Jazzy" 배지 — 우리 환경과 정확히
+일치, 좋은 신호). `git submodule update --init --recursive`로
+`ikd-Tree` 서브모듈 확보. `package.xml`/`CMakeLists.txt` 의존성 확인
+(rclcpp/tf2_*/pcl_ros/pcl_conversions/Eigen3/PCL, livox_ros_driver는
+QUIET로 옵션) — 전부 표준 ROS2 패키지라 우리 환경(GLIM 빌드 때 이미
+tf2_sensor_msgs 등 확보)에 이미 있을 가능성이 높다고 판단, 별도
+사전조치 없이 바로 `colcon build --packages-up-to spark_fast_lio`
+시도. 결과는 아래에 기록.
+
+### 0단계 결과 — 빌드 성공
+`colcon build --packages-up-to spark_fast_lio --symlink-install` 성공
+(~3.5분, IKFoM/ESKF 템플릿 코드라 느릴 뿐 정상). 실행파일
+`spark_lio_mapping` 확보. 이 VM은 aarch64(ARM64) 아키텍처였음(빌드 로그로
+처음 확인 — 지금까지 별문제 없었음).
+
+### 0-2단계 — 설정 구성 (`~/fastlio_ws/agconav_config.yaml`, 이 저장소
+바깥, 지시사항대로 test_main_brian 소스에는 아무것도 안 넣음)
+- `lidar_type=3`(OUST64), `scan_line=32`(OS1-32 실제 채널 수),
+  `timestamp_unit=3`(나노초).
+- `blind=2.5`, `det_range=200.0` — 각각 이 프로젝트 전체에서 일관되게
+  써온 `min_range_m`/`max_sensor_range`와 동일 값(정확도 튜닝이 아니라
+  자기반사 제거·사거리 상한 방어라는 동일한 목적의 파라미터를 그대로
+  이식).
+- `extrinsic_T=[0,0,-0.135406]`, `extrinsic_R=Ry(+90°)`(model.sdf 직접
+  실측: os1_lidar pose=(0,0,-0.175406,pitch=+90°), IMU pose=(0,0,-0.04,
+  무회전), 둘 다 model 프레임 기준. FAST-LIO 컨벤션(T_imu_lidar, "LiDAR
+  w.r.t. IMU")에 맞게 직접 계산). GLIM 실험 때 쓴 T_lidar_imu(반대 방향)
+  의 역행렬과 정확히 일치함을 대수적으로 교차검증. 이후 실제 bag 점을
+  이 extrinsic으로 변환해 IMU 프레임 Z가 -5.36~0.26m(평균 -4.4m, 5m AGL
+  비행에 부합)로 나오는 것으로 추가 실측 검증까지 완료(아래 버그 수정
+  전 진단 과정에서 확인).
+- `common.visualization_frame: "lidar"` — odometry 토픽이 T_map_lidar를
+  직접 발행하게 해서 우리 맵빌더가 GLIM 실험 때처럼 IMU-LiDAR 합성을
+  또 할 필요가 없게 함(설정 선택일 뿐 정확도 튜닝 아님).
+- `gravity_alignment.enable_gravity_alignment`: 패키지 기본값(true)
+  유지(우리 bag이 실제 정지 구간에서 시작하므로 조건 부합) — 나중에
+  off로도 대조 실험(아래).
+- 나머지(acc_cov/gyr_cov 등 IMU 노이즈 사전값, point_filter_num,
+  filter_size_map 등)는 패키지 제공 템플릿(`config/ouster_vbr.yaml`)
+  기본값 그대로, 우리 데이터에 맞춘 재추정 없음.
+
+### 0-3단계 — per-point 타임스탬프 이슈: 필수로 확인, 브리지 신규 작성
+`oust64_handler`(spark_fast_lio 소스 직접 확인) 코드가 `pl_orig.points[i].t`
+를 **무조건 직접 읽어 큐레이처(모션보정용 스캔내 상대시각)로 사용** —
+GLIM처럼 없으면 자동으로 점순서 근사로 대체하는 옵션이 없다. 필드
+누락 시 동작이 정의돼 있지 않음(사실상 필수) → GLIM 디스큐 실험과
+동일한 방위각(column index) 기반 근사로 t필드를 신규 계산해 추가하는
+브리지 노드(`run_results/fastlio_points_republisher.py`, 신규)를 작성.
+`ouster_ros::Point` 9개 필드(x,y,z,intensity,t,reflectivity,ring,ambient,
+range) 레이아웃에 맞춰 재발행 — PCL `fromROSMsg`는 메시지 자체의
+`fields[].offset`로 이름 매칭하므로 C++ 구조체의 실제 메모리 정렬을
+복제할 필요 없음(직접 패킹해도 무방, 확인 후 결정).
+
+부수 발견: FAST-LIO의 lidar 구독 QoS가 **reliable**(코드 실측 확인,
+`/opt/ros/jazzy`가 아니라 spark_fast_lio.cpp 자체)인데 원본
+`/drone/points`는 이 프로젝트 전체가 그렇듯 best_effort로 발행돼
+그대로 remap하면 아예 연결이 안 된다 — 브리지가 QoS도 reliable/
+volatile로 바꿔 발행해 이 문제도 함께 해결(브리지 노드 자체 목적과
+자연스럽게 겹치는 부수 효과, 별도 우회 아님). imu는 둘 다
+best_effort라 그대로 remap.
+
+궤적 기록: FAST-LIO2는 GLIM과 달리 자체적으로 파일 저장을 안 함
+(`save_dir_`/`sequence_name_` 파라미터는 선언만 되고 실제 파일쓰기
+코드 없음, 소스 직접 확인). 대신 매 프레임 `odometry`(nav_msgs/Odometry)
+토픽을 발행하므로 `run_results/fastlio_traj_recorder.py`(신규)로 받아
+TUM 포맷 저장.
+
+### 1단계 — 짧은 구간 테스트: 버그 2개 발견·수정, 최종 판정은 "발산"
+
+**시도1(t=33~90s, GLIM 실험과 동일한 "첫 코너 전 깨끗한 구간")**: 즉시
+`AssertionError: All fields need to have the same datatype`로 브리지가
+죽음 — `read_points_numpy`는 단일 dtype만 반환하는데 x/y/z/intensity
+(float32)와 ring(다른 타입)을 섞어 요청한 게 원인. `read_points()`
+(구조화 배열, 이종 타입 지원)로 교체해 수정.
+
+**시도2(수정 후, 같은 구간)**: 크래시는 없었지만 "No Effective Points!"
+경고가 시작부터 끝까지 반복, 궤적이 t=98.48s에 (1054,1186,-2595)로
+**파국적 발산**(수천 미터). 원인 조사: bag의 raw `/drone/points`가
+gz gpu_lidar 특성상 무반사 점을 NaN이 아니라 **Inf로 채운다는 사실**
+(이 프로젝트 전체에서 반복 확인된 사실, drone_elevation_mapper.py도
+명시적으로 필터링)을 **브리지에서 빠뜨렸음을 발견** — Inf가 섞인
+스캔이 FAST-LIO의 ikd-tree/ESKF 처리를 오염시킨 것으로 판단, `np.isfinite`
+필터를 브리지에 추가해 수정.
+
+**시도3(Inf 필터 수정 후, 같은 구간 t=33~90s)**: "No Effective Points"
+경고 완전히 사라짐(파국적 발산의 직접 원인은 해결). 그러나 궤적은
+여전히 **Z가 t=42.9~96s 동안 0.6m→68.9m로 거의 선형으로("등속") 표류**
+(기울기 ≈1.29m/s) — 파국적은 아니지만 명백한 발산.
+
+**추가 진단(설정 문제인지 재확인)**:
+1. t=33 시작은 이미 순항비행 중이라 gravity_alignment의 "정지 구간
+   필요" 전제가 깨졌을 가능성 → **t=0(실제 호버링 구간)부터 재시도**:
+   같은 선형 Z 표류 패턴 재현(t=97에 Z≈67m) — **가설 기각**.
+2. gravity_alignment을 아예 꺼도(`enable_gravity_alignment:=false`,
+   ouster_vbr.yaml 예제가 쓰는 방식) 결과 사실상 동일(t=98.4에 Z≈69.5m)
+   — **역시 원인 아님**.
+3. GT 대조(`compare_gt_glim.py` 재사용, traj_lidar.txt를 odom_imu.txt로
+   복사해 그대로 씀): **발산 자동탐지 t=10.28s**(사실상 궤적 시작
+   직후부터), 최대오차 132.85m(88초 구간, t=98.48s) — GLIM의 순수 실험
+   (같은 bag, 최대오차 199.94m/2129초)과 자릿수가 비슷한 발산 양상.
+
+**판정**: extrinsic은 실측 데이터로 직접 검증 완료(IMU프레임 변환 후
+Z가 -5.36~0.26m, 5m AGL과 부합), Inf 필터·시작시점·중력정렬까지
+전부 확인했는데도 같은 패턴이 재현되므로, **이건 설정 버그가 아니라
+이 bag/센서 데이터 자체의 근본적 어려움(GLIM 실험에서 이미 확인된
+"반사가 방위 180~270° 한 구획에만 몰리는" 희소한 반사 패턴 + 84m
+아님 5m 저고도지만 여전히 얕은 입사각 다수)이 FAST-LIO2에도 동일하게
+악영향을 준 것으로 판단**. 지시사항대로("문제가 나타나면 정확히
+기록하고 우회하지 마라") 더 이상 새 우회를 시도하지 않고, 크래시가
+아닌 "발산"임을 기록한 뒤 2단계(전체 bag 확장, 크래시 여부만 정지
+기준)로 진행한다.
