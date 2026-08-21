@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- SHM 전송을 끄고 UDPv4 만 쓴다.
+
+     왜 필요한가: 스테이지 게이트가 풀리는 순간 DDS 참가자가 수십 개 한꺼번에
+     생기는데, 그때 FastDDS 가 SHM 포트를 못 열고
+       RTPS_TRANSPORT_SHM Error: Failed init_port fastrtps_portNNNNN:
+       open_and_lock_file failed
+     를 낸다. 그 여파로 이미 떠 있던 /clock 브리지의 발행 엔드포인트까지
+     디스커버리에서 빠져 gz 쪽 controller_manager 가 "No clock received" 로
+     멈춘다(실측: 경고 1201회, 지상 로봇 주행 단계 진입 실패).
+
+     쓰는 법:
+       export FASTRTPS_DEFAULT_PROFILES_FILE=$PWD/test/configs/fastdds_no_shm.xml
+-->
+<dds xmlns="http://www.eprosima.com">
+  <profiles>
+    <transport_descriptors>
+      <transport_descriptor>
+        <transport_id>udp_only</transport_id>
+        <type>UDPv4</type>
+        <!-- 큰 메시지(드론 지도 112 MB)를 위해 버퍼를 키운다. -->
+        <sendBufferSize>16777216</sendBufferSize>
+        <receiveBufferSize>16777216</receiveBufferSize>
+        <maxMessageSize>65500</maxMessageSize>
+      </transport_descriptor>
+    </transport_descriptors>
+
+    <participant profile_name="no_shm" is_default_profile="true">
+      <rtps>
+        <userTransports>
+          <transport_id>udp_only</transport_id>
+        </userTransports>
+        <!-- 기본 전송(SHM 포함)을 쓰지 않는다는 뜻이다. -->
+        <useBuiltinTransports>false</useBuiltinTransports>
+      </rtps>
+    </participant>
+  </profiles>
+</dds>

@@ -30,7 +30,6 @@ IGNORE=(
   "libraries/gz_quadruped_playground"       # 이 저장소 자체 데모용 월드
   "commands/joystick_input"                 # 조이스틱 — 우리는 cmd_vel_to_control_input 을 쓴다
   "commands/keyboard_input"                 # 키보드 수동 조작 — 필요하면 되살릴 것
-  "controllers/unitree_guide_controller"    # 컨트롤러 실험에서 탈락(docs/11)
   "descriptions/anybotics"
   "descriptions/deep_robotics"
   "descriptions/magiclab&xiaomi"
@@ -46,7 +45,18 @@ for d in "${IGNORE[@]}"; do
   fi
 done
 
-# 우리가 쓰는 것: rl_quadruped_controller(RL 정책) + go2_description + gz 하드웨어.
+# !! unitree_guide_controller 를 건너뛰지 말 것 !!
+# 예전에는 "컨트롤러 실험에서 탈락(docs/11)" 이라고 제외했는데, 그 실험은
+# 관절 초기 자세 시딩이 깨진 상태에서 잰 것이라 근거를 잃었다. 다시 재니
+# 램프에서 20도까지 등판해 RL(15도)보다 낫다.
+#
+# !! 다만 운용 기본은 rl_quadruped_controller 다 !!
+# guide 는 램프에서는 잘 걷지만 Nav2 종단 주행에서 반복 전복해 운용에서
+# 뺐다(docs/14). guide 는 비교·회귀 확인용으로 남겨 두는 것이므로 여기서
+# 제외하면 안 된다.
+#
+# 우리가 쓰는 것: rl_quadruped_controller(운용 기본)
+# + unitree_guide_controller(비교용) + go2_description + gz 하드웨어.
 # 정책 가중치는 descriptions/unitree/go2_description/config/robot_lab/policy.pt 이고
 # 런치에서 model_folder:=robot_lab 로 고른다(config_folder 아니다 — 자주 헷갈린다).
 echo

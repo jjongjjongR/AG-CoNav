@@ -1,3 +1,8 @@
+# ============================================================
+# !! 이 파일의 값은 실측으로 확정됐다. 임의로 바꾸지 말 것 !!
+# 바꿔야 한다면 근거가 되는 실험을 다시 돌리고 docs/13 을 갱신할 것.
+# 근거: docs/13. 컨트롤러 재실험 — 등판·단차·속도.md
+# ============================================================
 terrain_feature_calculator:
   ros__parameters:
     use_sim_time: true
@@ -5,4 +10,23 @@ terrain_feature_calculator:
     trigger_topic: /drone/elevation_map_status
     elevation_layer: elevation
     output_topic: /terrain/features
-    slope_window: 1   # 경사 계산 이웃 반경(셀)
+    # 경사 계산 이웃 반경(셀). 기저 길이 = 2 x window x resolution.
+    #
+    # !! 1 로 두면 평지를 경사로 잘못 읽는다 !!
+    # 기저가 0.2 m 뿐이라 지도의 높이 잡음이 그대로 경사로 환산된다.
+    # 정답 heightmap 과 대조한 실측(목표 주변, 실제 경사 0.2~1.5도):
+    #   window 1 (0.2 m)  측정 5.96도  <- 실제의 4배
+    #   window 3 (0.6 m)  측정 1.76도  <- 실제와 일치
+    #   window 5 (1.0 m)  측정 1.33도
+    # leg(20도)는 여유가 커서 티가 안 나지만 wheel(10도)은 여유가 3도 미만이라
+    # 평지가 통째로 통과 불가로 잘린다. 실제로 window 1 에서는 wheel 의 출발
+    # 지점 연결 덩어리가 **0.00%** 였다(어느 목표로도 경로가 안 나온다).
+    #   window 1  wheel 출발덩어리  0.00%  / leg  9.07%
+    #   window 3  wheel           25.97%  / leg 44.93%
+    #   window 5  wheel           28.05%  / leg 43.72%
+    # 3 에서 이미 회복되고 5 와 차이가 거의 없어 최소 변경으로 3 을 쓴다.
+    #
+    # 이건 잡음을 덮는 보정이 아니라 **측정 기준을 실제 지형에 맞추는 것**이다.
+    # 폭 1 m 로봇이 넘을 수 있는지는 20 cm 구간이 아니라 그보다 긴 구간의
+    # 경사가 정한다.
+    slope_window: 3

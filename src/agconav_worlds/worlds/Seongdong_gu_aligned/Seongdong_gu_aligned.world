@@ -971,32 +971,25 @@
     <!-- Navigation goals. Visual-only so the marker itself never blocks the
          robot at the exact target pose. The same coordinates are published
          to RViz by pipeline_goal_sender. -->
-    <model name="wheel_goal_marker">
-      <static>true</static>
-      <pose>-59.0 -45.0 3.32 0 0 0</pose>
-      <link name="marker_link">
-        <visual name="red_cylinder">
-          <geometry><cylinder><radius>0.4</radius><length>3.0</length></cylinder></geometry>
-          <material>
-            <ambient>1 0 0 0.8</ambient><diffuse>1 0 0 0.8</diffuse>
-            <specular>0.2 0.2 0.2 0.8</specular>
-          </material>
-        </visual>
-      </link>
-    </model>
-    <model name="leg_goal_marker">
-      <static>true</static>
-      <pose>-56.5 -47.0 3.17 0 0 0</pose>
-      <link name="marker_link">
-        <visual name="red_cylinder">
-          <geometry><cylinder><radius>0.4</radius><length>3.0</length></cylinder></geometry>
-          <material>
-            <ambient>1 0 0 0.8</ambient><diffuse>1 0 0 0.8</diffuse>
-            <specular>0.2 0.2 0.2 0.8</specular>
-          </material>
-        </visual>
-      </link>
-    </model>
 
-    </world>
+        <!-- ==========================================================
+         목표 표식(빨간 원기둥)을 **제거했다**. 되살리지 말 것.
+         ==========================================================
+         충돌체가 없어도 GPU 라이다는 visual 을 때린다. 목표 좌표에 3 m
+         원기둥을 두면 드론이 84 m 상공에서 그것을 지형으로 찍어 목표가
+         통째로 막힌다.
+         실측(2026-08-21, 전체 맵 스캔 318분):
+           목표 반경 1 m 점유율  wheel 72.1% / leg 68.7%
+           (표식이 없던 기존 지도는 0%)
+           -> 경로계획 76회 연속 실패, 두 로봇 모두 출발 못 함.
+         <visibility_flags>0x01</visibility_flags> 로 GUI 전용을 시도했으나
+         **효과 없었다**(재측정 71.4% / 72.8%). gz-sim 의 GPU 라이다가 이
+         플래그를 무시한다.
+         목표를 눈으로 보고 싶으면 RViz 마커를 쓸 것 — 센서 데이터를
+         건드리지 않는다. 월드에 합성물을 두면 지형 지도가 오염된다.
+         제거한 원본:
+           wheel_goal_marker  pose -67.4 -60.9 3.51  cylinder r=0.4 L=3.0
+           leg_goal_marker    pose -65.0 -62.4 3.55  cylinder r=0.4 L=3.0
+         ========================================================== -->
+</world>
 </sdf>

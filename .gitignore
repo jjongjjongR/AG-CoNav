@@ -100,3 +100,18 @@ maps/merged_elevation_map/
 /elevation_replay.log
 /module_f.log
 /results/
+
+# ── 실험 하네스(test/) ──────────────────────────────────────
+# 재현에 필요한 것만 남긴다. 판단 기준은 위의 experiments/ 규칙과 같다 —
+# **결론과 표는 docs/*.md 와 README 8.1/8.2 에 있으므로 원자료는 두지 않는다.**
+#
+# 남기는 것: test/scripts(하네스), test/configs, test/worlds(계단식 램프·단차
+#   월드 19개 — 등판·단차 실측을 그대로 다시 돌릴 수 있어야 한다), test/design
+# 빼는 것:
+#   test/logs      44 MB. 실행 로그 원본.
+#   test/results  110 MB. 대부분은 e2e_run1_marker_blocked/ 안의 드론
+#                 고도 지도 mcap(107 MB)이다. 그 실행이 왜 실패했는지는
+#                 README 8.2 와 논문 대비.md §5.3 에 수치까지 적어 뒀다.
+test/logs/
+test/results/
+

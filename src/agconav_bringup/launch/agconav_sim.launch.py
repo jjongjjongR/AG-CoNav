@@ -72,15 +72,32 @@ def generate_launch_description():
         "robot_spawn.launch.py",
     )
 
-    # leg 보행 컨트롤러. 기본은 RL(quadruped_ros2_control + robot_lab 정책)이다.
-    # 근거는 `11. 컨트롤러 실험 — 경사와 속도.md`:
-    #   평지 1.11 vs CHAMP 0.162 m/s (6.9배), 경사 5도 29배 / 10도 24배,
-    #   안정 최대 1.045 vs 0.266 m/s (3.9배), 등판 성공은 RL 뿐.
-    # leg_controller:=champ 로 옛 CHAMP 스택으로 되돌릴 수 있다(비교·회귀 확인용).
+    # leg 보행 컨트롤러. 기본은 **Unitree 공식 unitree_guide** 이식본이다.
+    #
+    # 근거(단계식 5~30도 경사로, 각 3회 실측):
+    #   unitree_guide   20도까지 통과, 25도에서 전복
+    #   RL robot_lab    15도까지 통과, 20도에서 정지
+    #   RL legged_gym / himloco  평지에서도 못 걷는다
+    #   CHAMP           경사에서 사실상 제자리걸음(문서 11)
+    # 등판이 한 단계 높아 guide 로 정했다. 다만 한계에서의 실패 양상은 RL 이
+    # 낫다 — RL 은 자세를 유지한 채 멈추고(이탈 0.13~0.62 m) guide 는 전복한다
+    # (이탈 1.51~3.54 m). 그래서 주행성 지도의 경사 상한을 20도로 잡아 애초에
+    # 25도 구간에 들어가지 않게 하는 것이 전제다(traversability_leg.yaml).
+    #
+    # !! 문서 11 의 "unitree_guide 전 구간 전복" 은 근거를 잃었다 !!
+    # 그 측정은 관절 초기 자세 시딩이 깨진 상태에서 이뤄졌다. 시딩을 고치고
+    # 다시 재니 정상 보행한다.
+    # leg_controller:=guide / champ 로 바꿀 수 있다(비교·회귀 확인용).
+    # !! 다만 guide 는 Nav2 종단 주행에서 전복한다. docs/14 참고. !!
     go2_spawn_launch_path = os.path.join(
         agconav_bringup_share,
         "launch",
         "go2_rl_spawn.launch.py",
+    )
+    go2_guide_spawn_launch_path = os.path.join(
+        agconav_bringup_share,
+        "launch",
+        "go2_guide_spawn.launch.py",
     )
     go2_champ_spawn_launch_path = os.path.join(
         agconav_bringup_share,
@@ -127,9 +144,9 @@ def generate_launch_description():
         ("leg_y", "150.8310", "Go2(leg) 스폰 y [m]"),
         ("leg_z", "6.2500", "Go2(leg) 스폰 z [m] — 지면 5.85 + 0.40 (RL 원본 스폰 높이)"),
         ("leg_yaw", "-0.4613", "Go2(leg) 스폰 heading [rad]"),
-        # leg 보행 컨트롤러 선택. 기본 rl = quadruped_ros2_control 의
-        # rl_quadruped_controller. champ 로 두면 옛 CHAMP 스택을 쓴다.
-        ("leg_controller", "rl", "leg 보행 컨트롤러 (rl | champ)"),
+        # leg 보행 컨트롤러 선택. 기본 guide = Unitree 공식 unitree_guide
+        # 이식본. rl 은 학습 정책(rl_quadruped_controller), champ 는 옛 스택.
+        ("leg_controller", "rl", "leg 보행 컨트롤러 (rl | guide | champ)"),
         # RL 정책 폴더. 7번 실험에서 robot_lab 만 실제로 걷고 등판했다
         # (legged_gym·himloco 는 평지에서도 전복).
         ("leg_policy", "robot_lab", "RL 정책 폴더 (robot_lab | legged_gym | himloco)"),
@@ -456,9 +473,26 @@ def generate_launch_description():
             "model_folder": LaunchConfiguration("leg_policy"),
             "max_linear": LaunchConfiguration("leg_max_speed"),
         }.items(),
-        condition=UnlessCondition(
+        condition=IfCondition(
             PythonExpression(["'", LaunchConfiguration("leg_controller"),
-                              "' == 'champ'"])),
+                              "' == 'rl'"])),
+    )
+
+    # Unitree 공식 판 (기본). model_folder 가 없다 — 학습 정책이 아니다.
+    spawn_leg_guide = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(go2_guide_spawn_launch_path),
+        launch_arguments={
+            "use_sim_time": use_sim_time,
+            "robot_name": "leg",
+            "world_init_x": LaunchConfiguration("leg_x"),
+            "world_init_y": LaunchConfiguration("leg_y"),
+            "world_init_z": LaunchConfiguration("leg_z"),
+            "world_init_heading": LaunchConfiguration("leg_yaw"),
+            "max_linear": LaunchConfiguration("leg_max_speed"),
+        }.items(),
+        condition=IfCondition(
+            PythonExpression(["'", LaunchConfiguration("leg_controller"),
+                              "' == 'guide'"])),
     )
 
     # CHAMP 판 (leg_controller:=champ 일 때만).
@@ -485,7 +519,7 @@ def generate_launch_description():
     )
     # gz_quadruped_hardware가 자기 모델의 설정된 센서만 읽도록 수정했으므로
     # RL/CHAMP 모두 같은 시점에 안전하게 스폰할 수 있다.
-    spawn_leg = GroupAction([spawn_leg_rl, spawn_leg_champ])
+    spawn_leg = GroupAction([spawn_leg_guide, spawn_leg_rl, spawn_leg_champ])
 
     # 월드 로드 완료를 기다렸다가 spawn을 시작한다.
     # 성동구 월드는 heightmap과 건물 메시가 커서 로드가 오래 걸리는데,
@@ -628,14 +662,62 @@ def generate_launch_description():
     # leg  : CHAMP quadruped_controller가 Twist를 구독.
     nav2_wheel = _nav2_for("wheel", "true")
     nav2_leg = _nav2_for("leg", "false", {
-        # !! leg 속도 상한을 wheel 과 분리한다 !!
-        # nav2_common.yaml 은 wheel 기준(max_vel_x 1.2)인데 Go2 의 실측 안정
-        # 최대는 1.0 m/s 다(docs/11 §6). 그대로 두면 DWB 가 1.2 로 궤적을
-        # 평가하고 leg_max_speed(1.0)에서 잘려, 계획한 속도와 실제 속도가
-        # 어긋나 진행 없음 판정과 복구가 잦아진다.
+        # !! leg 속도 상한은 **컨트롤러의 설계 한계**에 맞춰야 한다 !!
+        # nav2_common.yaml 은 wheel 기준(max_vel_x 1.2)이다. leg 는 다르다.
+        #   RL robot_lab      실측 안정 최대 1.045 m/s (docs/11 §6)
+        #   unitree_guide     **설계 최대 0.4 m/s** — StateTrotting 이
+        #                     v_cmd = invNormalize(ly, -0.4, 0.4) 로 축을 읽는다
+        # 지금 기본 컨트롤러는 guide 이므로 0.4 다.
+        #
+        # 1.0 으로 두면 DWB 가 **로봇이 낼 수 없는 속도로 궤적을 평가**한다.
+        # 로봇이 계획을 못 따라가 경로에서 벗어나고, 결국
+        #   [leg.controller_server] Resulting plan has 0 poses in it.
+        # 로 중단된다. 실측: 목표를 3회 전송했는데 매번 실패하고 로봇이
+        # 스폰에서 43 m 엉뚱한 방향으로 이동해 있었다(위치추정은 정상이었다 —
+        # 정답 (-219.46,112.93) vs EKF (-219.45,112.93)).
         # max_vel_x 만 고치면 max_speed_xy 에서 다시 잘리므로 함께 내린다.
-        'max_vel_x': '1.0',
-        'max_speed_xy': '1.0',
+        # **컨트롤러를 rl 로 되돌리면 이 값도 1.0 으로 되돌릴 것.**
+        # 컨트롤러에 따라 자동으로 고른다. 하드코딩하면 컨트롤러를 바꿀 때
+        # 같이 고쳐야 하는 함정이 된다.
+        'max_vel_x': PythonExpression(
+            ["'0.4' if '", LaunchConfiguration('leg_controller'),
+             "' == 'guide' else '1.0'"]),
+        'max_speed_xy': PythonExpression(
+            ["'0.4' if '", LaunchConfiguration('leg_controller'),
+             "' == 'guide' else '1.0'"]),
+        # 병진이 느려진 만큼 회전도 낮춘다. guide 의 yaw 한계는 0.5 rad/s 다
+        # (StateTrotting: w_yaw_limit = +-0.5). 1.5 로 두면 같은 이유로
+        # 못 내는 회전을 계획한다.
+        # !! guide 는 0.3 이다. 설계 한계 0.5 를 그대로 주면 안 된다 !!
+        # StateTrotting 의 w_yaw_limit 이 +-0.5 rad/s 인데, 그건 **회전만 할 때**
+        # 의 한계다. Nav2 는 병진 0.4 m/s 와 회전을 동시에 준다. 한계에서
+        # 둘을 겹치면 균형 여유가 없어 그대로 전복한다 — 실측: roll 이
+        # 78도 -> 140도 -> -53도 로 요동치며 구르고, controller_server 가
+        # "Resulting plan has 0 poses in it" 로 중단했다.
+        # 직진 시험(제 램프 하네스, 조향 <=0.35 rad/s)에서는 멀쩡히 걸었으므로
+        # 컨트롤러 자체가 아니라 **동시 명령의 크기**가 문제다.
+        'max_vel_theta': PythonExpression(
+            ["'0.3' if '", LaunchConfiguration('leg_controller'),
+             "' == 'guide' else '1.5'"]),
+        # !! guide 는 가속도 제한도 낮춰야 한다 !!
+        # nav2_common.yaml 은 wheel 기준으로 acc_lim_x 2.0 / acc_lim_theta 3.2 다.
+        # 0.4 m/s 를 0.2 초 만에 붙이라는 뜻인데, 4족 보행은 한 걸음 주기가
+        # 그보다 길어서 명령이 계단처럼 바뀌면 균형 제어가 못 따라간다.
+        # 회전 상한만 0.3 으로 낮췄을 때도 여전히 전복했다
+        # (roll 176도 -> 160도 -> 86도, "0 poses" 3건).
+        # 보폭 주기 안에서 속도가 바뀌도록 완만하게 준다.
+        'acc_lim_x': PythonExpression(
+            ["'0.5' if '", LaunchConfiguration('leg_controller'),
+             "' == 'guide' else '2.0'"]),
+        'decel_lim_x': PythonExpression(
+            ["'-0.5' if '", LaunchConfiguration('leg_controller'),
+             "' == 'guide' else '-2.5'"]),
+        'acc_lim_theta': PythonExpression(
+            ["'0.6' if '", LaunchConfiguration('leg_controller'),
+             "' == 'guide' else '3.2'"]),
+        'decel_lim_theta': PythonExpression(
+            ["'-0.6' if '", LaunchConfiguration('leg_controller'),
+             "' == 'guide' else '-3.2'"]),
         # Go2는 제자리 최종 회전에서 위치를 다시 벗어나는 경향이 있다.
         # 모듈 D에는 도착 위치가 중요하고 최종 heading은 중요하지 않다.
         'yaw_goal_tolerance': '3.14',

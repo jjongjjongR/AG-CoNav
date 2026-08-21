@@ -1,3 +1,8 @@
+# ============================================================
+# !! 이 파일의 값은 실측으로 확정됐다. 임의로 바꾸지 말 것 !!
+# 바꿔야 한다면 근거가 되는 실험을 다시 돌리고 docs/13 을 갱신할 것.
+# 근거: docs/13. 컨트롤러 재실험 — 등판·단차·속도.md
+# ============================================================
 traversability_verdictor_leg:
   ros__parameters:
     use_sim_time: true
@@ -6,7 +11,21 @@ traversability_verdictor_leg:
     preview_map_topic: /leg/nav_map_preview
     preview_factor: 8
     status_topic: /leg/nav_map_status
-    max_slope_deg: 30.0   # README §3.3 leg 통과 기준
+    # !! 확정값 15.0. 바꾸지 말 것 !!
+    # **운용 컨트롤러(RL robot_lab) 기준 실측값**이다.
+    # docs/13 계단식 램프 3회 반복: 15도 통과, 20도 구간에서 정지
+    # (전복이 아니라 자세를 유지한 채 멈춘다. 이탈 0.13~0.62 m).
+    # 예전에는 20.0 이었다. 그건 unitree_guide 기준이었는데(guide 는 20도
+    # 통과, 25도 전복) guide 를 운용에서 뺐으므로 근거가 사라졌다.
+    # guide 를 못 쓴 이유는 docs/14 (한계점) 참고.
+    # !! 컨트롤러를 되돌리면 이 값도 같이 되돌릴 것 !!
+    max_slope_deg: 15.0
+    # !! 확정값 0.15. 바꾸지 말 것 !!
+    # RL robot_lab 실측(docs/13): 100 mm 통과, 150 mm 통과, 200 mm 실패.
+    # RL 은 학습된 정책이라 gait_height 같은 조정 손잡이가 없다 — 정책을
+    # 바꾸지 않는 한 이 값은 고정이다.
+    # (참고: guide 는 gait_height 0.20 일 때만 150 mm 를 넘었다. 기본값
+    #  0.08 로는 100 mm 도 3/3 전복했다. 지금은 운용에서 빠졌다.)
     max_step_m: 0.15
     unknown_value: -1
     frame_id: map

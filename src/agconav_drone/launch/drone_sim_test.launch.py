@@ -67,11 +67,14 @@ def generate_launch_description():
         default_value="",
         description="드론 경로 YAML 절대경로. 비우면 agconav_drone/config/path.yaml.",
     )
-    # 순항 속도. 기본 8.0 은 노드 기본값과 같아 기존 동작을 바꾸지 않는다.
-    # 실험에서 확정한 값을 통합 실행에도 넘길 수 있게 인자로 노출한다.
+    # 순항 속도. **6.0 이 확정값이다**(문서 10 종단 테스트).
+    #   v10 x 6 -> wheel 계획 실패 19건, 18.5 m 후 ABORTED
+    #   v6  x 3 -> 계획 실패 0건, 191.5 m 주행 SUCCEEDED
+    # 문서 9 도 최적 5.2~6.0 m/s 로 같은 결론이고, 6 -> 8 m/s 사이에서
+    # 고도가 0.61 -> 3.00 m 로 흔들려 지도에 그대로 잡음이 실린다.
     declare_cruise_speed = DeclareLaunchArgument(
         "cruise_speed",
-        default_value="8.0",
+        default_value="6.0",
         description="드론 순항 속도 지령 [m/s]",
     )
 

@@ -57,7 +57,12 @@ class DroneVelocityFollower(Node):
     def __init__(self):
         super().__init__('drone_velocity_follower')
         self.declare_parameter('path_file', '')
-        self.declare_parameter('cruise_speed_mps', 8.0)
+        # !! 확정값은 6.0 이다 !!
+        # 문서 10(종단 테스트): v10 x 6 은 wheel 계획 실패 19건으로 실패,
+        # v6 x 3 은 실패 0건 + 191.5 m 주행 성공. 문서 9 도 최적 5.2~6.0 m/s.
+        # 6 -> 8 m/s 사이에서 제어가 무너진다(선 이탈 0.053 -> 0.312 m,
+        # 고도 0.61 -> 3.00 m). 고도 흔들림이 곧 지도 높이 잡음이 된다.
+        self.declare_parameter('cruise_speed_mps', 6.0)
         # 도착 반경. 끝점 이 거리 안에 들어오면 다음 구간으로 넘어간다.
         #
         # 이 값은 끝점 초과에 거의 영향이 없다 — 실측으로 확인했다.

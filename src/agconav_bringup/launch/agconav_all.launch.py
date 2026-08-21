@@ -31,13 +31,44 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument, IncludeLaunchDescription, LogInfo,
-    RegisterEventHandler, Shutdown,
+    RegisterEventHandler, SetEnvironmentVariable, Shutdown,
 )
 from launch.event_handlers import OnProcessExit
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+
+
+def _no_shm_env():
+    """FastDDS 의 공유메모리 전송을 끄고 UDPv4 만 쓰게 한다.
+
+    !! 이게 없으면 지상 로봇 단계에서 파이프라인이 멈춘다 !!
+    스테이지 게이트가 풀리는 순간 DDS 참가자가 수십 개(모듈 B/C + Nav2 2세트
+    + 지상 로봇 스택) 한꺼번에 생긴다. 그때 FastDDS 가 SHM 포트를 못 열고
+        RTPS_TRANSPORT_SHM Error: Failed init_port fastrtps_portNNNNN:
+        open_and_lock_file failed
+    를 낸다. 그 여파로 **이미 떠 있던 /clock 브리지의 발행 엔드포인트까지
+    디스커버리에서 빠진다.** 실측: ROS /clock 이 발행자 0 / 구독자 120 인
+    상태가 되고, gz 쪽 controller_manager 가 "No clock received" 를 1201회
+    찍은 뒤 지상 로봇 주행 단계에 들어가지 못했다. 그때도 gz 프로세스와
+    브리지 프로세스 자체는 멀쩡했고 gz 내부 /clock 도 정상 발행 중이었다.
+
+    **속도 손해는 없다. 오히려 빠르다.**
+    드론 지도와 같은 규모(112 MB)를 루프백으로 보내 재 보면
+        SHM 켜짐  5.20 / 6.11 초
+        SHM 꺼짐  3.95 / 3.72 초
+    로 UDP 쪽이 35%가량 빨랐다. 루프백에서는 SHM 의 세그먼트 할당·잠금
+    오버헤드가 이득보다 크다.
+
+    환경변수가 이미 있으면 존중한다(다른 프로파일을 쓸 수 있다).
+    """
+    if os.environ.get("FASTRTPS_DEFAULT_PROFILES_FILE"):
+        return []
+    profile = os.path.join(
+        get_package_share_directory("agconav_bringup"),
+        "config", "fastdds_no_shm.xml")
+    return [SetEnvironmentVariable("FASTRTPS_DEFAULT_PROFILES_FILE", profile)]
 
 
 def generate_launch_description():
@@ -110,10 +141,41 @@ def generate_launch_description():
         DeclareLaunchArgument("leg_z", default_value="6.2612"),
         DeclareLaunchArgument("leg_yaw", default_value="-0.0767"),
         DeclareLaunchArgument(
+            # !! agconav_sim 의 기본값을 여기서 덮어쓴다 !!
+            # 이 값이 sim 쪽 기본값보다 우선하므로, 컨트롤러를 바꿀 때
+            # 두 파일을 같이 고쳐야 한다. 예전에 sim 만 바꿨더니
+            # 전체 실행에서는 그대로 예전 값이 떴다.
+            # !! rl 로 유지할 것. guide 로 바꾸지 말 것 !!
+            # 등판만 보면 guide 가 낫다 — docs/13 실측으로 guide 20도,
+            # RL robot_lab 15도. 그런데 **guide 는 Nav2 주행에서 못 쓴다.**
+            # 전체 파이프라인(191 m, 스폰 -> 목표)에서 guide 는 반복해서
+            # 전복했고(roll 78 -> 140 -> -53도), 같은 지도·같은 Nav2 설정에서
+            # RL 은 목표까지 걸어가 Goal succeeded 했다(오차 0.21 m).
+            # 지형은 원인이 아니다 — 경로 전 구간 최대 경사 5.2도, 최대 단차
+            # 12 mm 로 guide 한계의 1/4 이하다(정답 heightmap 실측).
+            # 자세한 경위와 시도한 대책은 docs/14 (한계점) 참고.
+            # 그래서 주행성 임계값도 RL 기준으로 내렸다
+            # (traversability_leg.yaml: 20도 -> 15도).
+            # guide / champ 는 비교·회귀 확인용으로만 남겨 둔다.
             "leg_controller", default_value="rl",
-            description="전체 파이프라인 leg 보행 컨트롤러 (안정성이 검증된 rl 기본)"),
-        DeclareLaunchArgument("cruise_speed", default_value="10.0",
-                              description="드론 순항 속도 [m/s]"),
+            description="전체 파이프라인 leg 보행 컨트롤러 (종단 주행이 검증된 rl 기본)"),
+        # !! 6.0 이다. 10.0 으로 두지 말 것 !!
+        # 문서 10(종단 테스트)이 같은 파이프라인을 두 번 돌려 확정한 값이다.
+        #   1차 v10 x 6  : wheel 계획 실패 19건, 18.5 m 후 ABORTED
+        #   2차 v6  x 3  : wheel 계획 실패 0건, 191.5 m 주행 SUCCEEDED
+        # 차이는 파이프라인이 아니라 드론 스캔 조건 하나였다.
+        # 문서 9(람다 재실험)도 같은 결론이다 — 속도는 U자이고 최적은
+        # 5.2~6.0 m/s, 6 -> 8 m/s 사이에서 제어가 무너진다
+        # (선 이탈 0.053 -> 0.312 m, **고도 0.61 -> 3.00 m**).
+        # 고도가 3 m 씩 흔들리면 그대로 높이 잡음이 되어 주행성 지도가
+        # 벌집이 된다. 실제로 10.0 으로 전체 맵을 뜬 지도는 wheel 자유
+        # 37.5% / 점유 27.7% 였고, v6 x 3 지도는 88.5% / 10.1% 였다.
+        # 같은 임계값, 같은 slope_window 인데 이만큼 갈린다.
+        #
+        # **결정값인데 런치 기본값에 반영이 안 돼 있었다.** 그래서 인자를
+        # 안 주고 돌리면 매번 실패 조건으로 스캔했다.
+        DeclareLaunchArgument("cruise_speed", default_value="6.0",
+                              description="드론 순항 속도 [m/s] (문서 10 확정값)"),
         DeclareLaunchArgument("enable_traversability", default_value="true",
                               description="모듈 F (주행성 분석)"),
         DeclareLaunchArgument(
@@ -225,6 +287,13 @@ def generate_launch_description():
     stage_gate = Node(
         package="agconav_navigation",
         executable="pipeline_stage_gate",
+        # !! agconav_sim 도 같은 실행 파일을 띄운다(그쪽 이름은
+        #    simulation_stage_gate). 이름이 겹치면 같은 노드가 두 개가 되어
+        #    로그가 두 줄씩 찍히고 어느 쪽이 트리거했는지 알 수 없다.
+        #    둘은 하는 일이 달라서 둘 다 필요하다 —
+        #      sim  쪽: F 완료 -> 지상 로봇 스택(B/C) 기동
+        #      all  쪽: F 완료 -> 후속 모듈(D/E) 기동
+        #    이름만 확실히 갈라 둔다. !!
         name="pipeline_stage_gate",
         output="screen",
     )
@@ -244,7 +313,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription(
-        declares + [
+        _no_shm_env() + declares + [
             simulation,
             rviz,
             module_a,

@@ -53,8 +53,18 @@ class PipelineGoalSender(Node):
             # (wheel 오차 0.27 m, leg 오차 4.3 m).
             # 두 점을 조금 띄워 둔 것은 거의 동시에 도착할 때 서로 부딪히지
             # 않게 하기 위해서다.
-            'wheel_goal_x': -59.0, 'wheel_goal_y': -45.0,
-            'leg_goal_x': -56.5, 'leg_goal_y': -47.0,
+            #
+            # !! 2026-08-20 재선정. 월드의 빨간 기둥도 같이 옮겼다 !!
+            # 예전 자리 (-59,-45)/(-56.5,-47) 은 실제 지형은 평지(3.4도)였지만
+            # 주행성 지도상 여유가 0.41 m 뿐이라 플래너가 붙기 어려웠다.
+            # 새 자리는 정답 heightmap 기준 그 자리 경사 0.21도, 주변 6 m 최대
+            # 1.53도, 건물에서 8.2 m 떨어진 곳이다. 지도상 여유는
+            # wheel 4.60 m / leg 3.33 m 로 8배 넉넉하고, 두 로봇 모두 스폰과
+            # 연결돼 있다(도달까지 0.00 m).
+            # 좌표를 옮길 때는 월드의 wheel_goal_marker / leg_goal_marker
+            # pose 도 같이 옮길 것. z 는 지면 높이 + 1.5(기둥 길이의 절반)다.
+            'wheel_goal_x': -67.4, 'wheel_goal_y': -60.9,
+            'leg_goal_x': -65.0, 'leg_goal_y': -62.4,
             'max_attempts': 3,
             'start_robot': 'wheel',
             'require_maps': True,

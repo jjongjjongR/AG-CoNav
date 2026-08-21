@@ -50,6 +50,24 @@ class CmdVelToControlInput(Node):
         self.declare_parameter('max_linear', 1.0)     # 7번 실험의 안정 최대
         self.declare_parameter('max_angular', 1.0)
         self.declare_parameter('auto_stand', True)
+        # FIXEDSTAND 에서 보행 상태로 넘어가는 명령. 컨트롤러마다 다르다.
+        #   rl_quadruped_controller  3 -> RL
+        #   unitree_guide_controller 4 -> TROTTING
+        # 기본 3 은 지금까지의 동작 그대로다.
+        self.declare_parameter('walk_command', CMD_STAND_TO_RL)
+        # ly 축 1.0 이 몇 m/s 인가.
+        #   RL 은 ly 를 m/s 그대로 쓴다 (StateRL.cpp: control_.x = ly).
+        #   guide 는 조이스틱 축으로 읽는다
+        #     (StateTrotting.cpp: v_cmd = invNormalize(ly, -0.4, 0.4)).
+        # 그래서 guide 는 0.4 를 넣어야 같은 m/s 명령이 된다. 기본 1.0.
+        self.declare_parameter('norm_linear', 1.0)
+        # 회전 축도 마찬가지다. guide 는 rx 를 [-1,1] 축으로 읽는다
+        #   (StateTrotting: d_yaw = -invNormalize(rx, -0.5, 0.5)).
+        # 정규화를 안 하면 **회전 명령이 절반으로 들어간다** — Nav2 가
+        # 1.0 rad/s 를 요청해도 로봇은 0.5 rad/s 로만 돈다. 그러면 계획한
+        # 곡률을 못 따라가 경로에서 벗어난다. RL 은 rad/s 를 그대로 쓰므로
+        # 기본 1.0 이면 기존 동작 그대로다.
+        self.declare_parameter('norm_angular', 1.0)
 
         self._out = self.create_publisher(
             Inputs, self.get_parameter('output_topic').value, 10)
@@ -66,6 +84,9 @@ class CmdVelToControlInput(Node):
         self._timeout = float(self.get_parameter('cmd_timeout_sec').value)
         self._max_lin = float(self.get_parameter('max_linear').value)
         self._max_ang = float(self.get_parameter('max_angular').value)
+        self._walk_cmd = int(self.get_parameter('walk_command').value)
+        self._norm_lin = float(self.get_parameter('norm_linear').value)
+        self._norm_ang = float(self.get_parameter('norm_angular').value)
 
         self._vx = 0.0
         self._vy = 0.0
@@ -92,9 +113,9 @@ class CmdVelToControlInput(Node):
     def _send(self, command, vx=0.0, vy=0.0, wz=0.0):
         m = Inputs()
         m.command = int(command)
-        m.ly = float(vx)      # StateRL: control_.x = ly
-        m.lx = float(-vy)     # StateRL: control_.y = -lx
-        m.rx = float(-wz)     # StateRL: control_.yaw = -rx
+        m.ly = float(vx / self._norm_lin)      # StateRL: control_.x = ly
+        m.lx = float(-vy / self._norm_lin)     # StateRL: control_.y = -lx
+        m.rx = float(-wz / self._norm_ang)     # StateRL: control_.yaw = -rx
         m.ry = 0.0
         self._out.publish(m)
 
@@ -147,7 +168,7 @@ class CmdVelToControlInput(Node):
             self.get_logger().info('주행 명령 수신 -> RL 모드 진입')
             return
         if self._stage == 3:
-            self._send(CMD_STAND_TO_RL)
+            self._send(self._walk_cmd)
             self._stage_publish_count += 1
             if self._stage_publish_count >= STAGE_PUBLISH_COUNT:
                 self._stage = 4

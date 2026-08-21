@@ -109,6 +109,23 @@ class GroundElevationMapper(Node):
         self.declare_parameter('max_point_range_m', 200.0)
         self.declare_parameter('max_cells', 60_000_000)
 
+        #  3) z 밴드: 센서 원점 기준으로 이만큼 아래/위를 벗어난 점을 버린다.
+        # !! 왜 필요한가 (2026-08-21 실측) !!
+        # leg 지도의 5.1%(65,062셀)가 -5 m 아래였고 최저 -46.4 m 였다. 그런데
+        # 그 구간의 정답 지형은 2.0~6.3 m 다. 물리적으로 불가능한 값이다.
+        # 원인은 원거리 반사 x 보행 중 자세 오차다. leg 의 OS1 은 사거리
+        # 170 m 에 수직 -21.2도까지 내려다보므로, 170 m 를 날아간 하향 빔은
+        # 센서보다 170*sin(21.2도) = 61.5 m 아래에 찍힌다. 여기에 TF 시각이
+        # 조금만 어긋나도 오차가 거리에 비례해 증폭된다 — 170 m 에서 2도면
+        # 5.9 m 다. 실제로 경로에서 멀수록 오차가 커졌다(|오차|>3 m 비율:
+        # 0~10 m 59.8% -> 80~160 m 88.7%). 걷지 않는 wheel 은 -5 m 아래가
+        # 0.085% 뿐이라 이 해석과 맞는다.
+        # 사거리를 좁히면(아래 설정 60 m) 최대 하향 도달은 60*sin(21.2도)
+        # = 21.7 m 이므로, 12 m 밴드는 그보다 안쪽에서 한 겹 더 막는다.
+        # 0 으로 두면 끈다.
+        self.declare_parameter('max_z_below_sensor_m', 0.0)
+        self.declare_parameter('max_z_above_sensor_m', 0.0)
+
         points_topic = self.get_parameter('points_topic').value
         elevation_map_topic = self.get_parameter('elevation_map_topic').value
         navigation_status_topic = self.get_parameter('navigation_status_topic').value
@@ -132,6 +149,8 @@ class GroundElevationMapper(Node):
             self.get_parameter('max_latest_tf_age_sec').value)
         self._max_point_range = float(self.get_parameter('max_point_range_m').value)
         self._max_cells = int(self.get_parameter('max_cells').value)
+        self._max_z_below = float(self.get_parameter('max_z_below_sensor_m').value)
+        self._max_z_above = float(self.get_parameter('max_z_above_sensor_m').value)
 
         # Grid state, in OUR OWN convention (not grid_map's wire convention,
         # see _build_grid_map_message): (row, col) = (0, 0) is the min-x/
@@ -290,6 +309,27 @@ class GroundElevationMapper(Node):
                     '라이다 사거리로는 나올 수 없는 값이라 수치 이상으로 본다.'
                     % (self._max_point_range, int((~keep).sum()), keep.size,
                        float(np.sqrt(np.nanmax(d2))) if np.isfinite(d2).any() else float('inf')),
+                    throttle_duration_sec=5.0)
+                points = points[keep]
+                if points.shape[0] == 0:
+                    return
+
+        # 센서 기준 z 밴드 (위 max_z_below/above_sensor_m 주석 참고).
+        if self._max_z_below > 0.0 or self._max_z_above > 0.0:
+            dz = points[:, 2] - transform.translation.z
+            keep = np.isfinite(dz)
+            if self._max_z_below > 0.0:
+                keep &= dz >= -self._max_z_below
+            if self._max_z_above > 0.0:
+                keep &= dz <= self._max_z_above
+            if not keep.all():
+                self.get_logger().warn(
+                    '센서 기준 z 밴드(-%.0f ~ +%.0f m)를 벗어난 점 %d/%d개를 '
+                    '버렸다 (최저 %+.1f m, 최고 %+.1f m). 원거리 반사 x 자세 '
+                    '오차로 생기는 값이라 지형으로 보지 않는다.'
+                    % (self._max_z_below, self._max_z_above,
+                       int((~keep).sum()), keep.size,
+                       float(np.nanmin(dz)), float(np.nanmax(dz))),
                     throttle_duration_sec=5.0)
                 points = points[keep]
                 if points.shape[0] == 0:
