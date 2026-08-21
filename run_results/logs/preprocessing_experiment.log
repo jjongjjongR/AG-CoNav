@@ -595,3 +595,22 @@ baseline 점 338741908개 -> /tmp/gicp_preproc/baseline_flatness.npy
   스캔 25200개 처리, GICP 성공 24105 실패 1094 (필터폴백 0)
   스캔 25400개 처리, GICP 성공 24305 실패 1094 (필터폴백 0)
   스캔 25600개 처리, GICP 성공 24505 실패 1094 (필터폴백 0)
+  스캔 25800개 처리, GICP 성공 24705 실패 1094 (필터폴백 0)
+  스캔 26000개 처리, GICP 성공 24905 실패 1094 (필터폴백 0)
+  스캔 26200개 처리, GICP 성공 25105 실패 1094 (필터폴백 0)
+  스캔 26400개 처리, GICP 성공 25305 실패 1094 (필터폴백 0)
+[WARN] [1787301553.389833950] [rosbag2_storage_mcap]: attempted to read in receive timestamp order with no message index
+  스캔 26600개 처리, GICP 성공 25505 실패 1094 (필터폴백 0)
+  스캔 26800개 처리, GICP 성공 25705 실패 1094 (필터폴백 0)
+  스캔 27000개 처리, GICP 성공 25905 실패 1094 (필터폴백 0)
+  스캔 27200개 처리, GICP 성공 26105 실패 1094 (필터폴백 0)
+  스캔 27400개 처리, GICP 성공 26305 실패 1094 (필터폴백 0)
+전처리=combo (gicp_downsample=0.3)
+스캔 27598개 (TF 조회 실패로 스킵 29개)
+GICP: 성공 26503, 실패(GT로 대체) 1094 (그 중 수렴했지만 이동량 상한 2.0m 초과로 기각 35), 첫 스캔이라 스킵 1
+필터링: 스캔당 폴백(점 10개 미만으로 필터 후 원본 사용) 0회, 필터 전 점 338741908개 -> 필터 후 317151006개 (6.4% 감소)
+baseline 점 338741908개 -> /tmp/gicp_preproc/baseline_combo.npy
+방법B(combo) 점 317151006개 -> /tmp/gicp_preproc/methodb_combo.npy
+[2026-08-21 17:49:25] BUILD done: combo (exit 0)
+[2026-08-21 17:49:25] SCORE start: methodb_combo
+[2026-08-21 18:01:57] BUILD start: combo

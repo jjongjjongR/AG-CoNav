@@ -1,5 +1,97 @@
 # PROGRESS — 5m AGL 방법B 경로 실험 (2~5단계)
 
+## [새 세션] gicp-preprocessing 재개 — UTM 크래시 복구 확인 후 사용자 요청으로 즉시 재중단
+
+**전체 타임아웃 3시간(재개 확인 포함) 중 약 20분만 사용.** 직전 세션이
+UTM 크래시로 중단됐다는 전제로 재개 절차(-1단계)를 밟던 중, **재개
+확인 도중 사용자가 "멈춰, 집 가서 다시 킬게"로 즉시 중단을 요청** —
+그 시점에 진행 중이던 작업만 안전하게 정지하고 이 세션은 여기서
+종료한다(추가 작업 없음).
+
+### -1. 재개 지점 파악 결과
+- `pgrep -af "ros2|gz sim|docker"` → dockerd 외 없음, **gicp-gt-pose
+  관련 프로세스도 없음**(안전 경계 위반 없음, 별도 조치 불필요).
+- 현재 브랜치: `gicp-preprocessing`(이미 생성/체크아웃돼 있었음,
+  origin과 동기화 상태).
+- `git log` HEAD = `e2c3808`("SOR/평탄면필터 결과 확정, 조합은 진행
+  중 (안전 체크포인트)") — 커밋 메시지 자체가 이미 "조합(B+C) 빌드는
+  이 커밋 시점 기준 92% 진행 중"이라고 정확히 기록해둠.
+- `gicp_preprocessing_result.md` 확인: 0단계(재비행 판단)~3단계(B/C
+  개별 검증) 완료, **4단계(조합) 진행 중이던 것이 마지막 기록** —
+  지시사항이 예상한 단계 구분과 정확히 일치.
+
+### 손상/불완전 여부 확인 — combo(B+C) 조합의 중간 산출물만 유실
+- `run_results/logs/preprocessing_experiment.log`(커밋에 없는
+  unstaged 변경분) 확인: `BUILD start: combo`(16:19:42) →
+  `BUILD done: combo (exit 0)`(17:49:25) → `SCORE start:
+  methodb_combo`(17:49:25)에서 로그가 끊김 — **combo 빌드 자체는
+  실제로 완주했고, 채점(scoring) 시작 직후 크래시**가 난 것으로 확인.
+- 그러나 산출물이 있어야 할 `/tmp/gicp_preproc/`(baseline_combo.npy,
+  methodb_combo.npy)가 **디렉토리째로 사라짐** — `uptime -s`/`who -b`
+  로 부팅 시각이 17:57:01임을 확인, 로그 마지막 시각(17:49:25)보다
+  나중이므로 **UTM 크래시가 VM 재부팅을 유발했고 `/tmp`(rootfs 위,
+  휘발성 취급됨)가 재부팅으로 비워진 것**으로 결론. `find / -iname
+  "*gicp_preproc*"`/`"*methodb_combo*"` 둘 다 전무 확인.
+- **SOR(B)·평탄면(C) 개별 결과는 무사** — 이 두 변형의 수치는 이미
+  `gicp_preprocessing_result.md`(git 커밋 `e2c3808`에 포함)에 직접
+  기록돼 있어 `/tmp` 산출물이 사라져도 영향 없음(원본 JSON은 스크립트
+  설계상 애초에 `/tmp`에만 있고 결과 문서에 값만 옮겨 적는 방식이라,
+  "기록은 됐는데 결과 파일이 없는" 경우가 SOR/평탄면에는 해당하지
+  않음 — 둘 다 스코어링까지 완주해서 그 수치가 문서에 그대로 옮겨져
+  있음, `SCORE done: methodb_sor`/`methodb_flatness` 로그로도 재확인).
+- 원본 bag(`bags/velocity_4m_5mps_preproc_src`, 27.1GiB, mcap 15개)은
+  `ros2 bag info`로 정상 인식 확인 — 손상 없음, 재사용 가능.
+  `build_methodB_cloud_preprocess.py`/`run_preprocessing_experiment.sh`
+  둘 다 `py_compile`/육안 검토로 문법·로직 이상 없음 확인.
+- **결론: 유일하게 미완료/유실된 것은 combo(B+C) 조합 하나뿐**이고,
+  원인은 코드/데이터 손상이 아니라 `/tmp` 휘발성 때문 — 재실행만
+  하면 된다(재설계 불필요).
+
+### 디스크 확인
+`df -h ~` → 78%(17G 여유). 임계값(70%) 초과 상태였으나, `bags/`에
+`velocity_4m_5mps_preproc_src`(28G) 외 다른 bag이 없어(이미 이전
+세션들이 정리 완료) 추가로 지울 스크래치가 없음 — combo 재실행에
+필요한 `/tmp` 여유(baseline+methodb 합쳐 최대 약 8GB, float32×3열
+기준 추정)는 17G 여유 안에서 충분히 감당 가능하다고 판단해 **별도
+정리 없이 진행**하기로 함(애매하게 지우지 않는다는 원칙 적용 — 유일한
+후보인 bag 자체는 이번 재실행에 필요하므로 지울 수 없음).
+
+### combo 재실행 착수 — 시작 직후 사용자 요청으로 즉시 중단
+`bash run_results/run_preprocessing_experiment.sh
+bags/velocity_4m_5mps_preproc_src combo`를 백그라운드로 시작(이전과
+동일한 커맨드, 이전 실적 기준 빌드 약 90분+채점 약 15분 예상). **시작
+후 수 초 이내(빌드 스크립트가 bag을 열기 시작한 직후) 사용자가 "멈춰
+일단 집가서 다시 킬게"로 중단을 요청** — 즉시 `TaskStop` +
+`kill -TERM`(PID 3874 python 빌드 프로세스, 3852/3850 래퍼 bash)으로
+정지, 2초 대기 후 `pgrep`로 관련 프로세스 완전히 사라졌음을 확인.
+진행이 거의 없었던 시점(bag 열기 직후, GICP 처리 시작 전으로 추정)
+이라 **중간 산출물이 사실상 없었음** — `/tmp/gicp_preproc/`를 안전하게
+`rm -rf`로 정리(불완전한 재시작 흔적이 다음 세션에 "이미 진행 중"으로
+오인되는 것을 방지). `pgrep -af "ros2|gz sim|docker"` 최종 확인 →
+dockerd 외 잔여 프로세스 없음. `git status` → 커밋 안 된 변경은
+`preprocessing_experiment.log`(BUILD start 로그 한 줄 추가된 것,
+경미) 뿐 — 이 파일까지 포함해 이번 세션 진행 상황을 커밋한다.
+
+### 다음 세션이 이어받을 때
+1. **combo(B+C) 빌드+채점을 처음부터 다시**: `bash
+   run_results/run_preprocessing_experiment.sh
+   bags/velocity_4m_5mps_preproc_src combo` 그대로 재실행하면 됨(코드
+   수정 불필요, 재설계 불필요) — 이전에 이 커맨드로 빌드까지는 정상
+   완주가 실측 확인된 바 있음(로그 참고).
+2. 완료되면 `gicp_preprocessing_result.md`의 `<!-- COMBO_* -->`
+   플레이스홀더(2·4절)를 실제 수치로 채우고, 5절(결론)을 조합 결과
+   반영해 갱신, 6절(저장/보고) 그대로 진행.
+3. **교훈**: `/tmp`는 이 VM에서 재부팅 시 휘발된다 — 장시간(1시간+)
+   걸리는 빌드의 중간/최종 산출물을 `/tmp`에만 두면 크래시 시 전부
+   재계산해야 한다. 여유가 되면 스코어링 직전에 `.npy`를
+   `run_results/` 등 영속 경로로 잠깐 복사해두는 안전장치를 고려할
+   가치가 있음(이번 세션 범위 밖이라 적용하지 않음).
+
+### 저장/보고
+이 절 자체와 `preprocessing_experiment.log`(BUILD start: combo 로그
+한 줄) 커밋. 새로 생성된 파일 없음(재실행이 시작 직후 중단돼 산출물
+없음). push까지 완료.
+
 ## [새 세션] Phase 4 — glim_ext gnss_global(실시간 GPS 제약) 시도 — 결론: 미채택
 
 **전체 타임아웃 2시간.** 목표: 사후보정이 아니라 GLIM 최적화 과정
