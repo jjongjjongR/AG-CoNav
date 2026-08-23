@@ -22,7 +22,9 @@ wheel:
       pose_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
       twist_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
       open_loop: False
-      enable_odom_tf: False
+      # 모듈 B 스펙 구성요소 3: 구동 Controller가 X/odom -> X/base_link TF를
+      # 발행한다. clearpath 플랫폼 EKF를 껐으므로 이 TF의 유일한 공급원이다.
+      enable_odom_tf: True
       tf_frame_prefix_enable: False
       cmd_vel_timeout: 0.5
       velocity_rolling_window_size: 5

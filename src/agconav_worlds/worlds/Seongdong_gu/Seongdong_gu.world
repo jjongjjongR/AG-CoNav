@@ -855,7 +855,7 @@
         <timeConstantUp>0.0125</timeConstantUp>
         <timeConstantDown>0.025</timeConstantDown>
         <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>8.436e-05</motorConstant>
+        <motorConstant>3.6816e-04</motorConstant>
         <momentConstant>0.016</momentConstant>
         <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
         <actuator_number>0</actuator_number>
@@ -875,7 +875,7 @@
         <timeConstantUp>0.0125</timeConstantUp>
         <timeConstantDown>0.025</timeConstantDown>
         <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>8.436e-05</motorConstant>
+        <motorConstant>3.6816e-04</motorConstant>
         <momentConstant>0.016</momentConstant>
         <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
         <actuator_number>1</actuator_number>
@@ -895,7 +895,7 @@
         <timeConstantUp>0.0125</timeConstantUp>
         <timeConstantDown>0.025</timeConstantDown>
         <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>8.436e-05</motorConstant>
+        <motorConstant>3.6816e-04</motorConstant>
         <momentConstant>0.016</momentConstant>
         <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
         <actuator_number>2</actuator_number>
@@ -915,7 +915,7 @@
         <timeConstantUp>0.0125</timeConstantUp>
         <timeConstantDown>0.025</timeConstantDown>
         <maxRotVelocity>800.0</maxRotVelocity>
-        <motorConstant>8.436e-05</motorConstant>
+        <motorConstant>3.6816e-04</motorConstant>
         <momentConstant>0.016</momentConstant>
         <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
         <actuator_number>3</actuator_number>
@@ -925,6 +925,13 @@
         <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
         <motorType>velocity</motorType>
       </plugin>
+      <!-- 실제 추력 비행(drone_velocity_follower)을 위한 값이다.
+           원래 값(forceConstant 8.436e-05, attitudeGain 2 3 0.15,
+           angularRateGain 0.4 0.52 0.18)은 SetEntityPose 순간이동 시절의
+           것으로, 중력을 켜면 로터가 기체를 못 든다 - 실측: 이륙 후
+           85 m 에서 53.8 m 까지 떨어져 안전장치가 비행을 중단시켰다.
+           축소 테스트 월드(Seongdong_gu_100x100_dynamic)에서 검증된 값을
+           그대로 옮겼다: 추력 4.36배, 자세/각속도 이득 87배. -->
       <plugin
         filename="gz-sim-multicopter-control-system"
         name="gz::sim::systems::MulticopterVelocityControl">
@@ -933,32 +940,32 @@
         <enableSubTopic>enable</enableSubTopic>
         <comLinkName>X3/base_link</comLinkName>
         <velocityGain>2.7 2.7 2.7</velocityGain>
-        <attitudeGain>2 3 0.15</attitudeGain>
-        <angularRateGain>0.4 0.52 0.18</angularRateGain>
+        <attitudeGain>174.0 261.0 13.05</attitudeGain>
+        <angularRateGain>34.8 45.2 15.66</angularRateGain>
         <maximumLinearAcceleration>2 2 2</maximumLinearAcceleration>
 
         <rotorConfiguration>
           <rotor>
             <jointName>X3/rotor_0_joint</jointName>
-            <forceConstant>8.436e-05</forceConstant>
+            <forceConstant>3.6816e-04</forceConstant>
             <momentConstant>0.016</momentConstant>
             <direction>1</direction>
           </rotor>
           <rotor>
             <jointName>X3/rotor_1_joint</jointName>
-            <forceConstant>8.436e-05</forceConstant>
+            <forceConstant>3.6816e-04</forceConstant>
             <momentConstant>0.016</momentConstant>
             <direction>1</direction>
           </rotor>
           <rotor>
             <jointName>X3/rotor_2_joint</jointName>
-            <forceConstant>8.436e-05</forceConstant>
+            <forceConstant>3.6816e-04</forceConstant>
             <momentConstant>0.016</momentConstant>
             <direction>-1</direction>
           </rotor>
           <rotor>
             <jointName>X3/rotor_3_joint</jointName>
-            <forceConstant>8.436e-05</forceConstant>
+            <forceConstant>3.6816e-04</forceConstant>
             <momentConstant>0.016</momentConstant>
             <direction>-1</direction>
           </rotor>
@@ -968,6 +975,11 @@
         filename="gz-sim-odometry-publisher-system"
         name="gz::sim::systems::OdometryPublisher">
         <dimensions>3</dimensions>
+        <!-- 드론 TF: 센서 메시지의 frame_id가 drone/* 이므로 TF도 같은 이름으로
+             내보내야 모듈 A가 점군을 map으로 변환할 수 있다. 기본값(X3/odom ->
+             X3/base_footprint)은 센서 프레임과 이름이 맞지 않아 TF가 끊긴다. -->
+        <odom_frame>map</odom_frame>
+        <robot_base_frame>drone/base_link</robot_base_frame>
       </plugin>
     </include>
 

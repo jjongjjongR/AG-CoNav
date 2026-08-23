@@ -22,19 +22,35 @@ wandb/
 *.bag
 *.mcap
 rosbag*/
-experiments/results/
-experiments/media/
-maps/
+# 실험 원자료(json, png, 로그) 전체. 결론과 표는 전부
+# docs/*.md 에 정리돼 있어 저장소에 둘 이유가 없다.
+experiments/
+# `maps/` 가 아니라 `maps/*` 여야 한다. 디렉터리째 배제하면 git 이 그 안으로
+# 들어가지 않아서 아래 `!maps/nav_map_v6s3/` 재포함이 통째로 무시된다.
+maps/*
+# 실험 산출물 — 재생성 가능하고 용량이 커서(bag 11 GB, 지도 수백 MB) 커밋하지 않는다.
+# 만드는 법은 docs/README.md 와 RESULTS.md 에 적혀 있다.
+bags/
+maps_*/
 
 # 대용량 에셋 (필요시 Git LFS)
 *.stl
 *.dae
 *.obj
-# Seongdong_gu world가 참조하는 건물 메시는 없으면 world 로드 자체가 실패하므로 예외.
-!src/agconav_worlds/worlds/Seongdong_gu/mesh/buildings.dae
+# world 가 참조하는 건물 메시는 없으면 world 로드 자체가 실패하므로 예외.
+# 종단 검증에 쓴 Seongdong_gu_aligned 도 포함해야 한다(0.8 MB) — 빠지면
+# 새로 받은 쪽에서 [Err] Unable to find mesh 로 월드가 안 뜬다.
+!src/agconav_worlds/worlds/*/mesh/buildings.dae
+# 드론 모델은 메시를 Fuel URL 로 참조한다. 로컬 meshes/ 사본은 아무도 안 쓰므로 제외.
+src/agconav_description/models/*/meshes/
 
 # vcstool로 별도 관리하는 외부 패키지 (deps.repos 참조)
 src/unitree_go2_ros2_jazzy/
+# leg 로봇의 RL 컨트롤러. 우리 트리는 upstream 5434c58 과 diff 0 인
+# 부분집합이라 커밋할 이유가 없고, 정책 가중치(policy.pt)는 위의
+# `*.pt` 규칙에 걸려 어차피 올라가지도 않는다.
+# 받는 법: vcs import src < deps.repos && ./scripts/prune_quadruped_deps.sh
+src/quadruped_ros2_control/
 
 # OS / 에디터
 .DS_Store
@@ -43,14 +59,76 @@ src/unitree_go2_ros2_jazzy/
 *.swp
 
 # 개인 개발일지 (커밋 안 함)
-jongheon_dev.md
 jongheon_dev_sim.md
-발표_jongheon.md
-jongheon_dev_0802.md
-module_F.md
 jongheon_dev_f_module.md
+module_F.md
+report_jongheon_integration.md
 
 *.world.bak
 *.world.bak2
 *.world.bak*
 *.launch.py.bak
+
+# world 생성기가 남기는 진단용 임시 world
+_probe*.world
+
+# !! RL 정책 가중치는 커밋해야 한다 !!
+# 위의 `*.pt` 규칙이 quadruped_ros2_control 의 Go2 정책까지 막는다.
+# 이 파일들이 없으면 rl_quadruped_controller 가 뜨지 않는다.
+
+# 실험 원본 rosbag / 중간 지도는 커밋하지 않는다 (합쳐서 9.5 GB).
+# 결과는 experiments/*.json 과 문서, maps/ 의 최종 지도로 남는다.
+bags/
+maps_test/
+
+# 지상 로봇이 주행 중 쌓은 2.5D 지도(64 MB). 실험 부산물이라 커밋하지 않는다.
+# 저장소에 남기는 것은 드론이 만든 최종 주행성 지도(maps/nav_map_v6s3)다.
+maps/wheel_elevation_map/
+maps/leg_elevation_map/
+maps/drone_elevation_map/
+maps/merged_elevation_map/
+
+# !! 스캔 결과 지도는 커밋한다 !!
+# 드론이 전체 맵을 v6 x 3 m 로 훑어 만든 최종 주행성 지도만 예외로 남긴다.
+# pgm 각 27 MB 지만 이진 격자라 git 압축 후 둘 합쳐 1.1 MB 다.
+# Nav2 map_server 로 그대로 다시 띄울 수 있는 형식이고, 191.5 m 종단 주행을
+# 검증한 바로 그 지도다(docs/10. 종단 테스트 — 전체 맵 주행 검증.md).
+!maps/nav_map_v6s3/
+
+# 루트에 흘린 실행 부산물. 파이프라인을 손으로 돌릴 때 생긴다.
+*.pid
+/elevation_replay.log
+/module_f.log
+# results/ 는 실행 부산물이다. 논문 그림도 여기 쌓이지만 저장소에 두지 않는다 —
+# 생성 스크립트(test/scripts/fig_*.py)가 있으므로 언제든 다시 뽑을 수 있다.
+/results/
+
+# ── 실험 하네스(test/) ──────────────────────────────────────
+# 재현에 필요한 것만 남긴다. 판단 기준은 위의 experiments/ 규칙과 같다 —
+# **결론과 표는 docs/*.md 와 README 8.1/8.2 에 있으므로 원자료는 두지 않는다.**
+#
+# 남기는 것: test/scripts(하네스), test/configs, test/worlds(계단식 램프·단차
+#   월드 19개 — 등판·단차 실측을 그대로 다시 돌릴 수 있어야 한다), test/design
+# 빼는 것:
+#   test/logs      44 MB. 실행 로그 원본.
+#   test/results  110 MB. 대부분은 e2e_run1_marker_blocked/ 안의 드론
+#                 고도 지도 mcap(107 MB)이다. 그 실행이 왜 실패했는지는
+#                 README 8.2 와 논문 대비.md §5.3 에 수치까지 적어 뒀다.
+test/logs/
+test/results/
+
+
+# ── 논문·발표 원고와 개인 실험 기록 ──────────────────────────
+# 저장소는 "돌아가는 시스템"을 담는 곳이고, 원고는 사람마다 버전이 갈려
+# 병합 충돌만 만든다. 결론과 확정값은 README 8장과 docs/ 에 이미 있다.
+/논문 대비.md
+/이수빈_*.md
+/홍연주_*.md
+src/agconav_drone/알고리즘 실험.md
+*.docx
+
+# 편집 중 남는 백업본. 원고를 고칠 때마다 생긴다.
+*.bak
+*.v2bak
+*.v3bak
+*.pre_fig3_backup

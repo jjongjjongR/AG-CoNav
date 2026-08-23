@@ -1,0 +1,4 @@
+unitree_guide_controller:
+  ros__parameters:
+    gait_height: 0.20
+    max_vel_x: 0.4

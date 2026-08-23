@@ -8,40 +8,25 @@
 계약 이름 근거: README §5 (/X/points, /X/imu, /X/gps) 및 모듈 C(/X/points).
 ※ leg IMU(/leg/imu)는 CHAMP EKF 의존성 때문에 go2_spawn.launch.py에서 이미 브리지됨.
 """
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    bridge_config = os.path.join(
+        get_package_share_directory('agconav_gz_bridge'),
+        'config', 'agconav_sensor_bridge.yaml')
     sensor_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
         name='agconav_sensor_bridge',
         output='screen',
-        parameters=[{'use_sim_time': True}],
-        arguments=[
-            # --- drone ---
-            '/drone/points/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
-            '/drone/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
-            '/drone/gps@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
-            # --- leg (imu는 go2_spawn에서 이미 /leg/imu로 브리지됨) ---
-            '/leg/points/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
-            '/leg/gps@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
-            # --- wheel (clearpath gz 센서를 직접 브리지) ---
-            '/wheel/sensors/lidar3d_0/scan/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
-            '/wheel/sensors/imu_0/data@sensor_msgs/msg/Imu[gz.msgs.IMU',
-            '/wheel/sensors/gps_0/navsat@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
-        ],
-        remappings=[
-            # LiDAR 점군: gz의 <topic>/points → 계약 /X/points
-            ('/drone/points/points', '/drone/points'),
-            ('/leg/points/points', '/leg/points'),
-            ('/wheel/sensors/lidar3d_0/scan/points', '/wheel/points'),
-            # GPS: README §5 이름 /X/gps (drone/leg는 gz 토픽이 이미 /X/gps라 remap 불필요)
-            ('/wheel/sensors/gps_0/navsat', '/wheel/gps'),
-            # IMU: wheel만 clearpath 이름 → 계약 /wheel/imu (drone/imu, leg/imu는 그대로)
-            ('/wheel/sensors/imu_0/data', '/wheel/imu'),
-        ],
+        # CLI bridge entries ignore the node-wide lazy default in Jazzy.
+        # The YAML assigns lazy=true to every bridge entry explicitly.
+        parameters=[{'use_sim_time': True, 'config_file': bridge_config}],
     )
 
     # ---- TF prefix 리레이 : 사설 /X/tf(루트 프레임) → 전역 /tf(X/* 접두어) ----

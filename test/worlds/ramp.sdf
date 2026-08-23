@@ -1,0 +1,141 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <world name="Seongdong_gu">
+    <physics name="1ms" type="ignored">
+      <dart>
+        <collision_detector>bullet</collision_detector>
+      </dart>
+    </physics>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim-forcetorque-system"
+            name="gz::sim::systems::ForceTorque"/>
+    <plugin filename="gz-sim-contact-system" name="gz::sim::systems::Contact"/>
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+    <model name="ground">
+      <static>true</static>
+      <pose>0 0 -0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>300 60 1</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>300 60 1</size></box></geometry>
+          <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="ramp5">
+      <static>true</static>
+      <pose>4.982568851450468 0 -0.024261612566501112 0 -0.08726646259971647 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>4.015279350173389 20.0 0.4</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>4.015279350173389 20.0 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.4 1</ambient><diffuse>0.4 0.4 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="ramp10">
+      <static>true</static>
+      <pose>8.965270364466614 0 0.5056470649181843 0 -0.17453292519943295 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>4.0617064475429805 20.0 0.4</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>4.0617064475429805 20.0 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.4 1</ambient><diffuse>0.4 0.4 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="ramp15">
+      <static>true</static>
+      <pose>12.948236190979497 0 1.3979757965419877 0 -0.2617993877991494 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>4.141104721640332 20.0 0.4</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>4.141104721640332 20.0 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.4 1</ambient><diffuse>0.4 0.4 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="ramp20">
+      <static>true</static>
+      <pose>16.931595971334865 0 2.6670612910372697 0 -0.3490658503988659 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>4.256711089903648 20.0 0.4</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>4.256711089903648 20.0 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.4 1</ambient><diffuse>0.4 0.4 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="ramp25">
+      <static>true</static>
+      <pose>20.91547634765186 0 4.334294042629523 0 -0.4363323129985824 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>4.413511675849967 20.0 0.4</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>4.413511675849967 20.0 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.4 1</ambient><diffuse>0.4 0.4 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="ramp30">
+      <static>true</static>
+      <pose>24.9 0 6.429666373969214 0 -0.5235987755982988 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>4.618802153517006 20.0 0.4</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>4.618802153517006 20.0 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.4 1</ambient><diffuse>0.4 0.4 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="summit">
+      <static>true</static>
+      <pose>29.0 0 7.557571993105353 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>4.0 20.0 0.4</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>4.0 20.0 0.4</size></box></geometry>
+          <material><ambient>0.3 0.3 0.4 1</ambient><diffuse>0.4 0.4 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+  </world>
+</sdf>

@@ -18,6 +18,7 @@ import os
 
 from grid_map_msgs.msg import GridMap
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from rclpy.serialization import serialize_message
@@ -67,17 +68,8 @@ class MergedElevationMapSaver(Node):
         down a node whose only job is reacting to further incoming maps.
         """
         bag_path = os.path.join(self._output_directory, self._map_name)
-        # Independent restart guard, alongside elevation_map_merger's own
-        # (see that node's _merge_done): don't trust that side alone to
-        # prevent a second save, so check here too -- if the output already
-        # exists, a previous run already saved it, so skip rather than
-        # overwrite.
-        if os.path.exists(bag_path):
-            self.get_logger().warn(
-                f'"{bag_path}" already exists -- not overwriting (likely a '
-                'restart after a previous successful save), skipping this save.')
-            return
         try:
+            self._archive_existing_bag(bag_path)
             writer = rosbag2_py.SequentialWriter()
             writer.open(
                 rosbag2_py.StorageOptions(uri=bag_path, storage_id=self._output_format),
@@ -99,17 +91,30 @@ class MergedElevationMapSaver(Node):
 
         self.get_logger().info(f'saved merged map to "{bag_path}" ({self._output_format})')
 
+    def _archive_existing_bag(self, bag_path):
+        if not os.path.exists(bag_path):
+            return
+        backup_path = f'{bag_path}.previous'
+        suffix = 2
+        while os.path.exists(backup_path):
+            backup_path = f'{bag_path}.previous.{suffix}'
+            suffix += 1
+        os.rename(bag_path, backup_path)
+        self.get_logger().warn(
+            f'existing bag preserved as "{backup_path}" before saving this run')
+
 
 def main(args=None):
     rclpy.init(args=args)
     node = MergedElevationMapSaver()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

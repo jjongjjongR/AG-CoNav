@@ -17,6 +17,11 @@ setup(
          glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'config'),
          glob('config/*.yaml')),
+        # 주행성 지도 평가 도구. 다른 방식(SLAM 등)과 성능을 비교할 때
+        # 이 스크립트들을 그대로 써야 숫자가 같은 기준으로 나온다.
+        # 특히 eval_connectivity.py 의 "최대 연결덩어리"가 판정 지표다.
+        (os.path.join('lib', package_name),
+         glob('scripts/*.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

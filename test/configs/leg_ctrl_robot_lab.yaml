@@ -1,0 +1,4 @@
+rl_quadruped_controller:
+  ros__parameters:
+    model_folder: "robot_lab"
+    down_pos: [0.000, 1.000, -2.000, 0.000, 1.000, -2.000, 0.000, 1.000, -2.000, 0.000, 1.000, -2.000]

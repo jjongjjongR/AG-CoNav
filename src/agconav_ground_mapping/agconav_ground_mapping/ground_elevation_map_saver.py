@@ -31,6 +31,7 @@ import os
 
 from grid_map_msgs.msg import GridMap
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from rclpy.serialization import serialize_message
@@ -123,6 +124,7 @@ class GroundElevationMapSaver(Node):
 
         bag_path = os.path.join(self._output_directory, self._map_name)
         try:
+            self._archive_existing_bag(bag_path)
             writer = rosbag2_py.SequentialWriter()
             writer.open(
                 rosbag2_py.StorageOptions(uri=bag_path, storage_id=self._output_format),
@@ -152,17 +154,30 @@ class GroundElevationMapSaver(Node):
         self._status_pub.publish(Bool(data=True))
         return True, message
 
+    def _archive_existing_bag(self, bag_path):
+        if not os.path.exists(bag_path):
+            return
+        backup_path = f'{bag_path}.previous'
+        suffix = 2
+        while os.path.exists(backup_path):
+            backup_path = f'{bag_path}.previous.{suffix}'
+            suffix += 1
+        os.rename(bag_path, backup_path)
+        self.get_logger().warn(
+            f'existing bag preserved as "{backup_path}" before saving this run')
+
 
 def main(args=None):
     rclpy.init(args=args)
     node = GroundElevationMapSaver()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

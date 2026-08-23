@@ -30,6 +30,7 @@ from agconav_map_fusion.grid_math import (
 from grid_map_msgs.msg import GridMap
 import numpy as np
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from std_msgs.msg import Bool, String
@@ -64,23 +65,10 @@ class ElevationMapMerger(Node):
         self.declare_parameter('map_name', 'merged_elevation_map')
 
         self._maps = {robot: None for robot in ROBOTS}
-        # design.md: the merge fires exactly once, ever. An in-memory flag
-        # alone doesn't survive a node restart -- merge_trigger is
-        # reliable/transient_local, so a restarted node immediately gets
-        # the already-fired True again and, starting from _merge_done =
-        # False, would redo the merge. Seeding the flag from whether the
-        # saver's output file already exists on disk instead survives a
-        # restart: if it's there, a previous run already completed the
-        # merge, so this run ignores merge_trigger and doesn't repeat it.
-        merged_map_path = os.path.join(
-            self.get_parameter('output_directory').value,
-            self.get_parameter('map_name').value)
-        self._merge_done = os.path.exists(merged_map_path)
-        if self._merge_done:
-            self.get_logger().warn(
-                f'merged map already exists at "{merged_map_path}" -- '
-                'assuming a previous run already completed the merge '
-                '(e.g. this node restarted), ignoring merge_trigger.')
+        # A file from an older experiment must not suppress this run's
+        # merge. The saver preserves an existing bag under a .previous name.
+        # This flag guards duplicate triggers only for this process.
+        self._merge_done = False
 
         # design.md 9-1: elevation_map is reliable / transient_local / keep_last / depth 1.
         map_qos = QoSProfile(
@@ -217,11 +205,12 @@ def main(args=None):
     node = ElevationMapMerger()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

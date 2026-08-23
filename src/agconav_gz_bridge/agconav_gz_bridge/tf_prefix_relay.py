@@ -38,14 +38,32 @@ class TfPrefixRelay(Node):
         self._prefix = prefix.rstrip('/') + '/'
 
         # 정적 TF는 transient_local(래치)로 주고받아야 늦게 붙는 구독자도 받는다.
-        static_qos = QoSProfile(
+        #
+        # 구독 depth를 크게 잡는 것이 중요하다. 사설 /X/tf_static에는 래치
+        # 퍼블리셔가 여러 개 붙는다(robot_state_publisher의 고정 조인트 묶음,
+        # base_footprint->base_link static, 센서 static ...). 이 노드가 나중에
+        # 뜨면 그 래치 메시지들이 한꺼번에 도착하는데, depth=1이면 콜백이
+        # 큐를 비우기 전에 다음 것이 덮어써 일부를 영영 놓친다(퍼블리셔는
+        # 다시 보내지 않는다). 그러면 전역 /tf_static에 정적 링크 하나가
+        # 통째로 빠지고, 그걸 필요로 하는 소비자만 조용히 실패한다.
+        # 실측: leg EKF가 leg/base_footprint->leg/base_link를 못 받아
+        # map->leg/odom TF를 발행하지 못하고(odometry/filtered는 정상 발행),
+        # map -> leg/base_link 조회가 ConnectivityException으로 간헐 실패했다.
+        # tf2_ros의 TransformListener도 같은 이유로 static을 depth=100으로 받는다.
+        static_sub_qos = QoSProfile(
+            depth=100,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            history=QoSHistoryPolicy.KEEP_LAST,
+        )
+        # 발행 쪽은 매번 누적 전체 집합을 내보내므로 마지막 하나만 래치되면 된다.
+        static_pub_qos = QoSProfile(
             depth=1,
             durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
             history=QoSHistoryPolicy.KEEP_LAST,
         )
 
         self._pub_tf = self.create_publisher(TFMessage, '/tf', 10)
-        self._pub_tf_static = self.create_publisher(TFMessage, '/tf_static', static_qos)
+        self._pub_tf_static = self.create_publisher(TFMessage, '/tf_static', static_pub_qos)
 
         # static TF는 여러 퍼블리셔가 각각 래치한다. 리레이가 그대로 재발행하면 depth=1
         # 구독자는 마지막 것만 받는다. 그래서 본 것들을 누적해 매번 "전체 집합"을 재발행한다
@@ -53,7 +71,7 @@ class TfPrefixRelay(Node):
         self._static = {}  # child_frame_id -> TransformStamped
 
         self.create_subscription(TFMessage, in_tf, self._on_tf, 10)
-        self.create_subscription(TFMessage, in_tf_static, self._on_tf_static, static_qos)
+        self.create_subscription(TFMessage, in_tf_static, self._on_tf_static, static_sub_qos)
         self.get_logger().info(
             f"tf_prefix_relay: '{in_tf}'/'{in_tf_static}' -> /tf(_static) "
             f"prefix='{self._prefix}' shared={sorted(self._shared)}")

@@ -1,19 +1,21 @@
 """
 drone_sim_test.launch.py
 
-drone_path_player + drone_pose_controller를 함께 띄우는 테스트용 launch 파일.
-path_file(경로 YAML)은 두 노드의 yaml 설정을 그대로 불러온 뒤, 이 launch 파일이
-get_package_share_directory("agconav_drone")로 계산한 실제 install 경로로 덮어써서
-사용자별 절대경로 하드코딩(예: /home/yeonj/...) 없이 어느 PC에서도 동작하게 한다.
+모듈 A(드론 지도 생성)를 띄우는 launch 파일. 드론은 drone_velocity_follower가
+실제 로터 추력으로 몬다(월드의 MulticopterVelocityControl).
 
-기본값은 world_name:=Seongdong_gu (repo에 있는 유일한 world) 이지만, 노드 자체
-(drone_pose_controller.py)에는 이 기본값이 없다 - world_name은 필수 파라미터이고,
-이 launch 인자 하나만 바꾸면 다른 world로도 그대로 재사용할 수 있게 하기 위함이다.
+SetEntityPose 순간이동 방식(drone_path_player + drone_pose_controller)은 폐기했다.
+물리엔진이 운동을 보지 못해 IMU가 죽고(실측 gyro 최대 0.0013 rad/s) 자세가 항상
+수평이라 스캔 시야가 연직으로만 고정됐다. 실제 비행으로 바꾸면 기체가 기울고
+오르내리며 근거리 반사를 더 얻는다 — 커버리지 78.7 -> 98.9%, 높이 오차 sigma
+0.1175 -> 0.0839 m. 두 노드의 진입점은 비교 실험용으로 남아 있다.
 
-launch_gazebo:=false 로 주면 Gazebo/world/clock 브리지는 띄우지 않고 두 드론 노드만
-띄운다 (예: agconav_bringup의 전체 시뮬레이션이 이미 떠 있어 Gazebo를 중복 실행하면
-안 되는 경우). set_pose 서비스 브리지는 agconav_bringup 쪽에 아직 없으므로
-launch_gazebo 값과 무관하게 항상 띄운다.
+path_file(경로 YAML)은 이 launch 파일이 get_package_share_directory로 계산한 실제
+install 경로로 덮어써서, 사용자별 절대경로 하드코딩 없이 어느 PC에서도 동작한다.
+
+launch_gazebo:=false 로 주면 Gazebo/clock/twist 브리지는 띄우지 않는다 (예:
+agconav_bringup의 전체 시뮬레이션이 이미 떠 있는 경우). 그때도 enable 브리지는
+필요하므로 이쪽에서 올린다 — agconav_sim은 twist만 브리지한다.
 """
 
 import os
@@ -26,10 +28,12 @@ from launch.actions import (
     IncludeLaunchDescription,
     SetEnvironmentVariable,
 )
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import (LaunchConfiguration, PathJoinSubstitution,
+                                  PythonExpression)
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -58,6 +62,22 @@ def generate_launch_description():
         default_value="true",
         description="Use Gazebo simulation time",
     )
+    declare_path_file = DeclareLaunchArgument(
+        "path_file",
+        default_value="",
+        description="드론 경로 YAML 절대경로. 비우면 agconav_drone/config/path.yaml.",
+    )
+    # 순항 속도. **6.0 이 확정값이다**(문서 10 종단 테스트).
+    #   v10 x 6 -> wheel 계획 실패 19건, 18.5 m 후 ABORTED
+    #   v6  x 3 -> 계획 실패 0건, 191.5 m 주행 SUCCEEDED
+    # 문서 9 도 최적 5.2~6.0 m/s 로 같은 결론이고, 6 -> 8 m/s 사이에서
+    # 고도가 0.61 -> 3.00 m 로 흔들려 지도에 그대로 잡음이 실린다.
+    declare_cruise_speed = DeclareLaunchArgument(
+        "cruise_speed",
+        default_value="6.0",
+        description="드론 순항 속도 지령 [m/s]",
+    )
+
     declare_launch_gazebo = DeclareLaunchArgument(
         "launch_gazebo",
         default_value="true",
@@ -99,54 +119,59 @@ def generate_launch_description():
         condition=IfCondition(launch_gazebo),
     )
 
-    # ros_gz_interfaces/srv/SetEntityPose <-> gz world set_pose 서비스 브리지.
-    # UserCommands 시스템 플러그인(Seongdong_gu.world에 이미 로드됨)이 제공하는
-    # 네이티브 gz-transport 서비스를 ROS2 서비스로 노출한다.
-    set_pose_bridge = Node(
+    # 월드의 MulticopterVelocityControl 은 enableSubTopic 으로 True 를 먼저 받아야
+    # twist 를 받아들인다. 이걸 안 띄우면 twist 를 아무리 보내도 로터가 안 돈다.
+    # twist 브리지(/drone/cmd_vel)는 launch_gazebo:=false 일 때 agconav_sim 이
+    # 이미 띄우므로, 여기서는 단독 실행일 때만 함께 올린다.
+    drone_cmd_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
-        name="drone_set_pose_bridge",
+        name="drone_cmd_bridge",
         output="screen",
+        condition=IfCondition(launch_gazebo),
         arguments=[
-            ["/world/", world_name, "/set_pose@ros_gz_interfaces/srv/SetEntityPose"]
+            "/X3/gazebo/command/twist@geometry_msgs/msg/Twist]gz.msgs.Twist",
+            "/X3/enable@std_msgs/msg/Bool]gz.msgs.Boolean",
+        ],
+        remappings=[
+            ("/X3/gazebo/command/twist", "/drone/cmd_vel"),
+            ("/X3/enable", "/drone/enable"),
         ],
     )
 
-    path_player_yaml = os.path.join(
-        agconav_drone_share, "config", "drone_path_player.yaml"
-    )
-    path_file = PathJoinSubstitution(
-        [agconav_drone_share, "config", "path.yaml"]
-    )
-
-    drone_path_player = Node(
-        package="agconav_drone",
-        executable="drone_path_player",
-        name="drone_path_player",
+    # agconav_sim 과 함께 뜰 때는 twist 브리지가 그쪽에 있고 enable 만 없다.
+    drone_enable_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="drone_enable_bridge",
         output="screen",
-        parameters=[
-            path_player_yaml,
-            {"path_file": path_file, "use_sim_time": use_sim_time},
-        ],
+        condition=UnlessCondition(launch_gazebo),
+        arguments=["/X3/enable@std_msgs/msg/Bool]gz.msgs.Boolean"],
+        remappings=[("/X3/enable", "/drone/enable")],
     )
 
-    pose_controller_yaml = os.path.join(
-        agconav_drone_share, "config", "drone_pose_controller.yaml"
+    # 기본은 agconav_drone/config/path.yaml (전체 월드용). 축소 테스트 월드에서는
+    # 그 월드의 heightmap 범위로 다시 생성한 경로를 path_file 인자로 넘긴다.
+    path_file = PythonExpression(
+        ["'", LaunchConfiguration("path_file"), "' or '",
+         os.path.join(agconav_drone_share, "config", "path.yaml"), "'"]
     )
 
-    drone_pose_controller = Node(
+    # 실제 로터 추력으로 경로를 난다. SetEntityPose 순간이동
+    # (drone_path_player + drone_pose_controller) 은 폐기했다 — 물리엔진이 운동을
+    # 보지 못해 IMU 가 죽고 자세가 항상 수평이라 스캔 시야가 고정됐다.
+    # 파라미터 확정값과 근거: docs/3. 최적 드론 움직임.md
+    drone_velocity_follower = Node(
         package="agconav_drone",
-        executable="drone_pose_controller",
-        name="drone_pose_controller",
+        executable="drone_velocity_follower",
+        name="drone_velocity_follower",
         output="screen",
-        parameters=[
-            pose_controller_yaml,
-            {
-                "world_name": world_name,
-                "entity_name": entity_name,
-                "use_sim_time": use_sim_time,
-            },
-        ],
+        parameters=[{
+            "path_file": path_file,
+            "cruise_speed_mps": ParameterValue(
+                LaunchConfiguration("cruise_speed"), value_type=float),
+            "use_sim_time": use_sim_time,
+        }],
     )
 
     # agconav_description/models/agconav_drone/model.sdf의 os1_lidar_mount/
@@ -205,12 +230,14 @@ def generate_launch_description():
             declare_entity_name,
             declare_use_sim_time,
             declare_launch_gazebo,
+            declare_path_file,
+            declare_cruise_speed,
             set_gz_resource_path,
             gazebo,
             clock_bridge,
-            set_pose_bridge,
-            drone_path_player,
-            drone_pose_controller,
+            drone_cmd_bridge,
+            drone_enable_bridge,
+            drone_velocity_follower,
             lidar_static_tf,
             drone_elevation_mapper,
             elevation_map_saver,

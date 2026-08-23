@@ -30,6 +30,7 @@
 
   <exec_depend>unitree_go2_sim</exec_depend>
   <exec_depend>unitree_go2_description</exec_depend>
+  <exec_depend>go2_description</exec_depend>
   <exec_depend>champ_base</exec_depend>
 
   <exec_depend>clearpath_gz</exec_depend>

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FastDDS를 공유메모리 없이 UDP로만 통신시키는 프로파일.
+
+  왜 필요한가:
+    같은 컴퓨터 안의 노드끼리 FastDDS는 기본적으로 /dev/shm 의 공유메모리로
+    데이터를 보낸다. 탐색(누가 무엇을 발행하는지)은 UDP로 하고, 실제 데이터만
+    공유메모리로 간다. 그래서 공유메모리가 망가지면 아주 헷갈리는 증상이 난다
+    - "발행자는 4개로 잡히는데 20초 동안 메시지가 0건".
+
+    실제로 이 프로젝트에서 그 증상이 났다. Gazebo는 실시간 배속 1.0으로
+    멀쩡히 돌면서 /model/X3/pose 를 계속 내보내는데(gz topic 으로 확인),
+    그걸 /tf 로 옮기는 ros_gz_bridge 는 살아서 CPU 도 쓰는데 ROS 쪽 /tf 로는
+    아무것도 안 나왔다. 그 결과 드론·wheel·leg 의 TF 가 전부 특정 시각에서
+    멈춰 RViz 에서 아무것도 안 움직이고, 모듈 A/C/D 가 "미래를 조회한다"며
+    점군을 전부 버렸다.
+
+    원인은 /dev/shm 에 남은 죽은 세그먼트다. 다른 사용자(root) 소유로 남으면
+    일반 사용자가 지울 수 없어서, 재부팅 전까지 계속 통신을 망가뜨린다.
+
+  쓰는 법:
+    export FASTRTPS_DEFAULT_PROFILES_FILE=$PWD/config/fastdds_udp_only.xml
+    ros2 launch ...
+
+  대가:
+    같은 컴퓨터 안 통신이 공유메모리보다 느리다(큰 점군에서 체감). 정상적인
+    /dev/shm 상태에서는 굳이 쓸 필요가 없다.
+-->
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <profiles>
+    <transport_descriptors>
+      <transport_descriptor>
+        <transport_id>udp_transport</transport_id>
+        <type>UDPv4</type>
+        <!-- 점군(PointCloud2)은 한 개가 수 MB라 기본 버퍼로는 잘린다. -->
+        <maxMessageSize>65500</maxMessageSize>
+        <sendBufferSize>16777216</sendBufferSize>
+        <receiveBufferSize>16777216</receiveBufferSize>
+      </transport_descriptor>
+    </transport_descriptors>
+
+    <participant profile_name="udp_only_participant" is_default_profile="true">
+      <rtps>
+        <userTransports>
+          <transport_id>udp_transport</transport_id>
+        </userTransports>
+        <!-- 이게 핵심: 기본 전송(공유메모리 포함)을 쓰지 않는다. -->
+        <useBuiltinTransports>false</useBuiltinTransports>
+      </rtps>
+    </participant>
+  </profiles>
+</dds>

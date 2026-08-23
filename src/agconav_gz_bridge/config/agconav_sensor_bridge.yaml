@@ -1,0 +1,55 @@
+- ros_topic_name: "/drone/points"
+  gz_topic_name: "/drone/points/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  direction: GZ_TO_ROS
+  lazy: true
+
+- ros_topic_name: "/drone/imu"
+  gz_topic_name: "/drone/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+  lazy: true
+
+- ros_topic_name: "/drone/gps"
+  gz_topic_name: "/drone/gps"
+  ros_type_name: "sensor_msgs/msg/NavSatFix"
+  gz_type_name: "gz.msgs.NavSat"
+  direction: GZ_TO_ROS
+  lazy: true
+
+- ros_topic_name: "/leg/points"
+  gz_topic_name: "/leg/points/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  direction: GZ_TO_ROS
+  lazy: true
+
+- ros_topic_name: "/leg/gps"
+  gz_topic_name: "/leg/gps"
+  ros_type_name: "sensor_msgs/msg/NavSatFix"
+  gz_type_name: "gz.msgs.NavSat"
+  direction: GZ_TO_ROS
+  lazy: true
+
+- ros_topic_name: "/wheel/points"
+  gz_topic_name: "/wheel/sensors/lidar3d_0/scan/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  direction: GZ_TO_ROS
+  lazy: true
+
+- ros_topic_name: "/wheel/imu"
+  gz_topic_name: "/wheel/sensors/imu_0/data"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+  lazy: true
+
+- ros_topic_name: "/wheel/gps"
+  gz_topic_name: "/wheel/sensors/gps_0/navsat"
+  ros_type_name: "sensor_msgs/msg/NavSatFix"
+  gz_type_name: "gz.msgs.NavSat"
+  direction: GZ_TO_ROS
+  lazy: true

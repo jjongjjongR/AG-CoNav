@@ -45,6 +45,7 @@ POINTS_HZ = 2.0
 NUM_POINTS = 40
 POINT_SPREAD = 1.0  # meters, x/y drawn from [-POINT_SPREAD, POINT_SPREAD]
 POINT_HEIGHT = 0.5  # meters, z drawn from [0, POINT_HEIGHT]
+MAPPING_START_DELAY_SEC = 1.0
 NAV_STATUS_DELAY_SEC = 5.0
 
 CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config')
@@ -153,11 +154,24 @@ class FakeLidarPublisher(Node):
                 Bool, f'/{robot}/navigation_status', nav_status_qos)
             for robot in ROBOTS
         }
+        self._mapping_active_pubs = {
+            robot: self.create_publisher(
+                Bool, f'/{robot}/mapping_active', nav_status_qos)
+            for robot in ROBOTS
+        }
 
         self._publish_static_tf()
         self._points_timer = self.create_timer(1.0 / POINTS_HZ, self._publish_fake_clouds)
+        self._mapping_start_timer = self.create_timer(
+            MAPPING_START_DELAY_SEC, self._publish_mapping_start_once)
         self._nav_status_timer = self.create_timer(
             NAV_STATUS_DELAY_SEC, self._publish_nav_status_once)
+
+    def _publish_mapping_start_once(self):
+        self._mapping_start_timer.cancel()
+        for robot in ROBOTS:
+            self._mapping_active_pubs[robot].publish(Bool(data=True))
+            self.get_logger().info(f'{robot}: published mapping_active=True')
 
     def _publish_static_tf(self):
         stamp = self.get_clock().now().to_msg()
@@ -193,7 +207,7 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == '__main__':
