@@ -68,8 +68,8 @@ wheel 주행가능 맵 · leg 주행가능 맵 분리   ← 드론 2.5D 에서 �
 | 항목 | 값 |
 | --- | --- |
 | 장소 | **서울 성동구** (일반 도시, 숲·계단 없음) |
-| 좌표 원점(datum) | **37.5412278, 127.0565741** |
-| 크기 | **578 m × 486 m** (`Seongdong_gu_aligned`, 축 정렬 월드) |
+| 좌표 원점(datum) | **37.54233814881853, 127.06050643805561** (`navsat_transform_node.yaml` · 월드 `<spherical_coordinates>` 동일) |
+| 크기 | **577.883 m × 481.838 m** (`Seongdong_gu_aligned`, 축 정렬 월드 — `aligned_params.txt` 기준) |
 | 4족(leg)용 조건 | **낮은 장애물로 길 막기** |
 | 4륜(wheel)용 조건 | **끊기지 않은 연속 도로** |
 | map 원점 | Gazebo world 원점 (0,0,0)와 일치 |
@@ -78,14 +78,21 @@ wheel 주행가능 맵 · leg 주행가능 맵 분리   ← 드론 2.5D 에서 �
 
 | 항목 | 값 |
 | --- | --- |
-| 드론 | Gazebo 멀티콥터, **수동 pose 이동**(kinematic, 자율비행 없음) |
+| 드론 | Gazebo 멀티콥터, **실제 로터 추력 비행**(`MulticopterVelocityControl`). `drone_velocity_follower` 가 스캔 경로를 `/drone/cmd_vel` 로 따라간다 — 자율탐색이 아니라 사전 경로 재생 |
 | 4륜(wheel) | Clearpath **Husky A300** |
 | 4족(leg) | Unitree **Go2** + `rl_quadruped_controller` (robot_lab 정책). CHAMP·`unitree_guide` 는 비교용으로만 유지 — **8.1 참고** |
 | 센서 | **Ouster OS1-32 (3D LiDAR) — 3대 통일** |
-| 드론 LiDAR | **하향 장착**, 탐지 고도 **84 m** |
+| 드론 LiDAR | **하향 장착**, 탐지 고도 **84 m**, **방위각 창 ±45°(`<samples>256`)** — docs/8 |
 | GPS / IMU | GPS 적극 활용(GT 아님) + **IMU 사용**(skid-steer·보행 yaw 드리프트 보정) |
 
 **OS1-32 스펙**: 32채널 / 수직 FOV 42.4°(±21.2°) / 수평 360° / 사거리 0.5–170 m(80% 반사)·90 m(10%) / 최소 0.5 m / 10–20 Hz / 865 nm / 최대 2 returns.
+
+**적용 설정(드론)**: 하드웨어 스펙은 수평 360° 지만 **방위각 창을 ±45° 로 좁혀 쓴다**(`<samples>` 1024→256, 각도 분해능은 2.84/deg 로 동일). 실제 OS1 도 `azimuth_window` 로 지원한다. 커버리지 손실 사실상 0 인데 wheel FN 이 소폭 개선된다 — **docs/8**.
+
+> ⚠ **드론 모델 파일이 두 개다.** 실험 월드는 `agconav_test_worlds/models/agconav_drone_dynamic/model.sdf`,
+> 운용은 `agconav_description/models/agconav_drone/model.sdf` 를 스폰한다. **한쪽만 고치면 반영되지 않는다.**
+> 바꾼 뒤에는 점군의 `width` 와 θ 범위를 직접 확인할 것.
+> **±30° 는 절대 쓰지 말 것** — wheel FN +1.5 %p (잡음의 25배).
 
 ### 2.4 지도화 · 위치추정 · 주행
 
@@ -110,10 +117,10 @@ wheel 주행가능 맵 · leg 주행가능 맵 분리   ← 드론 2.5D 에서 �
 - **TF 소유권 — 한 관계에 발행자 하나.**
   - `map→X/odom` = 위치추정(robot_localization)만 (wheel·leg)
   - `X/odom→X/base_link` = 시뮬 오도메트리만 (wheel·leg)
-  - **드론**: kinematic이라 `drone_path_player`가 명령 pose로 **`map→drone/base_link`를 직접 발행**(odom·EKF 없음). 드론엔 사실상 명령 pose를 그대로 쓴다(수동 비행 경로 = 알고 있는 값).
+  - **드론**: 월드의 `OdometryPublisher`(`odom_frame: map`, `robot_base_frame: drone/base_link`, `dimensions: 3`)가 내는 pose 를 `drone_tf_bridge` 가 `/model/X3/pose → /tf` 로 브리지한다(odom·EKF 없음). 드론은 gz 모델뿐이라 TF 를 발행하는 로봇 스택이 없어서 이 경로가 필요하다.
   - `X/base_link→센서` = robot_state_publisher만
 - `earth`/`utm` 프레임은 필요 확인 전까지 트리에 넣지 않는다.
-- 드론 TF: `drone_path_player`가 명령 pose로 `map→drone/base_link` 직접 발행 — 3.1
+- 드론 TF: 월드 `OdometryPublisher` → `drone_tf_bridge` 가 `/tf` 로 브리지 — 3.1
 
 ### 3.2 단위 (SI)
 
@@ -181,7 +188,7 @@ export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 | `/X/odom` | `nav_msgs/Odometry` | 브리지 → 위치추정 | reliable |
 | `/X/gps` | `sensor_msgs/NavSatFix` | 브리지 → 위치추정 | best_effort |
 | `/X/imu` | `sensor_msgs/Imu` | 브리지 → 위치추정(EKF) | best_effort |
-| `/drone/cmd_pose` | `geometry_msgs/PoseStamped` | 드론 경로 재생 → 드론 | reliable |
+| `/drone/cmd_vel` | `geometry_msgs/Twist` | `drone_velocity_follower` → 드론(gz 브리지) | reliable |
 | `/wheel/cmd_vel`·`/leg/cmd_vel` | `geometry_msgs/Twist` | Nav2 → 로봇 | reliable |
 | `/X/elevation_map` | `grid_map_msgs/GridMap` (layer `elevation`) | 지도화 → 병합 | reliable, transient_local |
 | `/wheel/nav_map`·`/leg/nav_map` | `nav_msgs/OccupancyGrid` | F(주행성 분석) → C(Nav2) | reliable, transient_local |
@@ -241,7 +248,7 @@ AG-CoNav/
 - 통과 기준: wheel **10°/0.08 m**, leg **15°/0.15 m** (실측 확정) — 3.3
 - 병합: 같은 해상도·합집합 범위·지상 우선 — 3.3
 - 저장: 2.5D=mcap(GridMap), 2D=map_server(yaml+pgm) — 3.3
-- 드론 TF: `drone_path_player`가 명령 pose로 `map→drone/base_link` 직접 발행 — 3.1
+- 드론 TF: 월드 `OdometryPublisher` → `drone_tf_bridge` 가 `/tf` 로 브리지 — 3.1
 - **지상 IMU 사용** (skid-steer·보행 yaw 드리프트 보정)
 - **드론 스캔 경로 — 실측 확정: 고도 84 m · 스트립 간격 3 m · 순항 6 m/s** (320 웨이포인트, 총 92.9 km). 간격 3 m 는 자유 공간이 단일 덩어리로 이어지는 가장 싼 값이다(단일성 99.1%; 2.5 m·4 m 는 36~38%). **속도가 지도 품질을 지배한다** — 같은 파이프라인에서 v10×6 은 wheel 자유 37.5%·경로계획 실패 19건·18.5 m 후 ABORTED, v6×3 은 자유 88.5%·실패 0건·191.5 m SUCCEEDED. 높이 오차 σ 가 0.536 m 대 **0.017 m** 로 31배 갈린다.
 
@@ -266,6 +273,7 @@ AG-CoNav/
 | 순항 속도 | **6 m/s** | 6→8 m/s 에서 제어가 무너진다 — 선 이탈 0.053→**0.312 m**(6배), 고도 오차 0.610→**2.999 m**(5배) |
 | 스트립 간격 | **3 m** | 자유 공간 **단일성** 99.1% (2.5 m 36.1%, 4 m 37.8%). 양이 아니라 *이어지는지*가 갈린다 |
 | LiDAR 모드 | 1024×10 유지 | 상위 모드에서 커버리지가 포화 — 비행 간 편차(2.5%)보다 이득이 작다 |
+| **방위각 창** | **±45° (`<samples>256`)** | 광선 1/4 · 지면 반사 94% 유지 · 커버리지 손실 사실상 0(994,634 vs 994,716 셀) · wheel FN 소폭 개선. **±30° 금지**(FN +1.5 %p) — docs/8 |
 
 **4족 컨트롤러 비교** (docs/13·14) — 각 조건 3회 반복. docs/11 의 이전 측정은 관절 초기 자세 시딩이 깨진 상태여서 근거를 잃었다
 
