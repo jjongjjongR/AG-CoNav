@@ -20,6 +20,7 @@
   <depend>grid_map_msgs</depend>
   <depend>python3-numpy</depend>
   <depend>rosbag2_py</depend>
+  <exec_depend>rosbag2_storage_mcap</exec_depend>
   <depend>launch</depend>
   <depend>launch_ros</depend>
 

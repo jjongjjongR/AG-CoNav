@@ -13,3 +13,19 @@
     frame_id: map
     data_timeout_sec: 2.0
     check_period_sec: 1.0
+    # 칼만필터 거리 기반 측정 노이즈(R) 파라미터. leg는 Go2 OS1-32를
+    # 장착하며, 데이터시트 확인됨 -- 아래 구간별 정밀도(1시그마) 스펙은
+    # placeholder가 아니라 실측 확인된 값이다 (0.3-1m: ±0.7cm, 1-20m: ±1cm,
+    # 20-50m: ±2cm, >50m: ±5cm). wheel(A300 lidar3d_0)과 동일한 스펙이 적용됨
+    # -- wheel이 실제로는 다른 센서 기종이라는 건 알려진 미해결 이슈지만,
+    # 이번 작업 범위에서 새로 측정하지 않고 기존과 동일한 값을 유지한다.
+    measurement_noise_max_distances: [1.0, 20.0, 50.0, 100.0]
+    measurement_noise_sigmas: [0.007, 0.010, 0.020, 0.050]
+    incidence_cos_floor: 0.17
+    innovation_gate_threshold: 9.0
+    # placeholder -- Go2 OS1-32의 실측 사거리는 반사율에 따라 90~170m
+    # (README 3.1)이나, 여유를 둔 상한값. 실측 후 팀이 조정할 것
+    # (ground_elevation_mapper.py 참고).
+    max_sensor_range: 200.0
+    # agconav_map_fusion/config의 동명 파라미터 기본값과 일치.
+    max_grid_cells: 30000000

@@ -10,3 +10,7 @@
     merge_status_topic: /merged/merge_status
     max_grid_cells: 30000000
     grid_alignment_tolerance: 1.0e-6
+    # wheel/leg 완료 상태를 무한정 기다리지 않기 위한 타임아웃. 이 시간
+    # 안에 wheel/leg 둘 다 완료 상태(elevation_map_status=True)가 안 오면
+    # merge_error + merge_status=False로 발행한다.
+    merge_wait_timeout_sec: 30.0

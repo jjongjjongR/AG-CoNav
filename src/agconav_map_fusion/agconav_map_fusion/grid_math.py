@@ -26,15 +26,23 @@ import numpy as np
 from std_msgs.msg import Float32MultiArray, MultiArrayDimension
 
 ROBOTS = ('drone', 'wheel', 'leg')
-# design.md 6-4 / 9-5: applied in this order, low -> high priority, so the
-# later (higher-priority) valid values win. Deliberately a fixed tuple, not a
-# dict/set, so the merge order is always deterministic.
-MERGE_ORDER = ('drone', 'leg', 'wheel')
+# design.md 6-4 / 9-5: drone is always applied first as the lowest-priority
+# fallback -- only cells neither wheel nor leg observed keep a drone value.
+# Between wheel and leg, cell selection is variance-based (see
+# elevation_map_merger._merge_elevation), not this fixed ordering. Kept as a
+# tuple (not dict/set) so drone's fallback placement stays deterministic.
+MERGE_ORDER = ('drone',)
 
 # README 3.1 / 3.3: single global `map` frame, fixed 0.10 m/cell resolution.
 EXPECTED_FRAME_ID = 'map'
 EXPECTED_RESOLUTION = 0.10
 ELEVATION_LAYER = 'elevation'
+# 칼만필터 불확실성 레이어(agconav_ground_mapping의 ground_elevation_mapper가
+# wheel/leg에 대해 채워서 발행) -- 드론(모듈 A)도 이제 이 레이어를 채워
+# 발행하지만, 드론은 wheel/leg 간의 분산 비교(_merge_ground_elevation)에
+# 참여하지 않고 최하위 폴백(MERGE_ORDER)으로만 쓰이므로 이 함수는 계속
+# 필요하다.
+ELEVATION_VARIANCE_LAYER = 'elevation_variance'
 
 
 @dataclass(frozen=True)
@@ -173,6 +181,46 @@ def extract_elevation(grid_map):
     elevation = gm_matrix[::-1, ::-1]
     origin_x, origin_y = _map_origin(grid_map)
     return elevation, origin_x, origin_y
+
+
+def extract_elevation_variance(grid_map):
+    """Undo ground_elevation_mapper-style wire packing for the variance layer.
+
+    Same packing/convention as extract_elevation (shares its origin, since
+    the source mapper always publishes both layers over the exact same
+    grid) -- returns just the array here, not (array, origin_x, origin_y),
+    since the caller already has the origin from its extract_elevation call
+    on the same grid_map. Returns None, not a KeyError, when the layer is
+    absent -- defensive fallback for any map that doesn't publish
+    `elevation_variance` (this function has to stay callable without
+    special-casing the caller).
+    """
+    if ELEVATION_VARIANCE_LAYER not in grid_map.layers:
+        return None
+    layer_index = grid_map.layers.index(ELEVATION_VARIANCE_LAYER)
+    layer = grid_map.data[layer_index]
+    n_cols = layer.layout.dim[0].size
+    n_rows = layer.layout.dim[1].size
+    gm_matrix = np.asarray(layer.data, dtype=np.float32).reshape((n_rows, n_cols), order='F')
+    return gm_matrix[::-1, ::-1]
+
+
+def place_in_output_grid(array, origin_x, origin_y, output_grid):
+    """Return an output_grid-shaped array holding `array` at its offset, NaN elsewhere.
+
+    `array` is one robot's layer (elevation or elevation_variance) as
+    returned by extract_elevation/extract_elevation_variance, still sized to
+    that robot's own observed extent. Both map_merge_collector-side
+    validation and elevation_map_merger's cell selection need to compare
+    same-shaped arrays aligned to the common output grid, not each robot's
+    own smaller one.
+    """
+    output = np.full((output_grid.n_rows, output_grid.n_cols), np.nan, dtype=np.float32)
+    n_rows, n_cols = array.shape
+    row_offset = round((origin_x - output_grid.origin_x) / output_grid.resolution)
+    col_offset = round((origin_y - output_grid.origin_y) / output_grid.resolution)
+    output[row_offset:row_offset + n_rows, col_offset:col_offset + n_cols] = array
+    return output
 
 
 def build_merged_grid_map_message(elevation, output_grid, stamp):

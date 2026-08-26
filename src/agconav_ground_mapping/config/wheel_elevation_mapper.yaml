@@ -13,3 +13,18 @@
     frame_id: map
     data_timeout_sec: 2.0
     check_period_sec: 1.0
+    # 칼만필터 거리 기반 측정 노이즈(R) 파라미터. wheel은 실제로는 A300
+    # lidar3d_0을 장착하지만(leg/drone의 Ouster OS1-32와 다른 기종이라는 건
+    # 알려진 미해결 이슈), 이번 작업 범위에서 새로 측정하지 않고 기존과
+    # 동일하게 leg/drone과 같은 OS1-32 데이터시트 구간별 정밀도(1시그마)
+    # 스펙을 그대로 쓴다 (0.3-1m: ±0.7cm, 1-20m: ±1cm, 20-50m: ±2cm,
+    # >50m: ±5cm).
+    measurement_noise_max_distances: [1.0, 20.0, 50.0, 100.0]
+    measurement_noise_sigmas: [0.007, 0.010, 0.020, 0.050]
+    incidence_cos_floor: 0.17
+    innovation_gate_threshold: 9.0
+    # placeholder -- A300 lidar3d_0의 실측 사거리 스펙 확정 전까지 넉넉하게
+    # 잡은 값. 실측 후 팀이 조정할 것 (ground_elevation_mapper.py 참고).
+    max_sensor_range: 200.0
+    # agconav_map_fusion/config의 동명 파라미터 기본값과 일치.
+    max_grid_cells: 30000000

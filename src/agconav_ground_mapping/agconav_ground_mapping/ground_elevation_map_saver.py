@@ -25,6 +25,11 @@ file is on disk. This absorbs the responsibility that used to live in the
 now-removed ground_completion_status_publisher node, which republished
 navigation_complete independently and raced against this node's save --
 elevation_map_status could go out before the bag file existed.
+
+저장 실패 시에도 elevation_map_status에 Bool(False)를 발행한다 --
+map_merge_collector가 wheel/leg 완료 상태를 기다리는 동안(merge_wait_timeout_sec
+참고) 저장 실패를 곧바로 알 수 있도록, 영영 오지 않을 True를 무한정 기다리게
+두지 않는다. 성공 시 발행은 기존대로 _save_elevation_map 내부에서 한다.
 """
 
 import os
@@ -109,7 +114,13 @@ class GroundElevationMapSaver(Node):
         # final map ready", and triggers the save directly, no separate
         # completion topic or service call involved.
         self._latest_elevation_map = msg
-        self._save_elevation_map()
+        success, _ = self._save_elevation_map()
+        # design.md 4-2/6-7/7-5: success already publishes Bool(True) inside
+        # _save_elevation_map. On failure, publish Bool(False) here so
+        # downstream consumers (map_merge_collector) don't wait forever for a
+        # status that will never come.
+        if not success:
+            self._status_pub.publish(Bool(data=False))
 
     def _manual_save_callback(self, request, response):
         response.success, response.message = self._save_elevation_map()
